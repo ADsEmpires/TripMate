@@ -1,0 +1,145 @@
+/* search-enhanced.css - Enhanced styles for search results (search.php) */
+
+.results-header {
+    text-align: center;
+    padding-top: 32px;
+    padding-bottom: 12px;
+}
+.results-header h2 {
+    color: #16034f;
+    font-size: 2rem;
+    font-weight: 700;
+}
+.results-header p {
+    color: #444;
+    font-size: 1.08rem;
+    margin-bottom: 6px;
+}
+.back-btn {
+    display: inline-block;
+    margin-bottom: 24px;
+    background: #ff6600;
+    color: white;
+    padding: 12px 26px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(22,3,79,0.07);
+    transition: background 0.2s;
+}
+.back-btn:hover { background: #e65c00; }
+
+#destinationResults { /* This ID might not be used if results are directly echoed */
+    margin-top: 35px;
+}
+.destination-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2.2rem;
+    padding: 1.2rem 0;
+    justify-content: center;
+}
+.destination-card {
+    background: linear-gradient(120deg, #fff 60%, #e0f0ff 100%);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 6px 24px rgba(22,3,79,0.11);
+    transition: transform 0.16s, box-shadow 0.24s;
+    position: relative;
+    border: 1.5px solid #00c2cb;
+    max-width: 360px;
+    min-width: 280px;
+    margin: 0 auto; /* Center cards in grid cells */
+    width: 100%;
+}
+/* When only one result, center grid and don't stretch */
+.destination-results:only-child,
+.destination-results:has(.destination-card:only-child) {
+    display: flex !important;
+    justify-content: center !important;
+    grid-template-columns: none !important;
+    gap: 0;
+}
+
+.destination-image-container {
+    width: 100%;
+    height: 210px;
+    overflow: hidden;
+    position: relative;
+    background: #d8e9ff;
+}
+.destination-image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s;
+}
+.destination-card:hover .destination-image-container img {
+    transform: scale(1.07);
+}
+.destination-info {
+    padding: 1.2rem 1.1rem 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+.destination-title {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #16034f;
+}
+.destination-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.1rem;
+    font-size: 0.97rem;
+    margin-bottom: 0.5rem;
+}
+.meta-badge {
+    background: #00c2cb;
+    color: white;
+    padding: 0.22rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.92rem;
+}
+.meta-label {
+    font-weight: 500;
+    color: #16034f;
+    margin-right: 3px;
+}
+.destination-desc {
+    color: #333;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+.map-link-btn {
+    display: inline-block;
+    padding: 9px 20px;
+    background: linear-gradient(90deg,#16034f 60%, #ff6600 100%);
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-top: 1rem;
+    transition: background 0.2s;
+    box-shadow: 0 2px 14px rgba(22,3,79,0.08);
+}
+.map-link-btn:hover {
+    background: linear-gradient(90deg,#ff6600 60%, #16034f 100%);
+}
+.no-results {
+    text-align: center;
+    padding: 2.2rem 1.4rem;
+    font-size: 1.15rem;
+    color: #666;
+}
+
+/* Responsive fix for single card */
+@media (max-width: 480px) {
+    .destination-card {
+        max-width: 98vw;
+    }
+}

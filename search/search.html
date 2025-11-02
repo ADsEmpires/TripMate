@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TripMate Destination Search</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #0078d4;
+      --primary-dark: #0063b1;
+      --secondary: #ff9e40;
+      --light-bg: #f8f9fa;
+      --dark-text: #333;
+      --light-text: #666;
+      --border: #e0e0e0;
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
+      --dark-purple: #16034f;
+      --orange: #ff6600;
+      --success: #21a366;
+      --danger: #d32f2f;
+     --nav-height: 72px; /* adjust if your navbar height changes */
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      margin: 0;
+      padding-top: var(--nav-height); /* ensure page content sits below fixed navbar */
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7f9;
+      color: var(--dark-text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    /* Navbar styles - updated to match theme from style.css */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: #16034f;
+    color: white;
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 999;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.navbar .logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0078d4; /* logo text/icon color to match style.css */
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ensure logo icon (if any) matches the text color */
+.navbar .logo i {
+    color: #0078d4;
+}
+
+.navbar .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar .nav-links a {
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: 0.3s;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.navbar .nav-links a:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.back-btn {
+      background: var(--orange);
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: background 0.18s ease, transform 0.08s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .back-btn:hover {
+      background: #e65c00;
+      transform: translateY(-1px);
+    }
+    
+    /* User Profile Styles - Only show when logged in */
+    .user-profile {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 1000;
+      display: none; /* Hidden by default */
+    }
+    .user-profile.visible {
+      display: block;
+    }
+    .profile-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .profile-btn:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    }
+    .profile-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      width: 220px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 16px;
+      margin-top: 8px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+      z-index: 1001;
+    }
+    .profile-dropdown.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .user-info {
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--light-text);
+    }
+    .user-name {
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .profile-dropdown a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      color: var(--dark-text);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .profile-dropdown a:hover {
+      color: var(--primary);
+    }
+    .profile-dropdown a i {
+      width: 18px;
+      text-align: center;
+    }
+    
+    .search-wrapper {
+      display: flex;
+      min-height: calc(100vh - 56px);
+    }
+    .search-sidebar {
+      width: 340px;
+      max-height: calc(100vh - 56px);
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 24px;
+      position: sticky;
+      top: var(--nav-height); /* keep sidebar positioned below navbar */
+      z-index: 100;
+      overflow-y: auto;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow);
+    }
+    .search-main {
+      flex-grow: 1;
+      background: #fff;
+      min-height: calc(100vh - 56px);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--light-bg);
+    }
+    .welcome-message {
+      text-align: center;
+      max-width: 600px;
+      margin-bottom: 32px;
+      animation: fadeInDown 0.7s;
+    }
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-40px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    .welcome-message h2 {
+      font-size: 2.2rem;
+      margin-bottom: 16px;
+      color: var(--primary);
+      font-weight: 800;
+      text-shadow: 0 2px 8px #e6f7ff;
+    }
+    .welcome-message p {
+      font-size: 1.1rem;
+      color: var(--light-text);
+      margin-bottom: 24px;
+    }
+    .search-illustration {
+      max-width: 300px;
+      margin: 24px 0;
+      opacity: 0.8;
+      filter: drop-shadow(0 2px 8px #b8e1fa);
+    }
+    .search-features {
+      list-style: none;
+      margin: 20px 0;
+    }
+    .search-features li {
+      padding: 10px 0;
+      padding-left: 28px;
+      position: relative;
+      font-size: 1rem;
+      color: var(--dark-purple);
+      font-weight: 500;
+    }
+    .search-features li:before {
+      content: "✓";
+      color: var(--primary);
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+    hr {
+      border: none;
+      height: 1px;
+      background-color: var(--border);
+      margin: 20px 0;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-label { 
+      display: block; 
+      margin-bottom: 8px; 
+      font-size: 14px; 
+      color: var(--dark-text);
+      font-weight: 500;
+    }
+    .form-control { 
+      width: 100%; 
+      padding: 10px 12px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      box-sizing: border-box;
+      font-family: inherit;
+      transition: border 0.2s ease;
+      background: #fcfcfc;
+      font-size: 1rem;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
+    }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .search-btn { 
+      background: var(--primary); 
+      color: #fff; 
+      border: none; 
+      padding: 12px 16px; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      margin-top: 8px;
+      font-weight: 600;
+      width: 100%;
+      font-size: 1.02em;
+      transition: background 0.2s ease, box-shadow 0.2s;
+      box-shadow: 0 2px 8px #e6f7ff;
+      letter-spacing: 0.2px;
+    }
+    .search-btn:hover {
+      background: var(--primary-dark);
+      box-shadow: 0 2px 16px #b8e1fa;
+    }
+    .search-btn.secondary { 
+      background: var(--secondary);
+      margin-top: 16px;
+    }
+    .search-btn.secondary:hover {
+      background: #e58c30;
+    }
+    .results-container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      animation: fadeInUp 0.7s;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    .results-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .results-header h2 {
+      color: var(--dark-purple);
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+    .results-header p {
+      color: #444;
+      font-size: 1.08rem;
+      margin-bottom: 20px;
+    }
+    .reset-btn {
+      background: var(--orange);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-block;
+      margin-top: 10px;
+      box-shadow: 0 1px 6px #ffe3c7;
+    }
+    .reset-btn:hover {
+      background: #e65c00;
+    }
+    .destination-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2.2rem;
+      padding: 1.2rem 0;
+      justify-content: center;
+    }
+    .destination-card {
+      background: linear-gradient(120deg, #fff 60%, #e0f0ff 100%);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 24px rgba(22,3,79,0.11);
+      transition: transform 0.16s, box-shadow 0.24s;
+      position: relative;
+      border: 1.5px solid #00c2cb;
+      max-width: 360px;
+      min-width: 280px;
+      margin: 0 auto;
+      width: 100%;
+      animation: fadeInCard 0.7s;
+    }
+    @keyframes fadeInCard {
+      from { opacity: 0; transform: translateY(30px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    .destination-image-container {
+      width: 100%;
+      height: 210px;
+      overflow: hidden;
+      position: relative;
+      background: #d8e9ff;
+      border-bottom: 1px solid #c4edff;
+    }
+    .destination-image-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s;
+      border-radius: 0 0 10px 10px;
+    }
+    .destination-card:hover .destination-image-container img {
+      transform: scale(1.07);
+      filter: brightness(0.95);
+    }
+    .destination-info {
+      padding: 1.2rem 1.1rem 1rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .destination-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      color: var(--dark-purple);
+      letter-spacing: 0.3px;
+    }
+    .destination-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.1rem;
+      font-size: 0.97rem;
+      margin-bottom: 0.5rem;
+    }
+    .meta-badge {
+      background: #00c2cb;
+      color: white;
+      padding: 0.22rem 1rem;
+      border-radius: 20px;
+      font-weight: 500;
+      font-size: 0.92rem;
+      text-transform: capitalize;
+    }
+    .meta-label {
+      font-weight: 500;
+      color: var(--dark-purple);
+      margin-right: 3px;
+    }
+    .destination-desc {
+      color: #333;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      min-height: 38px;
+    }
+    .card-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .read-more-btn {
+      padding: 9px 20px;
+      background: linear-gradient(90deg, var(--dark-purple) 60%, var(--orange) 100%);
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background 0.2s;
+      box-shadow: 0 2px 14px rgba(22,3,79,0.08);
+      border: none;
+      cursor: pointer;
+    }
+    .read-more-btn:hover {
+      background: linear-gradient(90deg, var(--orange) 60%, var(--dark-purple) 100%);
+    }
+    .map-link-btn {
+      display: inline-block;
+      padding: 9px 20px;
+      background: linear-gradient(90deg, var(--dark-purple) 60%, var(--orange) 100%);
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: background 0.2s;
+      box-shadow: 0 2px 14px rgba(22,3,79,0.08);
+    }
+    .map-link-btn:hover {
+      background: linear-gradient(90deg, var(--orange) 60%, var(--dark-purple) 100%);
+    }
+    .favorite-btn {
+      background: transparent;
+      border: 1px solid var(--dark-purple);
+      color: var(--dark-purple);
+      padding: 9px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      transition: all 0.3s;
+      font-size: 1.07rem;
+      font-weight: 500;
+    }
+    .favorite-btn:hover {
+      background: rgba(22, 3, 79, 0.1);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .favorite-btn.active {
+      background: var(--dark-purple);
+      color: white;
+      border-color: var(--dark-purple);
+    }
+    .favorite-btn.active i {
+      color: white;
+    }
+    .no-results {
+      text-align: center;
+      padding: 2.2rem 1.4rem;
+      font-size: 1.15rem;
+      color: #666;
+      grid-column: 1/-1;
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 30px;
+      min-width: 220px;
+      z-index: 2000;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px #b8e1fa;
+      border-left: 8px solid var(--primary);
+      padding: 18px 28px 18px 20px;
+      color: var(--dark-text);
+      font-size: 1.08em;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, top 0.3s;
+    }
+    .toast.show { opacity: 1; pointer-events: auto; top: 40px;}
+    .toast.success { border-left-color: var(--success);}
+    .toast.error { border-left-color: var(--danger);}
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background-color: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      position: relative;
+    }
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--light-text);
+    }
+    .modal h2 {
+      margin-bottom: 12px;
+      color: var(--primary);
+    }
+    .modal p {
+      margin-bottom: 20px;
+      color: var(--light-text);
+    }
+    @media (max-width: 900px) {
+      .search-wrapper { flex-direction: column; }
+      .search-sidebar {
+        width: 100%;
+        position: relative;
+        top: 0;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      .search-main {
+        min-height: auto;
+        padding: 24px;
+      }
+      .form-row { flex-direction: column; gap: 0; }
+      .destination-results { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .destination-card { max-width: 98vw; }
+      .card-actions { flex-direction: column; }
+      .toast { font-size: 0.99em;}
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="logo">
+      <i class="fas fa-compass"></i> <span>TripMate</span>
+    </div>
+    <div class="nav-right">
+      <a href="../main/index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Home</a>
+    </div>
+  </nav>
+
+  <!-- User Profile (will be shown only after login) -->
+  <div class="user-profile" id="userProfile">
+    <button class="profile-btn">
+      <i class="fas fa-user"></i>
+      <span id="profileUserName">User</span>
+    </button>
+    <div class="profile-dropdown">
+      <div class="user-info">
+        Welcome, <span class="user-name" id="dropdownUserName">User</span>
+      </div>
+      <a href="../user/user_dashboard.php" id="dashboardLink">
+        <i class="fas fa-tachometer-alt"></i> Dashboard
+      </a>
+      <a href="#" id="logoutBtn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </a>
+    </div>
+  </div>
+
+  <div class="search-wrapper">
+    <div class="search-sidebar" id="searchSidebar">
+      <h2>Find Your Perfect Trip</h2>
+      <p>Search our database of curated destinations to find your ideal travel experience.</p>
+      <ul class="search-features">
+        <li>Filter by destination type</li>
+        <li>Search within your budget</li>
+        <li>Find group-friendly locations</li>
+        <li>Get personalized recommendations</li>
+      </ul>
+      <hr>
+      <form class="search-form" id="searchForm" autocomplete="off">
+        <div class="form-group">
+          <label for="search" class="form-label">Destination Name</label>
+          <input type="text" id="search" name="search" placeholder="e.g. Paris, Bali, etc." class="form-control" autocomplete="off">
+        </div>
+        <button type="button" class="search-btn" id="searchByNameBtn">
+          <i class="fas fa-search"></i> Search Destinations
+        </button>
+        <div class="form-group">
+          <label for="type" class="form-label">Destination Type</label>
+          <select id="type" name="type" class="form-control">
+            <option value="">All Destination Types</option>
+            <option value="beach">Beach Resort</option>
+            <option value="mountain">Mountain Retreat</option>
+            <option value="city">Urban City</option>
+            <option value="village">Countryside Village</option>
+            <option value="historical">Historical</option>
+            <option value="religious">Religious</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="budget" class="form-label">Daily Budget ($)</label>
+            <input type="number" id="budget" name="budget" placeholder="e.g. 100" class="form-control" min="0">
+          </div>
+          <div class="form-group">
+            <label for="people" class="form-label">Travelers</label>
+            <select id="people" name="people" class="form-control">
+              <option value="">Select number of travelers</option>
+              <option value="0">Solo (1)</option>
+              <option value="2">Couple (2)</option>
+              <option value="3-5">Small Group (3-5)</option>
+              <option value="5-9">Medium Group (5-9)</option>
+              <option value="9+">Large Group (9+)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="season" class="form-label">Season</label>
+          <select id="season" name="season" class="form-control">
+            <option value="">Any Season</option>
+            <option value="spring">Spring</option>
+            <option value="summer">Summer</option>
+            <option value="monsoon">Monsoon</option>
+            <option value="autumn">Autumn</option>
+            <option value="winter">Winter</option>
+            <option value="pre-winter">Pre-winter</option>
+          </select>
+        </div>
+        <button type="button" class="search-btn secondary" id="findMatchingBtn">
+          <i class="fas fa-magic"></i> Find Matching Destinations
+        </button>
+      </form>
+    </div>
+
+    <div class="search-main" id="searchMain">
+      <div class="welcome-message" id="welcomeMessage">
+        <h2>Discover Your Next Adventure</h2>
+        <p>Use the filters to find destinations that match your travel preferences. Whether you're looking for a beach getaway, mountain retreat, or city exploration, we'll help you find the perfect spot.</p>
+        <svg class="search-illustration" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="45" fill="#e6f7ff" />
+          <path d="M50 25 L75 70 L25 70 Z" fill="#0078d4" opacity="0.7" />
+          <circle cx="50" cy="40" r="10" fill="#ff9e40" />
+        </svg>
+        <p>Start by entering a destination name or use our advanced filters to find recommendations tailored just for you.</p>
+      </div>
+      <div class="results-container hidden" id="resultsContainer">
+        <div class="results-header">
+          <h2>Search Results</h2>
+          <p id="resultsCount">We found <span>0</span> destinations for you</p>
+          <button class="reset-btn" id="resetBtn"><i class="fas fa-redo"></i> Reset Search</button>
+        </div>
+        <div class="destination-results" id="destinationResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn">&times;</span>
+      <h2>Login Required</h2>
+      <p>Please login to view destination details.</p>
+      <form id="modalLoginForm">
+        <div class="form-group">
+          <label for="modalEmail" class="form-label">Email</label>
+          <input type="email" id="modalEmail" name="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label for="modalPassword" class="form-label">Password</label>
+          <input type="password" id="modalPassword" name="password" class="form-control" required>
+        </div>
+        <button type="submit" class="search-btn">Login</button>
+        <div id="loginErrorMessage" style="color: #d32f2f; margin-top: 12px; font-size: 14px;"></div>
+      </form>
+      <div style="margin-top: 20px; text-align: center;">
+        New here? <a href="../auth/register.html" style="color: var(--primary);">Register</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Toast notification
+    function showToast(message, type="success", duration=2400) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
+
+    // DOM elements
+    const welcomeMessage = document.getElementById('welcomeMessage');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const destinationResults = document.getElementById('destinationResults');
+    const resultsCount = document.getElementById('resultsCount');
+    const resetBtn = document.getElementById('resetBtn');
+    const searchForm = document.getElementById('searchForm');
+    const searchByNameBtn = document.getElementById('searchByNameBtn');
+    const findMatchingBtn = document.getElementById('findMatchingBtn');
+    const loginModal = document.getElementById('loginModal');
+    const modalLoginForm = document.getElementById('modalLoginForm');
+    const userProfile = document.getElementById('userProfile');
+    const profileUserName = document.getElementById('profileUserName');
+    const dropdownUserName = document.getElementById('dropdownUserName');
+
+    let favoritesList = [];
+
+    // Utility: get active user from storage (localStorage preferred for device-wide)
+    function getActiveUser() {
+      const localId = localStorage.getItem('tripmate_active_user_id');
+      const localName = localStorage.getItem('tripmate_active_user_name');
+      if (localId) return { id: localId, name: localName || '' };
+      const sessId = sessionStorage.getItem('user_id');
+      const sessName = sessionStorage.getItem('user_name');
+      if (sessId) return { id: sessId, name: sessName || '' };
+      return null;
+    }
+
+    // Check if user is logged in on page load
+    function checkLoginStatus() {
+      const active = getActiveUser();
+      if (active) {
+        showUserProfile(active.name || 'User', active.id);
+      }
+    }
+
+    // Show user profile after successful login
+    function showUserProfile(username, userId) {
+      // Use the existing userProfile element if present
+      const profileEl = document.getElementById('userProfile') || (function createProfile() {
+        const el = document.createElement('div');
+        el.className = 'user-profile';
+        el.id = 'userProfile';
+        el.innerHTML = `
+          <button class="profile-btn">
+            <i class="fas fa-user"></i>
+            <span id="profileUserName">User</span>
+          </button>
+          <div class="profile-dropdown">
+            <div class="user-info">Welcome, <span class="user-name" id="dropdownUserName">User</span></div>
+            <a href="../user/user_dashboard.php" id="dashboardLink"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+          </div>`;
+        document.body.appendChild(el);
+        return el;
+      })();
+
+      const nameToShow = username || sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
+      profileEl.querySelector('#profileUserName').textContent = nameToShow;
+      profileEl.querySelector('#dropdownUserName').textContent = nameToShow;
+      profileEl.classList.add('visible');
+
+      // Add event listeners for profile dropdown
+      const profileBtn = profileEl.querySelector('.profile-btn');
+      const dropdown = profileEl.querySelector('.profile-dropdown');
+
+      // ensure we don't attach multiple listeners
+      profileBtn.onclick = function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+      };
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', function() {
+        if (dropdown) dropdown.classList.remove('active');
+      });
+
+      // Handle logout - clear both storages and navigate to server logout
+      const logoutBtn = profileEl.querySelector('#logoutBtn');
+      logoutBtn.onclick = function(e) {
+        e.preventDefault();
+        if (confirm('Are you sure you want to logout?')) {
+          // Clear client storage for the active user
+          sessionStorage.removeItem('user_id');
+          sessionStorage.removeItem('user_name');
+          localStorage.removeItem('tripmate_active_user_id');
+          localStorage.removeItem('tripmate_active_user_name');
+
+          // Navigate to server logout endpoint to fully clear server session
+          window.location.href = '../auth/logout.php';
+        }
+      };
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      checkLoginStatus();
+
+      const active = getActiveUser();
+      if (active && active.id) {
+        await fetchFavorites(active.id);
+      }
+    });
+
+    async function fetchFavorites(userId) {
+      try {
+        const resp = await fetch(`search.php?favorites=1&user_id=${encodeURIComponent(userId)}`);
+        const data = await resp.json();
+        favoritesList = Array.isArray(data.favorites) ? data.favorites : [];
+      } catch {
+        favoritesList = [];
+      }
+    }
+
+    searchByNameBtn.addEventListener('click', handleSearchByName);
+    findMatchingBtn.addEventListener('click', handleFindMatching);
+    resetBtn.addEventListener('click', resetSearch);
+
+    document.getElementById('search').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSearchByName();
+      }
+    });
+
+    function handleSearchByName() {
+      const searchValue = document.getElementById('search').value.trim();
+      if (!searchValue) {
+        showToast('Please enter a destination name to search.', 'error');
+        return;
+      }
+      fetchDestinations({search: searchValue});
+    }
+
+    function handleFindMatching() {
+      const type = document.getElementById('type').value;
+      const budget = document.getElementById('budget').value;
+      const people = document.getElementById('people').value;
+      const season = document.getElementById('season').value;
+      if (!type && !budget && !people && !season) {
+        showToast('Please fill at least one preference field.', 'error');
+        return;
+      }
+      fetchDestinations({type, budget, people, season});
+    }
+
+    function fetchDestinations(params) {
+      if (welcomeMessage) welcomeMessage.classList.add('hidden');
+      resultsContainer.classList.remove('hidden');
+      const active = getActiveUser();
+      if (active && active.id) {
+        params.user_id = active.id;
+      }
+      const query = new URLSearchParams(params).toString();
+      fetch(`search.php?${query}`)
+        .then(response => response.json())
+        .then(data => {
+          displayResults(data.destinations || []);
+        })
+        .catch(() => {
+          destinationResults.innerHTML = '<p class="no-results">Error fetching destinations.</p>';
+        });
+    }
+
+    function displayResults(results) {
+      if (welcomeMessage) welcomeMessage.classList.add('hidden');
+      resultsContainer.classList.remove('hidden');
+      resultsCount.innerHTML = `We found <span>${results.length}</span> destination${results.length !== 1 ? 's' : ''} for you`;
+      destinationResults.innerHTML = '';
+      if (results.length === 0) {
+        destinationResults.innerHTML = '<p class="no-results">No destinations found. Try a different search!</p>';
+        return;
+      }
+      if (welcomeMessage) welcomeMessage.style.display = 'none';
+      const active = getActiveUser();
+      let favSet = new Set(favoritesList.map(String));
+      results.forEach(dest => {
+        const card = document.createElement('div');
+        card.className = 'destination-card';
+        let imageUrl = 'https://via.placeholder.com/400x250?text=No+Image';
+        if (Array.isArray(dest.image_urls) && dest.image_urls.length > 0 && dest.image_urls[0]) {
+          imageUrl = dest.image_urls[0].startsWith('uploads/') ? '../' + dest.image_urls[0] : dest.image_urls[0];
+        }
+        let isFavorite = active && favSet.has(String(dest.id));
+        card.innerHTML = `
+          <div class="destination-image-container">
+            <img src="${imageUrl}" alt="${dest.name}" onerror="this.src='https://via.placeholder.com/400x250?text=Image+Not+Found'">
+          </div>
+          <div class="destination-info">
+            <h3 class="destination-title">${dest.name}</h3>
+            <div class="destination-meta">
+              <span class="meta-badge">${dest.type}</span>
+              <span><span class="meta-label">Location:</span> ${dest.location}</span>
+              <span><span class="meta-label">Budget:</span> $${dest.budget}/day</span>
+            </div>
+            <p class="destination-desc">${dest.description || ""}</p>
+            <button class="favorite-btn${isFavorite ? ' active' : ''}" data-destination-id="${dest.id}">
+              <i class="${isFavorite ? 'fas' : 'far'} fa-heart"></i> ${isFavorite ? 'Favorited' : 'Add to Favorites'}
+            </button>
+            <div class="card-actions">
+              <button class="read-more-btn" data-destination-id="${dest.id}">Read More</button>
+              <a href="${dest.map_link || "#"}" target="_blank" class="map-link-btn">View on Map</a>
+            </div>
+          </div>
+        `;
+        destinationResults.appendChild(card);
+      });
+      attachEventListeners();
+    }
+
+    function resetSearch() {
+      searchForm.reset();
+      resultsContainer.classList.add('hidden');
+      if (welcomeMessage) welcomeMessage.classList.remove('hidden');
+      if (welcomeMessage) welcomeMessage.style.display = '';
+    }
+
+    function attachEventListeners() {
+      // Favorite buttons
+      const favoriteBtns = document.querySelectorAll('.favorite-btn');
+      favoriteBtns.forEach(btn => {
+        btn.onclick = async function() {
+          const active = getActiveUser();
+          if (!active || !active.id) {
+            showLoginModal();
+            return;
+          }
+          const destinationId = this.getAttribute('data-destination-id');
+          const isActive = this.classList.contains('active');
+          if (!isActive) {
+            const resp = await fetch('search.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `favorite_action=add&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(destinationId)}`
+            });
+            const data = await resp.json();
+            if (data && data.success) {
+              this.innerHTML = '<i class="fas fa-heart"></i> Favorited';
+              this.classList.add('active');
+              favoritesList.push(String(destinationId));
+              showToast('Added to favorites!');
+            } else {
+              showToast('Failed to add to favorites.', 'error');
+            }
+          } else {
+            const resp = await fetch('search.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `favorite_action=remove&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(destinationId)}`
+            });
+            const data = await resp.json();
+            if (data && data.success) {
+              this.innerHTML = '<i class="far fa-heart"></i> Add to Favorites';
+              this.classList.remove('active');
+              favoritesList = favoritesList.filter(id => id !== String(destinationId));
+              showToast('Removed from favorites.');
+            } else {
+              showToast('Failed to remove from favorites.', 'error');
+            }
+          }
+        };
+      });
+
+      // Read More buttons - Check login status before showing details
+      const readMoreBtns = document.querySelectorAll('.read-more-btn');
+      readMoreBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const active = getActiveUser();
+          if (!active || !active.id) {
+            showLoginModal();
+          } else {
+            const destinationId = this.getAttribute('data-destination-id');
+            window.location.href = `../user/destination_details.php?id=${destinationId}`;
+          }
+        });
+      });
+    }
+
+    // Modal functionality
+    const modal = document.getElementById('loginModal');
+    const closeBtn = document.querySelector('.close-btn');
+    const loginErrorMessage = document.getElementById('loginErrorMessage');
+
+    function showLoginModal() {
+      modal.style.display = 'flex';
+    }
+
+    function hideLoginModal() {
+      modal.style.display = 'none';
+      loginErrorMessage.textContent = '';
+      modalLoginForm.reset();
+    }
+
+    closeBtn.addEventListener('click', hideLoginModal);
+    window.addEventListener('click', function(event) {
+      if (event.target === modal) {
+        hideLoginModal();
+      }
+    });
+
+    // Modal login form submission
+    modalLoginForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      loginErrorMessage.textContent = '';
+
+      // Restrict login if there's already an active user on this device
+      const activeId = localStorage.getItem('tripmate_active_user_id');
+      if (activeId) {
+        loginErrorMessage.textContent = 'A user is already logged in on this device. Please logout first.';
+        return;
+      }
+      
+      try {
+          const response = await fetch('../auth/login.php', {
+              method: 'POST',
+              body: formData
+          });
+          
+          const data = await response.json();
+          
+          if (data.status === 'success') {
+              // Persist in this tab and on device
+              sessionStorage.setItem('user_id', data.user_id);
+              sessionStorage.setItem('user_name', data.user_name);
+              localStorage.setItem('tripmate_active_user_id', data.user_id);
+              localStorage.setItem('tripmate_active_user_name', data.user_name);
+
+              showUserProfile(data.user_name, data.user_id);
+              hideLoginModal();
+              showToast('Login successful!');
+              
+              // Refresh favorites for the logged-in user
+              await fetchFavorites(data.user_id);
+              
+              // Reattach event listeners to update buttons
+              attachEventListeners();
+          } else {
+              loginErrorMessage.textContent = data.message || 'Login failed. Please try again.';
+          }
+      } catch (error) {
+          console.error('Login error:', error);
+          loginErrorMessage.textContent = 'An error occurred. Please try again.';
+      }
+    });
+  </script>
+</body>
+</html>
