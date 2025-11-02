@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TripMate - Travel Planning Made Easy</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="index.css">
+
+  <!-- Small overrides to make the navbar blue and ensure text/buttons contrast 
+  <style>
+    /* Force navbar background to blue and white text */
+    .navbar { background: #0078d4 !important; }
+    .navbar .logo, .navbar .logo span { color: #fff !important; }
+    .nav-links a { color: #fff !important; }
+    .nav-links a:hover { color: #e6f4ff !important; }
+    /* Make Sign In stand out as an orange pill on blue background */
+    .register-btn { background: #ff7a00 !important; color: #ffffff !important; font-weight:700 !important; border-radius: 999px; padding: 8px 14px; }
+    .register-btn:hover { background: #e66c00 !important; }
+  </style> -->
+</head>
+<body>
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="logo" aria-hidden="false">
+      <i class="fas fa-compass"></i>
+      <span class="brand-text">TripMate</span>
+    </div>
+
+    <ul class="nav-links" aria-label="Primary">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#testimonials">Testimonials</a></li>
+      <li><a href="../auth/login.html" class="register-btn" id="signInBtn">Sign In</a></li>
+    </ul>
+  </nav>
+
+  <section class="slideshow" role="region" aria-label="Hero slideshow">
+    <div class="slides-container">
+      <div class="slide active">
+        <img src="tour_image_06.jpg" alt="Travel Destination 1">
+        <div class="overlay">
+          <h1>Discover Your Perfect Destination</h1>
+          <p>Plan your dream vacation with TripMate - find the best destinations tailored to your preferences and budget</p>
+          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
+        </div>
+      </div>
+
+      <div class="slide">
+        <img src="tour_image_05.jpg" alt="Travel Destination 2">
+        <div class="overlay">
+          <h1>Discover Mountain Retreats</h1>
+          <p>"Not all those who wander are lost" - J.R.R. Tolkien</p>
+          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
+        </div>
+      </div>
+
+      <div class="slide">
+        <img src="tour_image_04.jpg" alt="Travel Destination 3">
+        <div class="overlay">
+          <h1>Experience Cultural Cities</h1>
+          <p>"Travel makes one modest. You see what a tiny place you occupy in the world." - Gustave Flaubert</p>
+          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="prev" onclick="changeSlide(-1)" aria-label="Previous slide">❮</button>
+    <button class="next" onclick="changeSlide(1)" aria-label="Next slide">❯</button>
+  </section>
+
+  <section id="features" class="features">
+    <h2>Features</h2>
+    <ul>
+      <li><strong>Personalized Recommendations:</strong> Get tailored travel suggestions based on your preferences.</li>
+      <li><strong>Budget Planning:</strong> Easily manage your travel budget with our intuitive tools.</li>
+      <li><strong>Itinerary Builder:</strong> Create and customize your travel itinerary effortlessly.</li>
+      <li><strong>Community Reviews:</strong> Read reviews from fellow travelers to make informed decisions.</li>
+      <li><strong>24/7 Support:</strong> Our support team is available around the clock to assist you.</li>
+    </ul>
+  </section>
+
+  <section id="about" class="about">
+    <h2>About TripMate</h2>
+    <p>TripMate is your ultimate travel companion, designed to simplify the travel planning process. Whether you're looking for a weekend getaway or a month-long adventure, we provide the tools and resources you need to make your journey unforgettable. Our mission is to empower travelers to explore the world with confidence and ease.</p>
+    <p>Join our community of explorers and start planning your next adventure today!</p>
+  </section>
+
+  <section id="testimonials" class="testimonials">
+    <h2>What Our Users Say</h2>
+    <div class="testimonial-container">
+      <div class="testimonial">
+        <p>"TripMate made planning my vacation so easy! I found the perfect destination and saved money on my trip!"</p>
+        <h4>- Sarah J.</h4>
+      </div>
+      <div class="testimonial">
+        <p>"I love the personalized recommendations! I discovered places I never would have thought to visit."</p>
+        <h4>- Mark T.</h4>
+      </div>
+      <div class="testimonial">
+        <p>"The itinerary builder is a game changer! I was able to plan my entire trip in just a few clicks."</p>
+        <h4>- Emily R.</h4>
+      </div>
+    </div>
+  </section>
+
+  <section class="call-to-action">
+    <h2>Ready to Start Your Adventure?</h2>
+    <p>Join thousands of satisfied travelers and make your travel dreams a reality with TripMate.</p>
+    <button class="get-started" onclick="location.href='../search/search.html'">Get Started Now</button>
+  </section>
+
+  <footer>
+    <p>&copy; 2023 TripMate. All rights reserved.</p>
+  </footer>
+
+  <!-- Floating Admin Login Button -->
+  <a href="../admin/admin_login.php" class="floating-admin-btn" aria-label="Admin login">
+    <i class="fas fa-user-shield"></i>
+    <span>Admin</span>
+  </a>
+
+  <script src="script.js"></script>
+
+  <!--
+    Compatibility shim: user-profile.js checks for body.user-logged-in and sessionStorage 'userid'/'username'.
+    We set those values here *before* user-profile.js runs so the floating user button appears when a session is present.
+    This also preserves the unified keys (sessionStorage.user_id/user_name) while adding legacy keys expected by older scripts.
+  -->
+  <script>
+    (function () {
+      try {
+        // If there's a device-wide active user marker, copy it into the sessionStorage so pages load the profile.
+        const deviceId = localStorage.getItem('tripmate_active_user_id');
+        const deviceName = localStorage.getItem('tripmate_active_user_name');
+
+        // Existing session keys (preferred)
+        const sessId = sessionStorage.getItem('user_id');
+        const sessName = sessionStorage.getItem('user_name');
+
+        // If device marker exists but sessionStorage is empty, copy device marker into sessionStorage
+        if (deviceId && !sessId) {
+          sessionStorage.setItem('user_id', deviceId);
+          if (deviceName) sessionStorage.setItem('user_name', deviceName);
+        }
+
+        // Backwards compatibility for older user-profile.js which checks 'userid' and 'username'
+        const finalId = sessionStorage.getItem('user_id');
+        const finalName = sessionStorage.getItem('user_name');
+
+        if (finalId) {
+          sessionStorage.setItem('userid', finalId);
+          if (finalName) sessionStorage.setItem('username', finalName);
+
+          // Add the class the user-profile.js checks for
+          document.body.classList.add('user-logged-in');
+
+          // Hide Sign In button (if present)
+          const signInBtn = document.getElementById('signInBtn') || document.querySelector('.register-btn');
+          if (signInBtn) signInBtn.style.display = 'none';
+        } else {
+          // Ensure Sign In button visible when not logged in
+          const signInBtn = document.getElementById('signInBtn') || document.querySelector('.register-btn');
+          if (signInBtn) signInBtn.style.display = '';
+        }
+      } catch (e) {
+        // ignore errors to avoid breaking the page
+        console.error('Session shim error:', e);
+      }
+    })();
+  </script>
+
+  <script src="../user/user-profile.js"></script>
+</body>
+</html>
