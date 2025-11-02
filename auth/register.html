@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Register to TripMate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../main/style.css">
+    <!-- Reuse the same page styles as login page to match visuals exactly -->
+    <link rel="stylesheet" href="login.css">
+    <style>
+        input[name="username"] {
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(11,18,32,0.08);
+            background: rgba(255,255,255,0.98);
+            font-size: 15px;
+            outline: none;
+            transition: box-shadow .12s ease, border-color .12s ease;
+        }
+        input[name="username"]:focus {
+            border-color: #2d5aa3;
+            box-shadow: 0 10px 30px rgba(45,90,163,0.06);
+        }
+    </style>
+    </head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-compass"></i>
+            <span>TripMate</span>
+        </div>
+        <div class="nav-right">
+            <a href="../main/index.html" class="back-btn">Back to Home</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Register to TripMate</h1>
+
+        <!-- Social buttons: icons only (no visible text) - same style as login page -->
+        <div class="social-buttons" role="group" aria-label="Social sign-up">
+            <a href="#" class="social-btn google" aria-label="Continue with Google" title="Continue with Google">
+                <i class="fab fa-google" aria-hidden="true"></i>
+            </a>
+            <a href="#" class="social-btn facebook" aria-label="Continue with Facebook" title="Continue with Facebook">
+                <i class="fab fa-facebook-f" aria-hidden="true"></i>
+            </a>
+            <a href="#" class="social-btn instagram" aria-label="Continue with Instagram" title="Continue with Instagram">
+                <i class="fab fa-instagram" aria-hidden="true"></i>
+            </a>
+        </div>
+
+        <div class="divider">OR Register with Email</div>
+
+        <form id="registerForm" method="POST">
+            <input 
+                type="text" 
+                name="username" 
+                placeholder="Username" 
+                minlength="3"
+                maxlength="30"
+                size="20"
+                pattern="[A-Za-z0-9_-]{3,30}"
+                title="Username must be 3-30 characters long and can contain letters, numbers, underscores and hyphens"
+                required
+            >
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <input type="password" name="confirm_password" placeholder="Confirm Password" required>
+            <input type="submit" value="Register">
+        </form>
+
+        <div id="message"></div>
+        <a href="login.html" class="register-link">Already Registered? Sign In</a>
+    </div>
+
+    <script>
+        // Keep the same register submit behavior as before (POST to register.php).
+        // This handler preserves the original response check (expects plain text).
+        document.getElementById('registerForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById('message');
+
+            try {
+                const response = await fetch('register.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.text();
+                messageDiv.textContent = result;
+                if (result === 'Registration Successfully') {
+                    messageDiv.style.color = '#2e7d32';
+                    form.reset();
+                } else {
+                    messageDiv.style.color = '#d32f2f';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'Error submitting form. Please try again.';
+                messageDiv.style.color = '#d32f2f';
+            }
+        });
+    </script>
+</body>
+</html>

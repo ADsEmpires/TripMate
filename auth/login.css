@@ -1,0 +1,175 @@
+/* Login Page Styles - Icons-only social buttons and enhanced visuals
+   NOTE: navigation bar markup is kept exactly as it was in the HTML.
+   This file only updates appearance; no JS or form behavior is changed.
+*/
+
+:root{
+  --primary: #1a3c6e;
+  --muted: #6b7280;
+  --accent-1: #f4a261;
+  --accent-2: #e76f51;
+  --card-radius: 12px;
+  --glass-bg: rgba(255,255,255,0.9);
+  --shadow: 0 10px 30px rgba(10,25,47,0.22);
+}
+
+/* page background */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)),
+              url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80')
+              center/cover fixed no-repeat;
+  color: #0b1220;
+}
+
+/* centered card */
+.container {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), var(--glass-bg));
+  border-radius: var(--card-radius);
+  padding: 26px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  border: 1px solid rgba(11,18,32,0.04);
+}
+
+/* Heading */
+h1 {
+  color: var(--primary);
+  margin: 8px 0 18px;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+/* Social buttons area (icons only) */
+.social-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Individual social icon button */
+.social-btn {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 20px;
+  transition: transform .15s ease, box-shadow .15s ease;
+  box-shadow: 0 8px 20px rgba(11,18,32,0.06);
+  border: none;
+  cursor: pointer;
+}
+
+/* Brand styles -- maintain recognizable brand colors */
+.social-btn.google {
+  background: linear-gradient(90deg,#4285F4 0%, #34A853 50%, #FBBC05 75%, #EA4335 100%);
+}
+.social-btn.facebook {
+  background: linear-gradient(90deg,#3b5998 0%, #2a4373 100%);
+}
+.social-btn.instagram {
+  background: radial-gradient(circle at 30% 20%, #fccc63 0%, #e1306c 20%, #9b2282 50%, #405de6 75%);
+}
+
+.social-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(11,18,32,0.12);
+}
+
+/* Divider */
+.divider {
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  margin: 18px 0;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(11,18,32,0.06);
+}
+
+/* Form inputs */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+input[type="email"],
+input[type="password"] {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(11,18,32,0.08);
+  background: rgba(255,255,255,0.98);
+  font-size: 15px;
+  outline: none;
+  transition: box-shadow .12s ease, border-color .12s ease;
+}
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: #2d5aa3;
+  box-shadow: 0 10px 30px rgba(45,90,163,0.06);
+}
+
+/* Submit button */
+input[type="submit"] {
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(90deg,var(--accent-1), var(--accent-2));
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(231,111,81,0.18);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+input[type="submit"]:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px rgba(231,111,81,0.22);
+}
+
+/* Message area & register link */
+#message {
+  margin-top: 10px;
+  font-size: 13px;
+  min-height: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: #b00020; /* will be overridden inline by JS when needed */
+}
+.register-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #2b3f62;
+  text-decoration: none;
+  font-weight: 600;
+}
+.register-link:hover { text-decoration: underline; }
+
+/* Keep navbar styles untouched - we avoid overriding .navbar or .logo
+   to respect "Keep the navigation bar as it was." If your ../main/style.css
+   has specific navbar styles they'll continue to apply. */
+
+/* Responsive tweaks */
+@media (max-width: 420px) {
+  .container { padding: 18px; }
+  .social-btn { width: 50px; height: 50px; font-size: 18px; }
+  h1 { font-size: 1.25rem; }
+}

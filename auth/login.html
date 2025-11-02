@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Sign In to TripMate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../main/style.css">
+    <!-- Local page styles -->
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-compass"></i>
+            <span>TripMate</span>
+        </div>
+        <div class="nav-right">
+            <a href="../main/index.html" class="back-btn">Back to Home</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Sign In to TripMate</h1>
+
+        <!-- Social buttons: icons only (no visible text) -->
+        <div class="social-buttons" role="group" aria-label="Social sign-in">
+            <a href="#" class="social-btn google" aria-label="Continue with Google" title="Continue with Google">
+                <i class="fab fa-google" aria-hidden="true"></i>
+            </a>
+            <a href="#" class="social-btn facebook" aria-label="Continue with Facebook" title="Continue with Facebook">
+                <i class="fab fa-facebook-f" aria-hidden="true"></i>
+            </a>
+            <a href="#" class="social-btn instagram" aria-label="Continue with Instagram" title="Continue with Instagram">
+                <i class="fab fa-instagram" aria-hidden="true"></i>
+            </a>
+        </div>
+
+        <div class="divider">OR Sign In with Email</div>
+
+        <form id="loginForm" method="POST">
+            <input type="email" name="email" id="email" placeholder="Email" required>
+            <input type="password" name="password" id="password" placeholder="Password" required>
+            <input type="submit" value="Sign In">
+        </form>
+
+        <div id="message"></div>
+        <a href="register.html" class="register-link">Don't have an account? Register</a>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const messageDiv = document.getElementById('message');
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            messageDiv.textContent = '';
+
+            // If a user is already active on this device, block another login attempt
+            const activeId = localStorage.getItem('tripmate_active_user_id');
+            if (activeId) {
+                messageDiv.textContent = 'A user is already logged in on this device. Please logout first to switch accounts.';
+                messageDiv.style.color = 'red';
+                return;
+            }
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch('login.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Persist user data in session for this tab and device-wide active marker
+                    sessionStorage.setItem('user_id', result.user_id);
+                    sessionStorage.setItem('user_name', result.user_name);
+                    localStorage.setItem('tripmate_active_user_id', result.user_id);
+                    localStorage.setItem('tripmate_active_user_name', result.user_name);
+
+                    // Redirect or to dashboard
+                    window.location.href = result.redirect || '../user/user_dashboard.php';
+                } else {
+                    messageDiv.textContent = result.message || 'Login failed';
+                    messageDiv.style.color = 'red';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'Error submitting form. Please try again.';
+                messageDiv.style.color = 'red';
+            }
+        });
+
+        // If already logged in (device-wide active), mark the body (optional)
+        if (localStorage.getItem('tripmate_active_user_id')) {
+            document.body.classList.add('user-logged-in');
+        }
+    </script>
+    <script src="../user/user-profile.js"></script>
+</body>
+</html>
