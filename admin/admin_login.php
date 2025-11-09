@@ -2,12 +2,6 @@
 // Start the session for user authentication
 session_start();
 
-// --- Breadcrumb handling (do not alter other functionality) ---
-$current_page = ['name' => 'Admin Login', 'url' => basename($_SERVER['PHP_SELF'])];
-$breadcrumb_prev = isset($_SESSION['admin_current_page']) ? $_SESSION['admin_current_page'] : ['name' => 'Dashboard', 'url' => 'admin_dasbord.php'];
-$_SESSION['admin_current_page'] = $current_page;
-// -------------------------------------------------------------
-
 // Database configuration variables
 $host = 'localhost'; // Hostname for MySQL server
 $dbname = 'tripmate'; // Name of the database
@@ -20,26 +14,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'] ?? '';
     // Get password from POST data
     $password = $_POST['password'] ?? '';
-
+    
     try {
         // Create PDO connection to MySQL database
         $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $db_username, $db_password);
         // Set PDO to throw exceptions on error
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
+        
         // Prepare SQL query to find admin by name or email
         $stmt = $pdo->prepare("SELECT id, name, email, password FROM admin WHERE name = ? OR email = ? LIMIT 1");
         // Execute query with username/email as parameters
         $stmt->execute([$username, $username]);
         // Fetch admin data from result
         $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
+        
         // If admin found in database
         if ($admin) {
             // Password verification section
             // If passwords are hashed in database, use password_verify
             // If passwords are plain text, use direct comparison (not recommended)
-
+            
             // For hashed passwords (recommended):
             if (password_verify($password, $admin['password'])) {
                 // Set session variable for successful login
@@ -50,15 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['admin_name'] = $admin['name'];
                 // Store admin email in session
                 $_SESSION['admin_email'] = $admin['email'];
-                // Redirect to admin_dasbord.php after login
-                header('Location: admin_dasbord.php');
+                    // Redirect to admin_dasbord.php after login
+                    header('Location: admin_dasbord.php');
                 // Stop further execution
                 exit();
             } else {
                 // Set error message for invalid password
                 $error = "Invalid credentials. Please try again.";
             }
-
+            
             // For plain text passwords (use only for testing):
             /*
             // Compare plain text password
@@ -84,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Set error message if admin not found
             $error = "Invalid credentials. Please try again.";
         }
+        
     } catch (PDOException $e) {
         // Set error message for database connection failure
         $error = "Database connection failed. Please try again later.";
@@ -95,7 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html> <!-- Document type declaration -->
 <html lang="en"> <!-- Start of HTML document, language set to English -->
-
 <head> <!-- Head section starts -->
     <meta charset="UTF-8"> <!-- Character encoding set to UTF-8 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive viewport settings -->
@@ -103,215 +97,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> <!-- Font Awesome icons -->
     <link rel="stylesheet" href="../main/style.css"> <!-- External stylesheet link -->
     <style>
-        :root {
-            --primary: #0078d4;
-            --primary-dark: #0056b3;
-            --accent: #ff6600;
-            --white: #ffffff;
-            --muted: #f1f5f9;
-            --border: rgba(0, 120, 212, 0.08);
-            --card-shadow: 0 6px 24px rgba(3, 37, 76, 0.08);
-            --breadcrumb-bg: linear-gradient(90deg, rgba(0, 120, 212, 0.06), rgba(255, 102, 0, 0.03));
-            --breadcrumb-accent: var(--primary);
-        }
+    /* Internal CSS styles start */
 
-        /* Page background: image behind the login box, hazy/blurred */
-        body {
+        :root { /* CSS variables for theme colors */
+            --primary: #0056b3;
+            --primary-dark: #003d82;
+            --accent: #ff7e33;
+            --error: #d32f2f;
+            --text: #2d3748;
+            --text-light: #4a5568;
+            --border: #e2e8f0;
+            --bg: #f8fafc;
+        }
+        
+        body { /* Body styling */
             font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
-            min-height: 100vh;
-            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
             display: grid;
             place-items: center;
+            min-height: 100vh;
+            margin: 0;
             line-height: 1.5;
-            color: #10233b;
-            position: relative;
-            z-index: 1;
-            background: var(--muted);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" opacity="0.03"><path d="M50 0 L100 50 L50 100 L0 50 Z" fill="%230056b3"/></svg>');
+            background-size: 120px;
         }
-
-        /* Background image layer (behind content) - hazy */
-        body::before {
-            content: "";
-            position: fixed;
-            inset: 0;
-            /* use the provided image URL as the background */
-            background-image: url('https://www.google.com/url?sa=i&url=https%3A%2F%2Funsplash.com%2Fs%2Fphotos%2Ftravel-tour&psig=AOvVaw2w6nWvq7m4WH96GIHNWbrc&ust=1761717228534000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPCFy6maxpADFQAAAAAdAAAAABAb');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            filter: blur(6px) brightness(0.55);
-            transform: scale(1.03);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        .login-container {
+        
+        .login-container { /* Login box styling */
             width: 100%;
-            max-width: 480px;
-            padding: 2.25rem;
-            /* make the box slightly translucent so the hazy background shows through */
-            background: rgba(255, 255, 255, 0.92);
-            border-radius: 10px;
-            box-shadow: var(--card-shadow);
+            max-width: 440px;
+            padding: 2.5rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             border: 1px solid var(--border);
             position: relative;
             overflow: hidden;
-            z-index: 2;
-            /* ensure it sits above the background layer */
-            backdrop-filter: blur(2px);
         }
-
-        .login-container::before {
+        
+        .login-container::before { /* Top gradient bar */
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            height: 6px;
+            height: 4px;
             background: linear-gradient(90deg, var(--primary), var(--accent));
         }
-
-        .login-header {
-            margin-bottom: 1.5rem;
+        
+        .login-header { /* Header section styling */
+            margin-bottom: 2rem;
             text-align: center;
         }
-
-        .login-header h1 {
-            font-size: 1.6rem;
+        
+        .login-header h1 { /* Title styling */
+            font-size: 1.75rem;
             font-weight: 700;
-            margin: 0 0 0.25rem;
+            margin-bottom: 0.5rem;
             color: var(--primary);
         }
-
-        .login-header p {
-            color: #556b7a;
-            margin: 0;
-            font-size: 0.95rem;
+        
+        .login-header p { /* Subtitle styling */
+            color: var(--text-light);
+            font-size: 0.9375rem;
         }
-
-        .breadcrumb {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--breadcrumb-bg);
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin: 1rem 0;
-            border: 1px solid rgba(0, 0, 0, 0.03);
-        }
-
-        .breadcrumb a {
-            color: var(--breadcrumb-accent);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .breadcrumb .sep {
-            color: #94a3b8;
-        }
-
-        .breadcrumb .current {
-            color: #324a5f;
-            font-weight: 700;
-            background: rgba(3, 37, 76, 0.03);
-            padding: 4px 8px;
+        
+        .error-message { /* Error message styling */
+            background-color: #fde8e8;
+            color: var(--error);
+            padding: 0.875rem;
             border-radius: 6px;
-        }
-
-        .error-message {
-            background-color: #fff1f0;
-            color: #bf3b2b;
-            padding: 0.9rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            border: 1px solid #ffd6d0;
+            margin-bottom: 1.5rem;
+            font-size: 0.9375rem;
             text-align: center;
+            border: 1px solid #f8c6c6;
         }
-
-        .form-group {
-            margin-bottom: 1rem;
+        
+        .form-group { /* Form group spacing */
+            margin-bottom: 1.5rem;
         }
-
-        .form-group label {
+        
+        .form-group label { /* Label styling */
             display: block;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9375rem;
             font-weight: 600;
-            color: #2b4053;
+            color: var(--text);
         }
-
-        .form-control {
+        
+        .form-control { /* Input field styling */
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.98rem;
-            transition: box-shadow .15s ease, border-color .15s ease;
-            background: #ffffff;
-            color: #133149;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.2s;
         }
-
-        .form-control:focus {
+        
+        .form-control:focus { /* Input focus effect */
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 6px 18px rgba(0, 120, 212, 0.08);
+            box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
         }
-
-        .btn {
+        
+        .btn { /* Button styling */
             width: 100%;
-            padding: 0.85rem;
+            padding: 0.875rem;
             background-color: var(--primary);
-            color: var(--white);
+            color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: transform .08s ease, background .12s ease;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
-        }
-
-        .back-btn {
-            display: inline-block;
-            background: var(--accent);
-            color: var(--white);
-            padding: 0.45rem 0.9rem;
             border-radius: 6px;
-            text-decoration: none;
+            font-size: 1rem;
             font-weight: 600;
-            transition: background .12s ease;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-
-        .back-btn:hover {
-            background: #e65c00;
+        
+        .btn:hover { /* Button hover effect */
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
         }
-
-        .security-footer {
-            margin-top: 1.5rem;
-            font-size: 0.85rem;
-            color: #556b7a;
+        
+        .security-footer { /* Footer styling */
+            margin-top: 2rem;
+            font-size: 0.8125rem;
+            color: var(--text-light);
             text-align: center;
-            border-top: 1px solid rgba(15, 33, 55, 0.04);
-            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
         }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 1.5rem;
-                margin: 1rem;
-            }
-
-            .login-header h1 {
-                font-size: 1.35rem;
-            }
+        
+        .travel-icon { /* Travel icon styling */
+            display: inline-block;
+            margin: 0 5px;
+            vertical-align: middle;
         }
-    </style> 
-</head> 
-
-<body> 
+    </style> <!-- End of internal CSS -->
+</head> <!-- End of head section -->
+<body> <!-- Body starts -->
     <nav class="navbar"> <!-- Navigation bar -->
         <div class="logo"> <!-- Logo section -->
             <i class="fas fa-compass"></i> <!-- Compass icon -->
@@ -327,42 +250,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1>TripMate Admin Portal</h1> <!-- Main heading -->
             <p>Access the travel management system</p> <!-- Subheading -->
         </div>
-
-        <!-- Breadcrumb (stylish, shows previous page) -->
-        <div class="breadcrumb" aria-label="Breadcrumb">
-            <a href="../main/index.html"><i class="fas fa-home"></i> Home</a>
-            <?php if ($breadcrumb_prev && $breadcrumb_prev['name'] !== 'Dashboard' && $breadcrumb_prev['url'] !== $current_page['url']): ?>
-                <span class="sep">›</span>
-                <a href="<?= htmlspecialchars($breadcrumb_prev['url']) ?>"><i class="fas fa-arrow-left"></i> <?= htmlspecialchars($breadcrumb_prev['name']) ?></a>
-            <?php endif; ?>
-            <span class="sep">›</span>
-            <span class="current"><i class="fas fa-sign-in-alt"></i> <?= htmlspecialchars($current_page['name']) ?></span>
-        </div>
-
+        
         <?php if (isset($error)): ?> <!-- Show error if exists -->
             <div class="error-message"><?= htmlspecialchars($error) ?></div> <!-- Error message -->
         <?php endif; ?>
-
+        
         <form method="POST" autocomplete="off"> <!-- Login form -->
             <div class="form-group"> <!-- Username field group -->
                 <label for="username">Username or Email</label> <!-- Username label -->
                 <input type="text" id="username" name="username" class="form-control" required autofocus> <!-- Username input -->
             </div>
-
+            
             <div class="form-group"> <!-- Password field group -->
                 <label for="password">Password</label> <!-- Password label -->
                 <input type="password" id="password" name="password" class="form-control" required> <!-- Password input -->
             </div>
-
+            
             <button type="submit" class="btn">Sign In</button> <!-- Submit button -->
         </form>
-
+        
         <div class="security-footer"> <!-- Security footer -->
+            <span class="travel-icon">✈</span> <!-- Airplane icon -->
             Authorized access only. All activities are monitored. <!-- Security message -->
-            <!-- <span class="travel-icon">✈</span>  Airplane icon
-            <span class="travel-icon">🌍</span> Globe icon -->
+            <span class="travel-icon">🌍</span> <!-- Globe icon -->
         </div>
     </div>
-</body>
-
-</html>
+</body> <!-- End of body -->
+</html> <!-- End of HTML document -->

@@ -8,13 +8,6 @@ if (!isset($_SESSION['admin_logged_in'])) { // Check if admin is logged in
 include '../database/dbconfig.php'; // Include database configuration
 include 'ip_tracking.php'; // Include IP tracking functions
 
-// --- Breadcrumb handling (added, no change to other functionality) ---
-$current_page = ['name' => 'User IPs', 'url' => basename($_SERVER['PHP_SELF'])];
-$breadcrumb_prev = isset($_SESSION['admin_current_page']) ? $_SESSION['admin_current_page'] : ['name' => 'Dashboard', 'url' => 'admin_dasbord.php'];
-// Update current page in session so next navigated page will see this as previous
-$_SESSION['admin_current_page'] = $current_page;
-// -------------------------------------------------------------
-
 // Get admin info from session
 $admin_id = $_SESSION['admin_id'];
 $admin_name = $_SESSION['admin_name'];
@@ -99,48 +92,8 @@ $admin_profile_pic = $admin['profile_pic'];
             --sidebar-bg: #0f172a; /* Darker slate for sidebar */
             --card-bg: #ffffff;
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --breadcrumb-bg: linear-gradient(90deg, rgba(37,98,235,0.06), rgba(16,185,129,0.03));
-            --breadcrumb-accent: #2563eb;
         }
         
-        /* Breadcrumb styles (added) */
-        .breadcrumb {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            background: var(--breadcrumb-bg);
-            padding: 10px 14px;
-            border-radius: 10px;
-            margin-bottom: 1.25rem;
-            border: 1px solid rgba(37,98,235,0.06);
-            box-shadow: 0 6px 18px rgba(37,98,235,0.03);
-            width: fit-content;
-        }
-        .breadcrumb a {
-            color: var(--breadcrumb-accent);
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        .breadcrumb .sep {
-            color: #999;
-            font-weight: 700;
-            margin: 0 4px;
-        }
-        .breadcrumb .current {
-            color: #404040;
-            font-weight: 700;
-            background: linear-gradient(90deg, rgba(16,185,129,0.06), rgba(244,63,94,0.02));
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(0,0,0,0.03);
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -351,7 +304,7 @@ $admin_profile_pic = $admin['profile_pic'];
             grid-column: 2;
             padding: 2rem;
             width: calc(100vw - 260px);
-            margin-left: 0px;
+            margin-left: 1px;
         }
         
         /* User IP Tracking Specific Styles */
@@ -628,7 +581,7 @@ $admin_profile_pic = $admin['profile_pic'];
             </div> -->
             <ul class="menu">
                 <li class="menu-item "><a href="admin_dasbord.php" style="color:inherit;text-decoration:none"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                <li class="menu-item"><a href="add_destanition_on_admin.php" style="color:inherit;text-decoration:none"><i class="fas fa-map-marker-alt"></i> Destinations</a></li>
+                <li class="menu-item"><a href="add_destination_on_admin.php" style="color:inherit;text-decoration:none"><i class="fas fa-map-marker-alt"></i> Destinations</a></li>
                 <li class="menu-item"><a href="user_present_chack_on_admin.php" style="color:inherit;text-decoration:none"><i class="fas fa-users"></i> Users</a></li>
                 <li class="menu-item"><a href="user_join_analysis_on_ADMIN.php" style="color:inherit;text-decoration:none"><i class="fas fa-chart-line"></i> Analysis</a></li>
                 <li class="menu-item"><a href="#" style="color:inherit;text-decoration:none"><i class="fas fa-envelope"></i> Messages</a></li>
@@ -640,17 +593,6 @@ $admin_profile_pic = $admin['profile_pic'];
         
         <!-- Main Content -->
         <div class="main-content">
-            <!-- Breadcrumb (stylish, shows previous page) -->
-            <div class="breadcrumb" aria-label="Breadcrumb">
-                <a href="admin_dasbord.php"><i class="fas fa-home"></i> Dashboard</a>
-                <?php if ($breadcrumb_prev && $breadcrumb_prev['name'] !== 'Dashboard' && $breadcrumb_prev['url'] !== $current_page['url']): ?>
-                    <span class="sep">›</span>
-                    <a href="<?= htmlspecialchars($breadcrumb_prev['url']) ?>"><i class="fas fa-arrow-left"></i> <?= htmlspecialchars($breadcrumb_prev['name']) ?></a>
-                <?php endif; ?>
-                <span class="sep">›</span>
-                <span class="current"><i class="fas fa-network-wired"></i> <?= htmlspecialchars($current_page['name']) ?></span>
-            </div>
-
             <div class="user-ip-card">
                 <div class="card-header">
                     <h2><i class="fas fa-network-wired"></i> User IP Address Tracking</h2>
