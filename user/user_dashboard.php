@@ -276,7 +276,7 @@ $conn->close();
           </a>
         </li>
         <li>
-          <a href="favourites.php" class="flex items-center hover:text-orange-300 transition">
+          <a href="../actions/get_favourites.php" class="flex items-center hover:text-orange-300 transition">
             <i class="fas fa-heart mr-3"></i> Favourites
           </a>
         </li>
