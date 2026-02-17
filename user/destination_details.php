@@ -44,29 +44,31 @@ function resolve_image_path($base_url, $filename, $subdir = '/uploads/')
 {
     $filename = trim($filename);
     if (empty($filename)) return $base_url . '/images/no-image.jpg';
-    $server_path = $_SERVER['DOCUMENT_ROOT'] . $base_url . $subdir . $filename;
+    $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
+    if (empty($doc_root)) return $base_url . $subdir . $filename;
+    $server_path = $doc_root . $base_url . $subdir . $filename;
     if (file_exists($server_path) && !is_dir($server_path)) {
         return $base_url . $subdir . $filename;
     }
     // try uploads root
-    $server_path2 = $_SERVER['DOCUMENT_ROOT'] . $base_url . '/uploads/' . $filename;
+    $server_path2 = $doc_root . $base_url . '/uploads/' . $filename;
     if (file_exists($server_path2) && !is_dir($server_path2)) {
         return $base_url . '/uploads/' . $filename;
     }
-    return $base_url . '/images/no-image.jpg';
+    return $base_url . '/image/no-image.jpg';
 }
 
 // --- Pick cover image and OG image ---
-$coverImage = $base_url . '/images/no-image.jpg';
+$coverImage = $base_url . '/image/no-image.jpg';
 if (!empty($images)) {
     foreach ($images as $img) {
         $p = resolve_image_path($base_url, $img);
-        if ($p !== $base_url . '/images/no-image.jpg') {
+        if ($p !== $base_url . '/image/no-image.jpg') {
             $coverImage = $p;
             break;
         }
     }
-    if ($coverImage === $base_url . '/images/no-image.jpg') {
+    if ($coverImage === $base_url . '/image/no-image.jpg') {
         $coverImage = resolve_image_path($base_url, $images[0]);
     }
 }
@@ -188,6 +190,12 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             --primary: #16034f;
             --muted: #6b7280;
             --card: #fff;
+            --primary-dark: #0063b1;
+            --border: #e0e0e0;
+            --dark-text: #333;
+            --light-text: #666;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
         }
 
         * {
@@ -249,6 +257,86 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             border-radius: 8px;
             color: #fff;
             font-weight: 600
+        }
+
+        /* User Profile Styles - Only show when logged in */
+        .user-profile {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+        .user-profile.visible {
+            display: block;
+        }
+        .profile-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .profile-btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+        .profile-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 220px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 16px;
+            margin-top: 8px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+        .profile-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .user-info {
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--light-text);
+        }
+        .user-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .profile-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            color: var(--dark-text);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .profile-dropdown a:hover {
+            color: var(--primary);
+        }
+        .profile-dropdown a i {
+            width: 18px;
+            text-align: center;
         }
 
         /* Hero / cover with Ken Burns (slow zoom) */
@@ -636,13 +724,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
     </style>
-    <!-- Auto-Logout System 
-<script src="../user/auto-logout.js"></script>
 
-    Structured Data JSON-LD 
-    <script type="application/ld+json">
-        <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
-    </script> -->
 </head>
 
 <body>
@@ -655,6 +737,25 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             <a class="btn" href="user_dashboard.php">Dashboard</a>
         </div>
     </header>
+
+    <!-- User Profile (will be shown only after login) -->
+    <div class="user-profile" id="userProfile">
+        <button class="profile-btn">
+            <i class="fas fa-user"></i>
+            <span id="profileUserName">User</span>
+        </button>
+        <div class="profile-dropdown">
+            <div class="user-info">
+                Welcome, <span class="user-name" id="dropdownUserName">User</span>
+            </div>
+            <a href="../user/user_dashboard.php" id="dashboardLink">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="#" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </div>
 
     <main class="container" role="main">
 
@@ -859,31 +960,31 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                 </div>
 
                 <!-- Attractions -->
-            <div class="card" style="margin-top:18px" id="attractions">
-                <div class="section-title">Top Attractions</div>
-                <?php
-                if (!empty($destination['attractions'])):
-                    $attractionsArray = json_decode($destination['attractions'], true);
-                    if ($attractionsArray && is_array($attractionsArray)): ?>
-                        <div style="display:flex;flex-direction:column;gap:10px">
-                            <?php foreach ($attractionsArray as $attraction): ?>
-                                <div class="review">
-                                    <div style="min-width:10px"><i class="fas fa-map-pin"></i></div>
-                                    <div>
-                                        <div style="font-weight:700"><?php echo htmlspecialchars($attraction); ?></div>
-                                        <div class="muted">Search more • <a href="https://www.google.com/search?q=<?php echo urlencode($attraction . ' ' . $destination['name']); ?>" target="_blank">Open</a></div>
+                <div class="card" style="margin-top:18px" id="attractions">
+                    <div class="section-title">Top Attractions</div>
+                    <?php
+                    if (!empty($destination['attractions'])):
+                        $attractionsArray = json_decode($destination['attractions'], true);
+                        if ($attractionsArray && is_array($attractionsArray)): ?>
+                            <div style="display:flex;flex-direction:column;gap:10px">
+                                <?php foreach ($attractionsArray as $attraction): ?>
+                                    <div class="review">
+                                        <div style="min-width:10px"><i class="fas fa-map-pin"></i></div>
+                                        <div>
+                                            <div style="font-weight:700"><?php echo htmlspecialchars($attraction); ?></div>
+                                            <div class="muted">Search more • <a href="https://www.google.com/search?q=<?php echo urlencode($attraction . ' ' . $destination['name']); ?>" target="_blank">Open</a></div>
+                                        </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="muted"><?php echo nl2br(htmlspecialchars($destination['attractions'])); ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="muted"><?php echo nl2br(htmlspecialchars($destination['attractions'])); ?></div>
                     <?php endif;
-                else:
-                    echo '<div class="muted">No attraction details available.</div>';
-                endif;
-                ?>
-            </div>
+                    else:
+                        echo '<div class="muted">No attraction details available.</div>';
+                    endif;
+                    ?>
+                </div>
 
                 <!-- Reviews & add review -->
                 <div class="card" style="margin-top:18px" id="reviews">
@@ -1299,122 +1400,257 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
         });
 
         // ---------- Dynamic Unsplash Gallery Integration ----------
-        const FETCH_DYNAMIC_IMAGES = true; // Set to false to use database images only
+const FETCH_DYNAMIC_IMAGES = true; // Set to false to use database images only
 
-        async function loadDynamicGallery() {
-            if (!FETCH_DYNAMIC_IMAGES) return;
+async function loadDynamicGallery() {
+    if (!FETCH_DYNAMIC_IMAGES) return;
 
-            const galleryGrid = document.getElementById('thumbGrid');
-            const mainSwiper = document.getElementById('mainSwiper');
+    const galleryGrid = document.getElementById('thumbGrid');
+    const mainSwiper = document.getElementById('mainSwiper');
 
-            if (!galleryGrid || !mainSwiper) return;
+    if (!galleryGrid || !mainSwiper) {
+        console.warn('Gallery elements not found');
+        return;
+    }
 
-            try {
-                // Show loading state
-                galleryGrid.innerHTML = '<div class="col-span-3 text-center py-8 text-gray-500"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Loading gallery...</p></div>';
+    try {
+        // Show loading state
+        const originalContent = galleryGrid.innerHTML; // Save original for fallback
+        galleryGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--muted)"><i class="fas fa-spinner fa-spin"></i><p style="margin-top:8px">Loading gallery...</p></div>';
 
-                // Build search query from destination name and location
-                const searchQuery = `${DEST_NAME} ${DEST_LOCATION} landmarks tourism`;
+        // Build search query from destination name and location
+        const searchQuery = `${DEST_NAME} ${DEST_LOCATION} tourism landmarks`;
 
-                // Fetch images from Unsplash
-                const response = await fetch(`actions/fetch_images.php?query=${encodeURIComponent(searchQuery)}&count=12`);
-                const data = await response.json();
+        // Fetch images from Unsplash via our proxy
+        const response = await fetch(`actions/fetch_images.php?query=${encodeURIComponent(searchQuery)}&count=12`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
 
-                if (data.error) {
-                    console.error('Image fetch error:', data.error);
-                    // Fallback to database images
-                    return;
-                }
+        if (data.error) {
+            console.error('Image fetch error:', data.error);
+            // Fallback to database images
+            restoreOriginalGallery(originalContent);
+            return;
+        }
 
-                if (data.success && data.images && data.images.length > 0) {
-                    // Update main swiper
-                    const swiperWrapper = mainSwiper.querySelector('.swiper-wrapper');
-                    swiperWrapper.innerHTML = '';
+        if (data.success && data.images && data.images.length > 0) {
+            // Update main swiper
+            updateMainSwiper(data.images);
+            
+            // Update thumbnail grid
+            updateThumbnailGrid(data.images);
+            
+            console.log(`Loaded ${data.images.length} images from Unsplash`);
+        } else {
+            // No images returned, fallback
+            restoreOriginalGallery(originalContent);
+        }
 
-                    data.images.forEach((img, index) => {
-                        // Add to main carousel
-                        const slide = document.createElement('div');
-                        slide.className = 'swiper-slide';
-                        slide.innerHTML = `<img src="${img.urls.regular}" alt="${img.description || DEST_NAME}" loading="${index === 0 ? 'eager' : 'lazy'}">`;
-                        swiperWrapper.appendChild(slide);
-                    });
+    } catch (error) {
+        console.error('Failed to load dynamic gallery:', error);
+        // Fallback to database images - restore original content
+        restoreOriginalGallery();
+    }
+}
 
-                    // Reinitialize swiper
-                    if (typeof swiper !== 'undefined') {
-                        swiper.update();
-                    }
+function updateMainSwiper(images) {
+    const mainSwiper = document.getElementById('mainSwiper');
+    if (!mainSwiper) return;
 
-                    // Update thumbnail grid
-                    galleryGrid.innerHTML = '';
-                    data.images.forEach(img => {
-                        const thumb = document.createElement('img');
-                        thumb.src = img.urls.small;
-                        thumb.setAttribute('data-full', img.urls.regular);
-                        thumb.setAttribute('data-download', img.download_location);
-                        thumb.alt = img.description || DEST_NAME;
-                        thumb.loading = 'lazy';
-                        thumb.setAttribute('data-ready', '0');
+    const swiperWrapper = mainSwiper.querySelector('.swiper-wrapper');
+    if (!swiperWrapper) return;
 
-                        // Add photographer credit
-                        thumb.title = `Photo by ${img.photographer.name} on Unsplash`;
+    swiperWrapper.innerHTML = '';
 
-                        // Lazy load handler
-                        const fullImg = new Image();
-                        fullImg.src = img.urls.regular;
-                        fullImg.onload = () => {
-                            thumb.setAttribute('data-ready', '1');
+    images.forEach((img, index) => {
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+        slide.innerHTML = `<img src="${img.urls.regular}" alt="${img.description || DEST_NAME}" loading="${index === 0 ? 'eager' : 'lazy'}">`;
+        swiperWrapper.appendChild(slide);
+    });
 
-                            // Trigger download tracking (required by Unsplash API)
-                            fetch('actions/fetch_images.php', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                },
-                                body: `trigger_download=1&download_location=${encodeURIComponent(img.download_location)}`
-                            });
-                        };
+    // Reinitialize swiper if it exists
+    if (typeof swiper !== 'undefined') {
+        swiper.update();
+    }
+}
 
-                        // Add click handler for lightbox
-                        thumb.addEventListener('click', () => {
-                            const items = [{
-                                src: img.urls.full,
-                                w: img.dimensions.width,
-                                h: img.dimensions.height,
-                                title: `${img.description || DEST_NAME}<br><small>Photo by <a href="${img.photographer.url}?utm_source=TripMate&utm_medium=referral" target="_blank">${img.photographer.name}</a> on <a href="https://unsplash.com?utm_source=TripMate&utm_medium=referral" target="_blank">Unsplash</a></small>`
-                            }];
-                            const options = {
-                                index: 0
-                            };
-                            const gallery = window.PhotoSwipe.create({
-                                dataSource: items
-                            }, options);
-                            gallery.init();
-                        });
+function updateThumbnailGrid(images) {
+    const galleryGrid = document.getElementById('thumbGrid');
+    if (!galleryGrid) return;
 
-                        galleryGrid.appendChild(thumb);
-                    });
+    galleryGrid.innerHTML = '';
 
-                    console.log(`Loaded ${data.images.length} images from Unsplash`);
-                }
+    images.forEach(img => {
+        const thumb = document.createElement('img');
+        thumb.src = img.urls.small;
+        thumb.setAttribute('data-full', img.urls.regular);
+        thumb.setAttribute('data-download', img.download_location);
+        thumb.alt = img.description || DEST_NAME;
+        thumb.loading = 'lazy';
+        thumb.setAttribute('data-ready', '0');
+        thumb.title = `Photo by ${img.photographer.name} on Unsplash`;
 
-            } catch (error) {
-                console.error('Failed to load dynamic gallery:', error);
-                // Keep database images as fallback
+        // Lazy load high-res version
+        const fullImg = new Image();
+        fullImg.src = img.urls.regular;
+        fullImg.onload = () => {
+            thumb.setAttribute('data-ready', '1');
+            
+            // Trigger download tracking (required by Unsplash API)
+            trackDownload(img.download_location);
+        };
+
+        // Add click handler for lightbox
+        thumb.addEventListener('click', () => {
+            openPhotoSwipe(img);
+        });
+
+        galleryGrid.appendChild(thumb);
+    });
+}
+
+function restoreOriginalGallery(originalContent = null) {
+    const galleryGrid = document.getElementById('thumbGrid');
+    if (!galleryGrid) return;
+
+    if (originalContent) {
+        galleryGrid.innerHTML = originalContent;
+    } else {
+        // If no original content, ensure database images are properly initialized
+        document.querySelectorAll('#thumbGrid img').forEach(img => {
+            const full = img.dataset.full || img.src;
+            const loadImg = new Image();
+            loadImg.src = full;
+            loadImg.onload = function() {
+                img.src = full;
+                img.dataset.ready = '1';
+            };
+        });
+    }
+    console.log('Fell back to database images');
+}
+
+async function trackDownload(downloadLocation) {
+    try {
+        await fetch('actions/fetch_images.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `trigger_download=1&download_location=${encodeURIComponent(downloadLocation)}`
+        });
+    } catch (error) {
+        console.warn('Download tracking failed:', error);
+    }
+}
+
+function openPhotoSwipe(img) {
+    const items = [{
+        src: img.urls.full,
+        w: img.dimensions.width,
+        h: img.dimensions.height,
+        title: `${img.description || DEST_NAME}<br><small>Photo by <a href="${img.photographer.url}?utm_source=TripMate&utm_medium=referral" target="_blank">${img.photographer.name}</a> on <a href="https://unsplash.com?utm_source=TripMate&utm_medium=referral" target="_blank">Unsplash</a></small>`
+    }];
+    
+    const options = {
+        index: 0
+    };
+    
+    const gallery = window.PhotoSwipe.create({
+        dataSource: items
+    }, options);
+    gallery.init();
+}
+
+// Load dynamic gallery after page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadDynamicGallery);
+} else {
+    loadDynamicGallery();
+}
+
+        // Utility: get active user from storage (localStorage preferred for device-wide)
+        function getActiveUser() {
+            const localId = localStorage.getItem('tripmate_active_user_id');
+            const localName = localStorage.getItem('tripmate_active_user_name');
+            if (localId) return { id: localId, name: localName || '' };
+            const sessId = sessionStorage.getItem('user_id');
+            const sessName = sessionStorage.getItem('user_name');
+            if (sessId) return { id: sessId, name: sessName || '' };
+            return null;
+        }
+
+        // Check if user is logged in on page load
+        function checkLoginStatus() {
+            const active = getActiveUser();
+            if (active) {
+                showUserProfile(active.name || 'User', active.id);
             }
         }
 
-        // Load dynamic gallery after page loads
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', loadDynamicGallery);
-        } else {
-            loadDynamicGallery();
+        // Show user profile after successful login
+        function showUserProfile(username, userId) {
+            const profileEl = document.getElementById('userProfile');
+            if (!profileEl) return;
+
+            const nameToShow = username || sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
+            profileEl.querySelector('#profileUserName').textContent = nameToShow;
+            profileEl.querySelector('#dropdownUserName').textContent = nameToShow;
+            profileEl.classList.add('visible');
+
+            // Add event listeners for profile dropdown
+            const profileBtn = profileEl.querySelector('.profile-btn');
+            const dropdown = profileEl.querySelector('.profile-dropdown');
+
+            // ensure we don't attach multiple listeners
+            profileBtn.onclick = function(e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('active');
+            };
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function() {
+                if (dropdown) dropdown.classList.remove('active');
+            });
+
+            // Handle logout - clear both storages and navigate to server logout
+            const logoutBtn = profileEl.querySelector('#logoutBtn');
+            logoutBtn.onclick = function(e) {
+                e.preventDefault();
+                if (confirm('Are you sure you want to logout?')) {
+                    // Clear client storage for the active user
+                    sessionStorage.removeItem('user_id');
+                    sessionStorage.removeItem('user_name');
+                    localStorage.removeItem('tripmate_active_user_id');
+                    localStorage.removeItem('tripmate_active_user_name');
+
+                    // Navigate to server logout endpoint to fully clear server session
+                    window.location.href = '../auth/logout.php';
+                }
+            };
         }
+
+        // Initialize user profile on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkLoginStatus();
+        });
     </script>
 
     <!-- Structured data JSON-LD -->
     <script type="application/ld+json">
         <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
     </script>
+
+    <!-- Session Synchronization -->
+    <script src="../user/session-sync.js"></script>
+
+    <!-- Auto-Logout System -->
+    <script src="../user/auto-logout.js"></script>
 
 </body>
 

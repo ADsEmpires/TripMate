@@ -55,20 +55,13 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             if (confirm('Are you sure you want to logout?')) {
                 sessionStorage.clear();
-                fetch('../auth/logout.php', {
-                    method: 'POST',
-                    credentials: 'same-origin', // include session cookie for same-origin
-                    headers: { 'Accept': 'application/json' }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        // optional: check JSON for success
-                        window.location.href = '../main/index.html';
-                    } else {
-                        console.error('Logout failed, server returned', response.status);
-                    }
-                })
-                .catch(error => console.error('Logout failed:', error));
+                fetch('../auth/logout.php')
+                    .then(response => {
+                        if (response.ok) {
+                            window.location.href = '../main/index.html';
+                        }
+                    })
+                    .catch(error => console.error('Logout failed:', error));
             }
         });
     }

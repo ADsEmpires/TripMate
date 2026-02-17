@@ -3,16 +3,17 @@
  * File: user/auto-logout.js
  * 
  * Features:
- * - Auto logout after 5 minutes of inactivity
- * - Warning popup 2 minutes before logout
+ * - Auto logout after 2 minutes of inactivity (decreased from 30 minutes)
+ * - Warning popup 1 minute before logout
  * - Reset button to restart timer
  * - Logout on browser/tab close
+ * - Manual logout by user
  */
 
 class AutoLogoutManager {
     constructor(options = {}) {
-        this.inactivityTimeout = options.inactivityTimeout || 5 * 60 * 1000; // 5 minutes
-        this.warningTime = options.warningTime || 2 * 60 * 1000; // 2 minutes before timeout
+        this.inactivityTimeout = options.inactivityTimeout || 2 * 60 * 1000; // 2 minutes
+        this.warningTime = options.warningTime || 1 * 60 * 1000; // 1 minute before timeout
         this.logoutUrl = options.logoutUrl || '../auth/logout.php';
         
         this.inactivityTimer = null;
@@ -26,8 +27,11 @@ class AutoLogoutManager {
     init() {
         // Only initialize if user is logged in
         if (!this.isUserLoggedIn()) {
+            console.log('Auto-logout: User not logged in, skipping initialization');
             return;
         }
+        
+        console.log('Auto-logout system initialized for user:', this.getUserName());
         
         // Create warning modal
         this.createWarningModal();
@@ -35,22 +39,40 @@ class AutoLogoutManager {
         // Set up activity listeners
         this.setupActivityListeners();
         
-        // Set up beforeunload (browser close) handler
-        this.setupBeforeUnloadHandler();
-        
         // Start the inactivity timer
         this.resetInactivityTimer();
         
-        console.log('Auto-logout system initialized');
+        // Set up beforeunload event for browser/tab close
+        this.setupUnloadListener();
     }
     
     isUserLoggedIn() {
-        // Check if user is logged in (check both storages)
-        return !!(localStorage.getItem('tripmate_active_user_id') || 
-                  sessionStorage.getItem('user_id'));
+        // Check if user is logged in using the main session keys
+        const hasSession = !!(sessionStorage.getItem('user_id') || localStorage.getItem('tripmate_active_user_id'));
+        console.log('Auto-logout: Checking login status -', hasSession);
+        return hasSession;
+    }
+    
+    getUserName() {
+        return sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
+    }
+    
+    setupUnloadListener() {
+        // Logout when user closes browser/tab
+        window.addEventListener('beforeunload', () => {
+            if (this.isUserLoggedIn()) {
+                // Use Beacon API to ensure logout request is sent even on page unload
+                navigator.sendBeacon(this.logoutUrl, 'action=logout');
+            }
+        });
     }
     
     createWarningModal() {
+        // Only create modal if it doesn't exist
+        if (document.getElementById('autoLogoutModal')) {
+            return;
+        }
+        
         // Create modal HTML
         const modalHTML = `
             <div id="autoLogoutModal" class="auto-logout-modal" style="display: none;">
@@ -61,7 +83,7 @@ class AutoLogoutManager {
                     </div>
                     <h2>Session Timeout Warning</h2>
                     <p>You will be logged out due to inactivity in:</p>
-                    <div class="auto-logout-countdown" id="logoutCountdown">2:00</div>
+                    <div class="auto-logout-countdown" id="logoutCountdown">1:00</div>
                     <p class="auto-logout-message">Click "Stay Logged In" to continue your session.</p>
                     <div class="auto-logout-buttons">
                         <button class="auto-logout-btn auto-logout-btn-primary" id="stayLoggedInBtn">
@@ -227,9 +249,7 @@ class AutoLogoutManager {
         if (!document.getElementById('autoLogoutStyles')) {
             document.head.insertAdjacentHTML('beforeend', styles);
         }
-        if (!document.getElementById('autoLogoutModal')) {
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-        }
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
         
         // Add event listeners
         document.getElementById('stayLoggedInBtn').addEventListener('click', () => {
@@ -243,53 +263,29 @@ class AutoLogoutManager {
     
     setupActivityListeners() {
         // List of events that indicate user activity
-        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'];
+        
+        const activityHandler = () => {
+            if (!this.warningShown) {
+                this.resetInactivityTimer();
+            }
+        };
         
         events.forEach(event => {
-            document.addEventListener(event, () => {
-                if (!this.warningShown) {
-                    this.resetInactivityTimer();
-                }
-            }, true);
-        });
-    }
-    
-    setupBeforeUnloadHandler() {
-        // Handle browser/tab close
-        window.addEventListener('beforeunload', (e) => {
-            // Perform logout via sendBeacon (works even when page is unloading)
-            const data = new FormData();
-            data.append('action', 'logout');
-            
-            // Use sendBeacon for reliable logout on page unload
-            navigator.sendBeacon(this.logoutUrl, data);
-            
-            // Clear storage
-            this.clearUserSession();
+            document.addEventListener(event, activityHandler, { passive: true });
         });
         
-        // Also handle visibility change (tab switching)
+        // Also track page visibility
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                // Store the time when user left
-                sessionStorage.setItem('lastActiveTime', Date.now().toString());
-            } else {
-                // Check if too much time has passed
-                const lastActive = parseInt(sessionStorage.getItem('lastActiveTime') || '0');
-                const elapsed = Date.now() - lastActive;
-                
-                if (elapsed > this.inactivityTimeout) {
-                    // Too much time passed, logout
-                    this.performLogout();
-                } else {
-                    // Reset timer
-                    this.resetInactivityTimer();
-                }
+            if (!document.hidden && !this.warningShown) {
+                this.resetInactivityTimer();
             }
         });
     }
     
     resetInactivityTimer() {
+        console.log('Auto-logout: Resetting inactivity timer');
+        
         // Clear existing timers
         if (this.inactivityTimer) {
             clearTimeout(this.inactivityTimer);
@@ -303,7 +299,7 @@ class AutoLogoutManager {
             this.hideWarning();
         }
         
-        // Set warning timer (shows warning 2 minutes before logout)
+        // Set warning timer (shows warning 1 minute before logout)
         this.warningTimer = setTimeout(() => {
             this.showWarning();
         }, this.inactivityTimeout - this.warningTime);
@@ -315,9 +311,12 @@ class AutoLogoutManager {
     }
     
     showWarning() {
+        console.log('Auto-logout: Showing warning modal');
         this.warningShown = true;
         const modal = document.getElementById('autoLogoutModal');
-        modal.style.display = 'flex';
+        if (modal) {
+            modal.style.display = 'flex';
+        }
         
         // Start countdown
         let remainingSeconds = Math.floor(this.warningTime / 1000);
@@ -337,7 +336,9 @@ class AutoLogoutManager {
     hideWarning() {
         this.warningShown = false;
         const modal = document.getElementById('autoLogoutModal');
-        modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+        }
         
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
@@ -348,11 +349,15 @@ class AutoLogoutManager {
         const minutes = Math.floor(seconds / 60);
         const secs = seconds % 60;
         const display = `${minutes}:${secs.toString().padStart(2, '0')}`;
-        document.getElementById('logoutCountdown').textContent = display;
+        const countdownEl = document.getElementById('logoutCountdown');
+        if (countdownEl) {
+            countdownEl.textContent = display;
+        }
     }
     
     resetSession() {
         // User clicked "Stay Logged In"
+        console.log('Auto-logout: User reset session');
         this.hideWarning();
         this.resetInactivityTimer();
         
@@ -361,20 +366,34 @@ class AutoLogoutManager {
     }
     
     performLogout() {
+        console.log('Auto-logout: Performing logout');
+        
         // Clear storage
         this.clearUserSession();
+        
+        // Use Beacon API for reliable logout even during page unload
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(this.logoutUrl, 'action=logout');
+        }
         
         // Redirect to logout page
         window.location.href = this.logoutUrl;
     }
     
     clearUserSession() {
+        console.log('Auto-logout: Clearing user session');
+        
         // Clear all session data
         sessionStorage.removeItem('user_id');
         sessionStorage.removeItem('user_name');
+        sessionStorage.removeItem('userid');
+        sessionStorage.removeItem('username');
         localStorage.removeItem('tripmate_active_user_id');
         localStorage.removeItem('tripmate_active_user_name');
         sessionStorage.removeItem('lastActiveTime');
+        
+        // Remove user-logged-in class from body
+        document.body.classList.remove('user-logged-in');
     }
     
     showToast(message, type = 'info') {
@@ -394,14 +413,12 @@ class AutoLogoutManager {
                 border-radius: 8px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 z-index: 10001;
-                animation: slideIn 0.3s ease-out;
             `;
             toast.textContent = message;
             document.body.appendChild(toast);
             
             setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease-in';
-                setTimeout(() => toast.remove(), 300);
+                toast.remove();
             }, 3000);
         }
     }
@@ -412,20 +429,28 @@ class AutoLogoutManager {
         if (this.warningTimer) clearTimeout(this.warningTimer);
         if (this.countdownInterval) clearInterval(this.countdownInterval);
         
-        // Remove modal
-        const modal = document.getElementById('autoLogoutModal');
-        if (modal) modal.remove();
+        // Remove event listeners
+        const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'];
+        events.forEach(event => {
+            document.removeEventListener(event, this.activityHandler);
+        });
         
-        const styles = document.getElementById('autoLogoutStyles');
-        if (styles) styles.remove();
+        // Remove beforeunload listener
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     }
 }
 
 // Initialize auto-logout system when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// Only initialize if user is actually logged in
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is logged in using the same method as user-profile.js
+    const isLoggedIn = document.body.classList.contains('user-logged-in') && 
+                      (sessionStorage.getItem('userid') || sessionStorage.getItem('user_id'));
+    
+    if (isLoggedIn) {
+        console.log('Initializing auto-logout system for logged-in user');
         window.autoLogoutManager = new AutoLogoutManager();
-    });
-} else {
-    window.autoLogoutManager = new AutoLogoutManager();
-}
+    } else {
+        console.log('Skipping auto-logout initialization - user not logged in');
+    }
+});
