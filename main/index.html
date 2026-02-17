@@ -171,5 +171,16 @@
   </script>
 
   <script src="../user/user-profile.js"></script>
+
+  <!-- Structured data JSON-LD -->
+    <script type="application/ld+json">
+        <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
+    </script>
+
+    <!-- Session Synchronization -->
+    <script src="../user/session-sync.js"></script>
+
+    <!-- Auto-Logout System -->
+    <script src="../user/auto-logout.js"></script>
 </body>
 </html>
