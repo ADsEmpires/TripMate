@@ -8,12 +8,27 @@
  */
 
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *'); // Adjust in production
+header('Access-Control-Allow-Methods: GET, POST');
+
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Set to 1 for debugging
 
 // Configuration
-define('UNSPLASH_ACCESS_KEY', 'wipMl4L19Hpszv2ur_Z4UMWnkLMpGo3sCJmeOxisQ8g'); // Replace with your key
+define('UNSPLASH_ACCESS_KEY', 'wipMl4L19Hpszv2ur_Z4UMWnkLMpGo3sCJmeOxisQ8g'); // REPLACE WITH YOUR ACTUAL KEY
 define('UNSPLASH_API_URL', 'https://api.unsplash.com');
-define('CACHE_ENABLED', false); // Set to true if you want to cache responses
-define('CACHE_DURATION', 3600); // 1 hour in seconds
+define('CACHE_ENABLED', true);
+define('CACHE_DURATION', 86400); // 24 hours
+
+// Simple logging function
+function log_message($message) {
+    $log_file = __DIR__ . '/../logs/unsplash_api.log';
+    if (!is_dir(dirname($log_file))) {
+        @mkdir(dirname($log_file), 0755, true);
+    }
+    file_put_contents($log_file, date('Y-m-d H:i:s') . ' - ' . $message . PHP_EOL, FILE_APPEND);
+}
 
 class UnsplashImageFetcher {
     private $accessKey;
@@ -41,10 +56,15 @@ class UnsplashImageFetcher {
             return ['error' => 'Query parameter is required'];
         }
         
+        if (empty($this->accessKey)) {
+            return ['error' => 'Unsplash API key not configured'];
+        }
+        
         // Check cache first
         if (CACHE_ENABLED) {
             $cached = $this->getFromCache($query, $count);
             if ($cached !== null) {
+                log_message("Cache hit for query: $query");
                 return $cached;
             }
         }
@@ -57,13 +77,17 @@ class UnsplashImageFetcher {
             'content_filter' => 'high'
         ]);
         
+        log_message("Fetching from Unsplash: $query");
+        
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 10,
+            CURLOPT_TIMEOUT => 15,
             CURLOPT_HTTPHEADER => [
-                'Authorization: Client-ID ' . $this->accessKey
-            ]
+                'Authorization: Client-ID ' . $this->accessKey,
+                'Accept-Version: v1'
+            ],
+            CURLOPT_USERAGENT => 'TripMate/1.0'
         ]);
         
         $response = curl_exec($ch);
@@ -73,26 +97,37 @@ class UnsplashImageFetcher {
         
         // Handle errors
         if ($error) {
+            log_message("cURL error for $query: $error");
             return ['error' => 'Network error: ' . $error];
         }
         
         if ($httpCode !== 200) {
-            return $this->handleHttpError($httpCode, $response);
+            $error_msg = $this->handleHttpError($httpCode, $response);
+            log_message("HTTP error $httpCode for $query: $error_msg");
+            return ['error' => $error_msg];
         }
         
         // Parse response
         $data = json_decode($response, true);
         if (!$data || !isset($data['results'])) {
+            log_message("Invalid API response for $query");
             return ['error' => 'Invalid API response'];
         }
         
         // Transform data
         $images = $this->transformImages($data['results']);
         
+        if (empty($images)) {
+            log_message("No images found for query: $query");
+            return ['error' => 'No images found for this destination'];
+        }
+        
         // Cache the result
         if (CACHE_ENABLED) {
             $this->saveToCache($query, $count, $images);
         }
+        
+        log_message("Successfully fetched " . count($images) . " images for: $query");
         
         return [
             'success' => true,
@@ -119,7 +154,7 @@ class UnsplashImageFetcher {
                 'description' => $photo['description'] ?? $photo['alt_description'] ?? '',
                 'photographer' => [
                     'name' => $photo['user']['name'],
-                    'url' => $photo['user']['links']['html']
+                    'url' => $photo['user']['links']['html'] . '?utm_source=TripMate&utm_medium=referral'
                 ],
                 'download_location' => $photo['links']['download_location'],
                 'dimensions' => [
@@ -137,9 +172,11 @@ class UnsplashImageFetcher {
      * Trigger download tracking (required by Unsplash API guidelines)
      */
     public function triggerDownload($downloadLocation) {
-        if (empty($downloadLocation)) {
+        if (empty($downloadLocation) || empty($this->accessKey)) {
             return false;
         }
+        
+        log_message("Triggering download: $downloadLocation");
         
         $ch = curl_init($downloadLocation);
         curl_setopt_array($ch, [
@@ -150,10 +187,13 @@ class UnsplashImageFetcher {
             ]
         ]);
         
-        curl_exec($ch);
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
         
-        return true;
+        log_message("Download trigger response: $httpCode");
+        
+        return $httpCode === 200;
     }
     
     /**
@@ -161,10 +201,11 @@ class UnsplashImageFetcher {
      */
     private function handleHttpError($code, $response) {
         $errors = [
-            401 => 'Invalid API key',
-            403 => 'API rate limit exceeded. Please try again later.',
+            401 => 'Invalid Unsplash API key. Please configure a valid access key.',
+            403 => 'API rate limit exceeded or access denied. Please try again later.',
             404 => 'No images found for this query',
-            500 => 'Unsplash server error. Please try again later.'
+            500 => 'Unsplash server error. Please try again later.',
+            503 => 'Unsplash service unavailable. Please try again later.'
         ];
         
         $message = $errors[$code] ?? 'API error: ' . $code;
@@ -175,7 +216,7 @@ class UnsplashImageFetcher {
             $message .= ' - ' . implode(', ', $data['errors']);
         }
         
-        return ['error' => $message];
+        return $message;
     }
     
     /**
@@ -190,6 +231,9 @@ class UnsplashImageFetcher {
             if ($age < CACHE_DURATION) {
                 $content = file_get_contents($cacheFile);
                 return json_decode($content, true);
+            } else {
+                // Delete expired cache
+                unlink($cacheFile);
             }
         }
         
@@ -212,29 +256,35 @@ class UnsplashImageFetcher {
 }
 
 // Handle the request
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $query = $_GET['query'] ?? '';
-    $count = $_GET['count'] ?? 12;
-    
-    if (empty($query)) {
-        echo json_encode(['error' => 'Query parameter is required']);
-        exit;
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $query = $_GET['query'] ?? '';
+        $count = $_GET['count'] ?? 12;
+        
+        if (empty($query)) {
+            echo json_encode(['error' => 'Query parameter is required']);
+            exit;
+        }
+        
+        $fetcher = new UnsplashImageFetcher(UNSPLASH_ACCESS_KEY);
+        $result = $fetcher->fetchImages($query, $count);
+        
+        echo json_encode($result);
     }
-    
-    $fetcher = new UnsplashImageFetcher(UNSPLASH_ACCESS_KEY);
-    $result = $fetcher->fetchImages($query, $count);
-    
-    echo json_encode($result);
-}
-elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trigger_download'])) {
-    // Trigger download tracking
-    $downloadLocation = $_POST['download_location'] ?? '';
-    $fetcher = new UnsplashImageFetcher(UNSPLASH_ACCESS_KEY);
-    $fetcher->triggerDownload($downloadLocation);
-    
-    echo json_encode(['success' => true]);
-}
-else {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed']);
+    elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['trigger_download'])) {
+        // Trigger download tracking
+        $downloadLocation = $_POST['download_location'] ?? '';
+        $fetcher = new UnsplashImageFetcher(UNSPLASH_ACCESS_KEY);
+        $success = $fetcher->triggerDownload($downloadLocation);
+        
+        echo json_encode(['success' => $success]);
+    }
+    else {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+    }
+} catch (Exception $e) {
+    log_message("Unhandled exception: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Internal server error']);
 }
