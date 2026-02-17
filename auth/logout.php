@@ -1,5 +1,4 @@
 <?php
-// Start the session if not already started
 session_start();
 
 // Unset all session variables
@@ -13,10 +12,18 @@ if (isset($_COOKIE[session_name()])) {
 // Destroy the session
 session_destroy();
 
-// Clear any other cookies related to login
+// Clear any other cookies
 setcookie('user_id', '', time() - 3600, '/');
 setcookie('remember_me', '', time() - 3600, '/');
 
-// Redirect to index.html
+// Handle both normal redirects and beacon requests
+if (isset($_POST['action']) && $_POST['action'] === 'logout') {
+    // Beacon request - just return success
+    http_response_code(204); // No content
+    exit();
+}
+
+// Normal logout - redirect to index
 header("Location: ../main/index.html");
 exit();
+?>
