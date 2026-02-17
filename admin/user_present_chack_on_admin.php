@@ -9,6 +9,77 @@ include '../database/dbconfig.php';
 
 // Additional Logic Features
 
+// Handle user removal POST
+$message = '';
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_user'])) {
+    // Required fields
+    $remove_id = isset($_POST['remove_id']) ? (int)$_POST['remove_id'] : 0;
+    $admin_password = $_POST['admin_password'] ?? '';
+    $reason = trim($_POST['reason'] ?? '');
+
+    if ($remove_id <= 0 || empty($admin_password) || empty($reason)) {
+        $error = 'All fields are required to remove a user.';
+    } else {
+        // Ensure admin is in session
+        if (!isset($_SESSION['admin_id'])) {
+            $error = 'Admin session not found. Please login again.';
+        } else {
+            $admin_id = (int)$_SESSION['admin_id'];
+            // Fetch admin password hash
+            $stmt = $conn->prepare("SELECT password, name FROM admin WHERE id = ? LIMIT 1");
+            $stmt->bind_param('i', $admin_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res && $res->num_rows === 1) {
+                $admin = $res->fetch_assoc();
+                $hash = $admin['password'];
+                // verify password (supports hashed passwords)
+                if (password_verify($admin_password, $hash)) {
+                    // Fetch the user to remove (for logging)
+                    $stmt2 = $conn->prepare("SELECT id, name, email FROM users WHERE id = ? LIMIT 1");
+                    $stmt2->bind_param('i', $remove_id);
+                    $stmt2->execute();
+                    $res2 = $stmt2->get_result();
+                    if ($res2 && $res2->num_rows === 1) {
+                        $u = $res2->fetch_assoc();
+                        // Delete user
+                        $del = $conn->prepare("DELETE FROM users WHERE id = ?");
+                        $del->bind_param('i', $remove_id);
+                        if ($del->execute()) {
+                            // Log removal to a logfile with reason and admin
+                            $logfile = __DIR__ . '/user_removal_log.txt';
+                            $line = sprintf("%s | admin_id:%d | admin_name:%s | user_id:%d | user_name:%s | user_email:%s | reason:%s | ip:%s\n",
+                                date('Y-m-d H:i:s'),
+                                $admin_id,
+                                str_replace("\n", ' ', $admin['name']),
+                                $u['id'],
+                                str_replace("\n", ' ', $u['name']),
+                                $u['email'],
+                                str_replace(["\n","\r"], ' ', $reason),
+                                $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+                            );
+                            @file_put_contents($logfile, $line, FILE_APPEND | LOCK_EX);
+                            $message = 'User removed successfully.';
+                            // After deletion, refresh the page to update list (redirect to avoid repost)
+                            header('Location: user_present_chack_on_admin.php?msg=removed');
+                            exit();
+                        } else {
+                            $error = 'Failed to remove user. Database error.';
+                        }
+                    } else {
+                        $error = 'User not found.';
+                    }
+                } else {
+                    $error = 'Invalid admin password.';
+                }
+            } else {
+                $error = 'Admin record not found.';
+            }
+        }
+    }
+}
+
 // 1. Search functionality
 $search = '';
 if (isset($_GET['search']) && !empty($_GET['search'])) {
@@ -356,6 +427,54 @@ include 'admin_header.php';
             <span class="status-badge">Total: <?= $total_users ?> Users</span>
         </div>
 
+        <?php if (!empty($_GET['msg']) && $_GET['msg'] === 'removed'): ?>
+            <div style="padding:10px;border-radius:6px;background:#e6ffed;color:#1f7a3a;margin-bottom:1rem;">User removed successfully.</div>
+        <?php endif; ?>
+
+        <?php if (!empty($message)): ?>
+            <div style="padding:10px;border-radius:6px;background:#e6ffed;color:#1f7a3a;margin-bottom:1rem;"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
+
+        <?php if (!empty($error)): ?>
+            <div style="padding:10px;border-radius:6px;background:#ffecec;color:#9b2b2b;margin-bottom:1rem;"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <?php
+        // If remove_id is present in GET, fetch that user and show confirmation form
+        $selected_user = null;
+        if (isset($_GET['remove_id']) && is_numeric($_GET['remove_id'])) {
+            $rid = (int)$_GET['remove_id'];
+            $sstmt = $conn->prepare("SELECT id, name, email FROM users WHERE id = ? LIMIT 1");
+            $sstmt->bind_param('i', $rid);
+            $sstmt->execute();
+            $sres = $sstmt->get_result();
+            if ($sres && $sres->num_rows === 1) {
+                $selected_user = $sres->fetch_assoc();
+            }
+        }
+        ?>
+
+        <?php if ($selected_user): ?>
+        <div style="background:#fff3f2;border:1px solid #ffd6d2;padding:1rem;border-radius:8px;margin-bottom:1rem;">
+            <h3 style="margin-top:0;color:#b02a2a;">Confirm removal of user "<?= htmlspecialchars($selected_user['name']) ?>" (ID: <?= $selected_user['id'] ?>)</h3>
+            <form method="POST" style="display:block;gap:.5rem;">
+                <input type="hidden" name="remove_id" value="<?= $selected_user['id'] ?>">
+                <div style="margin-bottom:.5rem;">
+                    <label for="reason" style="font-weight:600;display:block;margin-bottom:.25rem;">Reason for removal</label>
+                    <textarea name="reason" id="reason" rows="3" required style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px;"></textarea>
+                </div>
+                <div style="margin-bottom:.5rem;">
+                    <label for="admin_password" style="font-weight:600;display:block;margin-bottom:.25rem;">Confirm with admin password</label>
+                    <input type="password" name="admin_password" id="admin_password" required style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div style="display:flex;gap:.5rem;">
+                    <button type="submit" name="remove_user" class="btn" style="background:#b02a2a;">Remove User</button>
+                    <a href="user_present_chack_on_admin.php" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+        <?php endif; ?>
+
         <!-- Statistics Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -433,6 +552,9 @@ include 'admin_header.php';
                     <div class="user-meta">
                         <i class="fas fa-clock"></i>
                         <?= date('h:i A', strtotime($user['created_at'])) ?>
+                    </div>
+                    <div style="margin-top:1rem;display:flex;gap:.5rem;">
+                        <a href="?remove_id=<?= $user['id'] ?>" class="btn btn-secondary" style="background:#d9534f;border-color:#d43f3a;">Remove</a>
                     </div>
                 </div>
                 <?php endforeach; ?>

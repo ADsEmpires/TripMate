@@ -1,11 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TripMate Admin - Error Testing</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
+<?php include 'admin_header.php'; ?>
+<?php if (!isset($_SESSION['admin_logged_in'])) { header('Location: login.php'); exit(); } ?>
+<style>
         :root {
             --primary: #2563eb;
             --secondary: #10b981;
@@ -383,5 +378,4 @@
             showNotification('Error testing page loaded successfully. Click buttons to test error scenarios.');
         });
     </script>
-</body>
-</html>
+<?php include 'admin_footer.php'; ?>

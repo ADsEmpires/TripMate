@@ -1,279 +1,278 @@
-<?php // Start of PHP code
-// Start the session for user authentication
+<?php
 session_start();
 
-// Database configuration variables
-$host = 'localhost'; // Hostname for MySQL server
-$dbname = 'tripmate'; // Name of the database
-$db_username = 'root'; // Username for database access
-$db_password = '';     // Password for database access
+$host = 'localhost';
+$dbname = 'tripmate';
+$db_username = 'root';
+$db_password = '';
 
-// Check if the request method is POST (form submitted)
+$error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Get username/email from POST data
-    $username = $_POST['username'] ?? '';
-    // Get password from POST data
+    $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    
-    try {
-        // Create PDO connection to MySQL database
-        $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $db_username, $db_password);
-        // Set PDO to throw exceptions on error
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Prepare SQL query to find admin by name or email
-        $stmt = $pdo->prepare("SELECT id, name, email, password FROM admin WHERE name = ? OR email = ? LIMIT 1");
-        // Execute query with username/email as parameters
-        $stmt->execute([$username, $username]);
-        // Fetch admin data from result
-        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // If admin found in database
-        if ($admin) {
-            // Password verification section
-            // If passwords are hashed in database, use password_verify
-            // If passwords are plain text, use direct comparison (not recommended)
-            
-            // For hashed passwords (recommended):
-            if (password_verify($password, $admin['password'])) {
-                // Set session variable for successful login
+
+    if ($username && $password) {
+        try {
+            $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $db_username, $db_password);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            $stmt = $pdo->prepare("SELECT id, name, email, password FROM admin WHERE name = ? OR email = ? LIMIT 1");
+            $stmt->execute([$username, $username]);
+            $admin = $stmt->fetch();
+
+            if ($admin && password_verify($password, $admin['password'])) {
                 $_SESSION['admin_logged_in'] = true;
-                // Store admin id in session
                 $_SESSION['admin_id'] = $admin['id'];
-                // Store admin name in session
                 $_SESSION['admin_name'] = $admin['name'];
-                // Store admin email in session
                 $_SESSION['admin_email'] = $admin['email'];
-                    // Redirect to admin_dasbord.php after login
-                    header('Location: admin_dasbord.php');
-                // Stop further execution
-                exit();
+
+                if (file_exists('ip_tracking.php')) {
+                    include_once 'ip_tracking.php';
+                    trackUserIP($admin['id'], $pdo);
+                }
+
+                header("Location: admin_dasbord.php");
+                exit;
             } else {
-                // Set error message for invalid password
-                $error = "Invalid credentials. Please try again.";
+                $error = "Invalid username or password.";
             }
-            
-            // For plain text passwords (use only for testing):
-            /*
-            // Compare plain text password
-            if ($password === $admin['password']) {
-                // Set session variable for successful login
-                $_SESSION['admin_logged_in'] = true;
-                // Store admin id in session
-                $_SESSION['admin_id'] = $admin['id'];
-                // Store admin name in session
-                $_SESSION['admin_name'] = $admin['name'];
-                // Store admin email in session
-                $_SESSION['admin_email'] = $admin['email'];
-                // Redirect to admin.php after login
-                header('Location: admin.php');
-                // Stop further execution
-                exit();
-            } else {
-                // Set error message for invalid password
-                $error = "Invalid credentials. Please try again.";
-            }
-            */
-        } else {
-            // Set error message if admin not found
-            $error = "Invalid credentials. Please try again.";
+        } catch (Exception $e) {
+            $error = "Server error. Try again.";
         }
-        
-    } catch (PDOException $e) {
-        // Set error message for database connection failure
-        $error = "Database connection failed. Please try again later.";
-        // Log error in production environment
-        // error_log($e->getMessage());
+    } else {
+        $error = "Please fill both fields.";
     }
 }
 ?>
 
-<!DOCTYPE html> <!-- Document type declaration -->
-<html lang="en"> <!-- Start of HTML document, language set to English -->
-<head> <!-- Head section starts -->
-    <meta charset="UTF-8"> <!-- Character encoding set to UTF-8 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive viewport settings -->
-    <title>TripMate Admin Portal</title> <!-- Page title -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> <!-- Font Awesome icons -->
-    <link rel="stylesheet" href="../main/style.css"> <!-- External stylesheet link -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - TripMate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-    /* Internal CSS styles start */
-
-        :root { /* CSS variables for theme colors */
-            --primary: #0056b3;
-            --primary-dark: #003d82;
-            --accent: #ff7e33;
-            --error: #d32f2f;
-            --text: #2d3748;
-            --text-light: #4a5568;
-            --border: #e2e8f0;
-            --bg: #f8fafc;
-        }
-        
-        body { /* Body styling */
-            font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            display: grid;
-            place-items: center;
-            min-height: 100vh;
+        * {
             margin: 0;
-            line-height: 1.5;
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" opacity="0.03"><path d="M50 0 L100 50 L50 100 L0 50 Z" fill="%230056b3"/></svg>');
-            background-size: 120px;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        .login-container { /* Login box styling */
-            width: 100%;
-            max-width: 440px;
-            padding: 2.5rem;
-            background: white;
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #ecfeff 0%, #fef3c7 100%);
+            color: #2d3748;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: 80px;
+            overflow-x: hidden;
+        }
+
+        /* === ORIGINAL TOP NAVBAR === */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid #e2e8f0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #14b8a6;
+        }
+        .logo i {
+            color: #f87171;
+            font-size: 1.8rem;
+        }
+        .back-btn {
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            border: 1px solid var(--border);
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .back-btn:hover {
+            background: rgba(20, 184, 166, 0.1);
+            color: #14b8a6;
+        }
+
+        /* === FLOATING 3D CARD (UNIQUE EFFECT) === */
+        .login-container {
+            margin: 2rem auto;
+            width: 100%;
+            max-width: 380px;
+            perspective: 1000px;
+        }
+        .login-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.08),
+                0 0 0 1px rgba(20, 184, 166, 0.08);
+            transition: all 0.4s ease;
+            transform-style: preserve-3d;
             position: relative;
             overflow: hidden;
         }
-        
-        .login-container::before { /* Top gradient bar */
+        .login-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
+            top: 0; left: 0; right: 0;
             height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--accent));
+            background: linear-gradient(90deg, #14b8a6, #f87171);
+            border-radius: 16px 16px 0 0;
         }
-        
-        .login-header { /* Header section styling */
-            margin-bottom: 2rem;
+        .login-card:hover {
+            transform: translateY(-8px) rotateX(4deg);
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.12),
+                0 0 0 1px rgba(20, 184, 166, 0.15);
+        }
+
+        h1 {
             text-align: center;
-        }
-        
-        .login-header h1 { /* Title styling */
-            font-size: 1.75rem;
-            font-weight: 700;
+            font-size: 1.5rem;
             margin-bottom: 0.5rem;
-            color: var(--primary);
+            color: #1a202c;
+            font-weight: 700;
         }
-        
-        .login-header p { /* Subtitle styling */
-            color: var(--text-light);
-            font-size: 0.9375rem;
-        }
-        
-        .error-message { /* Error message styling */
-            background-color: #fde8e8;
-            color: var(--error);
-            padding: 0.875rem;
-            border-radius: 6px;
-            margin-bottom: 1.5rem;
-            font-size: 0.9375rem;
+        p {
             text-align: center;
-            border: 1px solid #f8c6c6;
-        }
-        
-        .form-group { /* Form group spacing */
+            color: #718096;
+            font-size: 0.9rem;
             margin-bottom: 1.5rem;
         }
-        
-        .form-group label { /* Label styling */
+        .error {
+            background: #fee2e2;
+            color: #c53030;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            border: 1px solid #feb2b2;
+        }
+        label {
             display: block;
             margin-bottom: 0.5rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            color: var(--text);
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 0.95rem;
         }
-        
-        .form-control { /* Input field styling */
+        input {
             width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            padding: 0.9rem 1rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
             font-size: 1rem;
-            transition: all 0.2s;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            background: #fbfcfd;
         }
-        
-        .form-control:focus { /* Input focus effect */
+        input:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+            border-color: #14b8a6;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
         }
-        
-        .btn { /* Button styling */
+
+        /* === UNIQUE PULSE BUTTON === */
+        button {
             width: 100%;
-            padding: 0.875rem;
-            background-color: var(--primary);
+            padding: 0.95rem;
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        
-        .btn:hover { /* Button hover effect */
-            background-color: var(--primary-dark);
-            transform: translateY(-1px);
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
         }
-        
-        .security-footer { /* Footer styling */
-            margin-top: 2rem;
-            font-size: 0.8125rem;
-            color: var(--text-light);
-            text-align: center;
-            border-top: 1px solid var(--border);
-            padding-top: 1.5rem;
+        button:active::before {
+            width: 300px;
+            height: 300px;
         }
-        
-        .travel-icon { /* Travel icon styling */
-            display: inline-block;
-            margin: 0 5px;
-            vertical-align: middle;
+        button:hover {
+            background: linear-gradient(135deg, #0d9488, #0d7a6e);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(20, 184, 166, 0.3);
         }
-    </style> <!-- End of internal CSS -->
-</head> <!-- End of head section -->
-<body> <!-- Body starts -->
-    <nav class="navbar"> <!-- Navigation bar -->
-        <div class="logo"> <!-- Logo section -->
-            <i class="fas fa-compass"></i> <!-- Compass icon -->
-            <span>TripMate</span> <!-- Brand name -->
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .navbar { padding: 1rem; }
+            .login-container { margin: 1rem; }
+            .login-card { padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ORIGINAL NAVBAR -->
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-compass"></i>
+            <span>TripMate</span>
         </div>
-        <div class="nav-right"> <!-- Navigation right section -->
-            <a href="../main/index.html" class="back-btn">Back to Home</a> <!-- Back to home link -->
-        </div>
+        <a href="../main/index.html" class="back-btn">Back to Home</a>
     </nav>
 
-    <div class="login-container"> <!-- Login container -->
-        <div class="login-header"> <!-- Header inside login box -->
-            <h1>TripMate Admin Portal</h1> <!-- Main heading -->
-            <p>Access the travel management system</p> <!-- Subheading -->
-        </div>
-        
-        <?php if (isset($error)): ?> <!-- Show error if exists -->
-            <div class="error-message"><?= htmlspecialchars($error) ?></div> <!-- Error message -->
-        <?php endif; ?>
-        
-        <form method="POST" autocomplete="off"> <!-- Login form -->
-            <div class="form-group"> <!-- Username field group -->
-                <label for="username">Username or Email</label> <!-- Username label -->
-                <input type="text" id="username" name="username" class="form-control" required autofocus> <!-- Username input -->
-            </div>
-            
-            <div class="form-group"> <!-- Password field group -->
-                <label for="password">Password</label> <!-- Password label -->
-                <input type="password" id="password" name="password" class="form-control" required> <!-- Password input -->
-            </div>
-            
-            <button type="submit" class="btn">Sign In</button> <!-- Submit button -->
-        </form>
-        
-        <div class="security-footer"> <!-- Security footer -->
-            <span class="travel-icon">✈</span> <!-- Airplane icon -->
-            Authorized access only. All activities are monitored. <!-- Security message -->
-            <span class="travel-icon">🌍</span> <!-- Globe icon -->
+    <!-- FLOATING CARD WITH UNIQUE EFFECT -->
+    <div class="login-container">
+        <div class="login-card">
+            <h1>Admin Portal</h1>
+            <p>Secure access to TripMate dashboard</p>
+
+            <?php if ($error): ?>
+                <div class="error"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
+            <form method="POST">
+                <label>Username or Email</label>
+                <input type="text" name="username" required autofocus>
+
+                <label>Password</label>
+                <input type="password" name="password" required>
+
+                <button type="submit">Secure Login</button>
+            </form>
         </div>
     </div>
-</body> <!-- End of body -->
-</html> <!-- End of HTML document -->
+
+</body>
+</html>

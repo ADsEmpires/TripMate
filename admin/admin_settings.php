@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 // Generate unique filename
                 $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-                $filename = 'admin_profile_' . $_SESSION['admin_id'] . '_' . time() . '.' . $file_extension;
+                $filename = 'admin_profile_' . $SESSION['admin_id'] . '' . time() . '.' . $file_extension;
                 $file_path = $upload_dir . $filename;
                 
                 if (move_uploaded_file($file_tmp, $file_path)) {
@@ -897,7 +897,7 @@ $total_admins = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
         }
 
         function resetSystem() {
-            if (confirm('⚠️ WARNING: This will delete ALL data permanently. Are you absolutely sure?')) {
+            if (confirm('⚠ WARNING: This will delete ALL data permanently. Are you absolutely sure?')) {
                 if (confirm('This action cannot be undone. Type "DELETE" to confirm.')) {
                     showNotification('System reset initiated. Please wait...', 'error');
                 }
@@ -906,7 +906,7 @@ $total_admins = $pdo->query("SELECT COUNT(*) FROM admin")->fetchColumn();
 
         function showNotification(message, type) {
             const notification = document.createElement('div');
-            notification.className = `alert alert-${type}`;
+            notification.className =    `alert alert-${type}`;
             notification.innerHTML = `
                 <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
                 ${message}

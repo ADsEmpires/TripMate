@@ -1,12 +1,7 @@
 <?php
 session_start();
-// --- Breadcrumb handling (no UI output here, just track current page) ---
-$current_page = ['name' => 'Delete Destination', 'url' => basename($_SERVER['PHP_SELF'])];
-$_SESSION['admin_current_page'] = $current_page;
-// -------------------------------------------------------------
-
 if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: ../auth/login.html');
+    header('Location: login.php');
     exit();
 }
 

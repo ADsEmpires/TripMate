@@ -25,10 +25,11 @@ $selected_tips = json_decode($destination['tips'], true) ?: [];
 $selected_cuisines = json_decode($destination['cuisines'], true) ?: [];
 $cuisine_images = json_decode($destination['cuisine_images'], true) ?: [];
 $selected_languages = json_decode($destination['language'], true) ?: [];
+$selected_attractions = json_decode($destination['attractions'], true) ?: [];
 
 if (!$destination) {
     $_SESSION['message'] = "Destination not found!";
-    header("Location: add_destination_on_admin.php");
+    header("Location: add_destanition_on_admin.php");
     exit();
 }
 
@@ -44,13 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $people_array = isset($_POST['people']) ? $_POST['people'] : [];
     $people_json = json_encode($people_array);
 
-    // Handle attractions - convert from textarea (one per line) to JSON array
+    // Handle attractions - dynamic multi-option field
     $attractions_json = '[]';
-    if (!empty($_POST['attractions'])) {
-        // Split the textarea content by new lines, trim whitespace, and remove empty lines
-        $attractions_array = array_filter(array_map('trim', explode("\n", $_POST['attractions'])));
+    if (isset($_POST['attractions']) && is_array($_POST['attractions'])) {
+        // Filter out empty values and trim whitespace
+        $attractions_array = array_filter(array_map('trim', $_POST['attractions']));
         if (!empty($attractions_array)) {
-            $attractions_json = json_encode(array_values($attractions_array)); // Re-index array
+            $attractions_json = json_encode(array_values($attractions_array));
         }
     }
 
@@ -697,13 +698,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
             </div>
 
+            <!-- Top Attractions Section -->
+            <div class="form-group cuisine-section">
+                <label><i class="fas fa-star"></i> Top Attractions</label>
+                <small style="color: #666; margin-bottom: 1rem; display: block;">
+                    Add top tourist attractions and must-visit places at this destination.
+                </small>
+
+                <div id="attractions-container">
+                    <?php
+                    $attraction_counter = 0;
+                    if (!empty($selected_attractions) && is_array($selected_attractions)):
+                        foreach ($selected_attractions as $attraction):
+                            if (!empty(trim($attraction))): ?>
+                                <div class="cuisine-item" data-index="<?= $attraction_counter ?>">
+                                    <div class="form-group">
+                                        <label for="attraction_<?= $attraction_counter ?>">Attraction Name</label>
+                                        <input type="text" id="attraction_<?= $attraction_counter ?>"
+                                            name="attractions[]" class="form-control"
+                                            value="<?= htmlspecialchars($attraction) ?>"
+                                            placeholder="e.g., Taj Mahal, Eiffel Tower, Grand Canyon">
+                                    </div>
+
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="removeAttraction(this)">
+                                        <i class="fas fa-trash"></i> Remove Attraction
+                                    </button>
+                                </div>
+                    <?php
+                                $attraction_counter++;
+                            endif;
+                        endforeach;
+                    endif; ?>
+
+                    <!-- Empty template for new attraction -->
+                    <div class="attraction-item-template" style="display: none;">
+                        <div class="cuisine-item">
+                            <div class="form-group">
+                                <label>Attraction Name</label>
+                                <input type="text" name="attractions[]" class="form-control"
+                                    placeholder="e.g., Taj Mahal, Eiffel Tower, Grand Canyon">
+                            </div>
+
+                            <button type="button" class="btn btn-outline btn-sm" onclick="removeAttraction(this)">
+                                <i class="fas fa-trash"></i> Remove Attraction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-outline" onclick="addAttraction()">
+                    <i class="fas fa-plus"></i> Add Another Attraction
+                </button>
+            </div>
+
             <div class="form-group">
                 <label for="map_link"><i class="fas fa-map"></i> Google Map Link</label>
                 <input type="url" id="map_link" name="map_link" class="form-control" value="<?= htmlspecialchars($destination['map_link']) ?>" required>
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn btn-outline" onclick="window.location.href='add_destination_on_admin.php'">
+                <button type="button" class="btn btn-outline" onclick="window.location.href='add_destanition_on_admin.php'">
                     <i class="fas fa-times"></i> Cancel
                 </button>
                 <button type="submit" class="btn btn-primary">
@@ -758,6 +812,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function removeCuisine(button) {
             const cuisineItem = button.closest('.cuisine-item');
             cuisineItem.remove();
+        }
+
+        // Attractions management
+        function addAttraction() {
+            const container = document.getElementById('attractions-container');
+            const template = container.querySelector('.attraction-item-template');
+            const newAttraction = template.querySelector('.cuisine-item').cloneNode(true);
+
+            // Append to container before the template
+            container.insertBefore(newAttraction, template);
+        }
+
+        function removeAttraction(button) {
+            const attractionItem = button.closest('.cuisine-item');
+            attractionItem.remove();
         }
 
         // Image modal functions
