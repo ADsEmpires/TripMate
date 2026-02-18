@@ -1,0 +1,93 @@
+-- Additional schema objects referenced by the enhanced destination_details.php
+-- Run these CREATE TABLE statements (adjust types/names to match your conventions)
+
+-- 1) Normalized favorites table (recommended)
+CREATE TABLE IF NOT EXISTS `favorites` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `destination_id` INT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `u_user_dest` (`user_id`,`destination_id`),
+  KEY `idx_destination` (`destination_id`),
+  CONSTRAINT `fk_favorites_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_favorites_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 2) Normalized views table (for efficient history & rate limiting)
+CREATE TABLE IF NOT EXISTS `views` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT DEFAULT NULL,
+  `destination_id` INT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_destination` (`destination_id`),
+  KEY `idx_user` (`user_id`),
+  CONSTRAINT `fk_views_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_views_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 3) Reviews table (used to display ratings & reviews)
+CREATE TABLE IF NOT EXISTS `reviews` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `destination_id` INT NOT NULL,
+  `user_id` INT DEFAULT NULL,
+  `rating` TINYINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  `comment` TEXT DEFAULT NULL,
+  `images_json` JSON DEFAULT NULL,        -- optional: JSON array of uploaded image filenames
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  KEY `idx_destination` (`destination_id`),
+  KEY `idx_user` (`user_id`),
+  CONSTRAINT `fk_reviews_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reviews_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 4) Itineraries (user trip planner)
+CREATE TABLE IF NOT EXISTS `itineraries` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `name` VARCHAR(255) DEFAULT 'My Trip',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT `fk_itineraries_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `itinerary_items` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `itinerary_id` INT NOT NULL,
+  `destination_id` INT NOT NULL,
+  `day_slot` INT DEFAULT 1,
+  `notes` TEXT DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_itinerary` (`itinerary_id`),
+  KEY `idx_destination` (`destination_id`),
+  CONSTRAINT `fk_itinerary_items_itinerary` FOREIGN KEY (`itinerary_id`) REFERENCES `itineraries` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_itinerary_items_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 5) Points of Interest (optional for map markers)
+CREATE TABLE IF NOT EXISTS `pois` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `destination_id` INT DEFAULT NULL, -- optional to link POI to a destination
+  `name` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(80) DEFAULT NULL, -- e.g. attraction, hotel, restaurant
+  `latitude` DECIMAL(10,7) NOT NULL,
+  `longitude` DECIMAL(10,7) NOT NULL,
+  `meta` JSON DEFAULT NULL,
+  KEY `idx_latlng` (`latitude`, `longitude`),
+  KEY `idx_destination` (`destination_id`),
+  CONSTRAINT `fk_pois_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 6) Optional: backup user_history normalization helper (if you still use user_history)
+CREATE TABLE IF NOT EXISTS `user_history_normalized` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `activity_type` VARCHAR(50) NOT NULL,
+  `destination_id` INT DEFAULT NULL,
+  `activity_details` JSON DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_user` (`user_id`),
+  KEY `idx_activity` (`activity_type`),
+  KEY `idx_destination` (`destination_id`),
+  CONSTRAINT `fk_uhn_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_uhn_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
