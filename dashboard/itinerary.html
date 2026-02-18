@@ -1,170 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Travel Itinerary Generator - TripMate</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="dashboard.css">
-    <link rel="stylesheet" href="itinerary.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-</head>
-<body>
-    <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="navbar-content">
-            <div class="logo">
-                <i class="fas fa-compass"></i>
-                <span>TripMate</span>
-            </div>
-            <div class="user-profile">
-                <span id="username">User</span>
-                <img id="userAvatar" src="../image/default-avatar.png" alt="User Avatar" class="avatar">
-            </div>
-        </div>
-    </nav>
+<select id="destination-dropdown"></select>
 
-    <div class="dashboard-container">
-        <!-- Sidebar Navigation -->
-        <div class="sidebar">
-            <button class="minimize-btn" onclick="toggleSidebar()">☰</button>
-            <nav>
-                <ul>
-                    <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> <span>Dashboard</span></a></li>
-                    <li><a href="../search/search.html"><i class="fas fa-search"></i> <span>Search</span></a></li>
-                    <li><a href="price_tracker.html"><i class="fas fa-tag"></i> <span>Price Tracker</span></a></li>
-                    <li><a href="itinerary.html" class="active"><i class="fas fa-calendar"></i> <span>Itineraries</span></a></li>
-                    <li><a href="reviews.html"><i class="fas fa-star"></i> <span>Reviews</span></a></li>
-                    <li><a href="rewards.html"><i class="fas fa-gift"></i> <span>Rewards</span></a></li>
-                    <li><a href="../user/user_profile.php"><i class="fas fa-user"></i> <span>Profile</span></a></li>
-                </ul>
-            </nav>
-        </div>
+<script>
+async function fetchDestinations() {
+    try {
+        const response = await fetch('actions/get_destinations.php');
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        const destinations = await response.json();
+        const dropdown = document.getElementById('destination-dropdown');
+        dropdown.innerHTML = '';
+        destinations.forEach(destination => {
+            const option = document.createElement('option');
+            option.value = destination.id; // Assuming destination object has an 'id'
+            option.textContent = destination.name; // Assuming destination object has a 'name'
+            dropdown.appendChild(option);
+        });
+    } catch (error) {
+        console.error('There has been a problem with your fetch operation:', error);
+    }
+}
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="page-header">
-                <h1>📅 AI Travel Itinerary Generator</h1>
-                <p>Create personalized travel plans with AI recommendations</p>
-            </div>
-
-            <!-- Create Itinerary Section -->
-            <div class="card itinerary-form-section">
-                <h2>✨ Create Your Perfect Trip</h2>
-                <form id="itineraryForm" class="itinerary-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="destination">🗺️ Select Destination</label>
-                            <select id="destination" required>
-                                <option value="">-- Loading destinations... --</option>
-                            </select>
-                            <small>Select your dream destination</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="travelStyle">✈️ Travel Style</label>
-                            <select id="travelStyle" required>
-                                <option value="">-- Select style --</option>
-                                <option value="adventure">🏔️ Adventure Seeker</option>
-                                <option value="relaxation">🏖️ Relaxation Focused</option>
-                                <option value="cultural">🏛️ Cultural Explorer</option>
-                                <option value="luxury">✨ Luxury Travel</option>
-                                <option value="budget">💰 Budget Conscious</option>
-                            </select>
-                            <small>How do you like to travel?</small>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="departureDate">📅 Departure Date</label>
-                            <input type="date" id="departureDate" required>
-                            <small>When are you leaving?</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="returnDate">📅 Return Date</label>
-                            <input type="date" id="returnDate" required>
-                            <small>When are you returning?</small>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="budget">💵 Total Budget (USD)</label>
-                            <input type="number" id="budget" min="100" step="100" placeholder="e.g., 2000" required>
-                            <small>Total trip budget</small>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="companions">👥 Number of Companions</label>
-                            <select id="companions" required>
-                                <option value="">-- Select --</option>
-                                <option value="1">Just Me (Solo)</option>
-                                <option value="2">2 People (Couple)</option>
-                                <option value="3">3 People</option>
-                                <option value="4">4 People (Family)</option>
-                                <option value="5">5+ People (Group)</option>
-                            </select>
-                            <small>Who's traveling with you?</small>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group full-width">
-                            <label for="interests">🎯 Interests (Optional)</label>
-                            <div class="interests-grid">
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="food">
-                                    <span>🍽️ Food & Cuisine</span>
-                                </label>
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="adventure">
-                                    <span>🏔️ Adventure Sports</span>
-                                </label>
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="culture">
-                                    <span>🏛️ History & Culture</span>
-                                </label>
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="nature">
-                                    <span>🌿 Nature & Wildlife</span>
-                                </label>
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="shopping">
-                                    <span>🛍�� Shopping</span>
-                                </label>
-                                <label class="interest-checkbox">
-                                    <input type="checkbox" name="interests" value="nightlife">
-                                    <span>🎉 Nightlife</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn-generate">
-                        <i class="fas fa-magic"></i>
-                        Generate Itinerary with AI
-                    </button>
-                </form>
-            </div>
-
-            <!-- Loading State -->
-            <div id="loadingState" class="card" style="display: none; text-align: center;">
-                <div class="loading-spinner">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </div>
-                <p style="margin-top: 1rem; color: var(--primary); font-weight: 600;">
-                    ✨ Creating your personalized itinerary...
-                </p>
-            </div>
-
-            <!-- Itinerary Display -->
-            <div id="itineraryResult"></div>
-        </div>
-    </div>
-
-    <script src="dashboard.js"></script>
-    <script src="itinerary.js"></script>
-</body>
-</html>
+fetchDestinations();
+</script>
