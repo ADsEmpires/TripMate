@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="itinerary.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -18,7 +19,7 @@
             </div>
             <div class="user-profile">
                 <span id="username">User</span>
-                <img id="userAvatar" src="default-avatar.png" alt="User Avatar" class="avatar">
+                <img id="userAvatar" src="../image/default-avatar.png" alt="User Avatar" class="avatar">
             </div>
         </div>
     </nav>
@@ -55,22 +56,7 @@
                         <div class="form-group">
                             <label for="destination">🗺️ Select Destination</label>
                             <select id="destination" required>
-                                <option value="">-- Choose a destination --</option>
-                                <option value="paris">🗼 Paris, France</option>
-                                <option value="tokyo">🗾 Tokyo, Japan</option>
-                                <option value="newyork">🗽 New York, USA</option>
-                                <option value="london">🇬🇧 London, UK</option>
-                                <option value="dubai">🏙️ Dubai, UAE</option>
-                                <option value="bali">🏝️ Bali, Indonesia</option>
-                                <option value="barcelona">🏖️ Barcelona, Spain</option>
-                                <option value="bangkok">🛕 Bangkok, Thailand</option>
-                                <option value="singapore">🌃 Singapore</option>
-                                <option value="sydney">🦘 Sydney, Australia</option>
-                                <option value="rome">🇮🇹 Rome, Italy</option>
-                                <option value="istanbul">🕌 Istanbul, Turkey</option>
-                                <option value="losangeles">🌴 Los Angeles, USA</option>
-                                <option value="vienna">🎼 Vienna, Austria</option>
-                                <option value="amsterdam">🚲 Amsterdam, Netherlands</option>
+                                <option value="">-- Loading destinations... --</option>
                             </select>
                             <small>Select your dream destination</small>
                         </div>
@@ -146,7 +132,7 @@
                                 </label>
                                 <label class="interest-checkbox">
                                     <input type="checkbox" name="interests" value="shopping">
-                                    <span>🛍️ Shopping</span>
+                                    <span>🛍�� Shopping</span>
                                 </label>
                                 <label class="interest-checkbox">
                                     <input type="checkbox" name="interests" value="nightlife">
@@ -168,23 +154,13 @@
                 <div class="loading-spinner">
                     <i class="fas fa-spinner fa-spin"></i>
                 </div>
-                <p style="margin-top: 1rem; color: #16034f; font-weight: 600;">
+                <p style="margin-top: 1rem; color: var(--primary); font-weight: 600;">
                     ✨ Creating your personalized itinerary...
                 </p>
             </div>
 
             <!-- Itinerary Display -->
             <div id="itineraryResult"></div>
-
-            <!-- My Itineraries Section -->
-            <div class="card my-itineraries-section" id="myItinerariesSection" style="display: none;">
-                <h2>📚 My Saved Itineraries</h2>
-                <div id="savedItinerariesList" class="itineraries-list">
-                    <div class="empty-state">
-                        <p>No saved itineraries yet. Create one above!</p>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 

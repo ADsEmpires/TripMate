@@ -1,67 +1,109 @@
-/* Itinerary Page Styles */
+/* ===========================
+   ITINERARY PAGE MAIN STYLES
+   =========================== */
 
-/* Base Card Styles */
+:root {
+    --primary: #16034f;
+    --secondary: #ff6600;
+    --accent: #00c2cb;
+    --light: #f5f7fa;
+    --dark: #333;
+    --white: #fff;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.12);
+    --nav-height: 70px;
+    --sidebar-width: 256px;
+}
+
+/* ===========================
+   PAGE HEADER
+   =========================== */
+
+.page-header {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-header p {
+    margin: 0;
+    opacity: 0.95;
+    font-size: 1rem;
+}
+
+/* ===========================
+   CARD CONTAINER
+   =========================== */
+
 .card {
     background: white;
     border-radius: 12px;
     padding: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+    box-shadow: var(--shadow);
     margin-bottom: 2rem;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
 }
 
 .card h2 {
-    color: #16034f;
+    color: var(--primary);
     font-size: 1.5rem;
-    margin-top: 0;
-    margin-bottom: 1.5rem;
+    margin: 0 0 1.5rem 0;
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
+
+/* ===========================
+   ITINERARY FORM SECTION
+   =========================== */
 
 .itinerary-form-section {
     background: linear-gradient(135deg, #f9f9f9, #fff);
-    border: 2px solid #ff6600;
+    border: 2px solid var(--secondary);
+    border-radius: 12px;
 }
 
 .itinerary-form-section h2 {
-    color: #16034f;
+    color: var(--primary);
     font-size: 1.6rem;
     margin-bottom: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-/* Page Header */
-.page-header {
-    margin-bottom: 2rem;
-}
-
-.page-header h1 {
-    color: #16034f;
-    font-size: 2rem;
-    margin: 0 0 0.5rem 0;
-}
-
-.page-header p {
-    color: #666;
-    font-size: 1.1rem;
-    margin: 0;
 }
 
 .itinerary-form {
     background: white;
-    padding: 2rem;
-    border-radius: 12px;
+    padding: 1.5rem;
+    border-radius: 8px;
     border: 1px solid #eee;
 }
 
+/* ===========================
+   FORM LAYOUT
+   =========================== */
+
 .form-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1.5rem;
     margin-bottom: 1.5rem;
+}
+
+.form-row:last-of-type {
+    margin-bottom: 0;
 }
 
 .form-group {
@@ -73,9 +115,13 @@
     grid-column: 1 / -1;
 }
 
+/* ===========================
+   FORM INPUTS
+   =========================== */
+
 .form-group label {
     font-weight: 600;
-    color: #16034f;
+    color: var(--primary);
     margin-bottom: 0.75rem;
     font-size: 0.95rem;
 }
@@ -86,15 +132,28 @@
     border: 2px solid #ddd;
     border-radius: 6px;
     font-size: 1rem;
-    transition: all 0.3s;
     background: white;
+    color: #333;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.form-group input::placeholder {
+    color: #999;
 }
 
 .form-group input:focus,
 .form-group select:focus {
     outline: none;
-    border-color: #ff6600;
+    border-color: var(--secondary);
     box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
 }
 
 .form-group small {
@@ -103,11 +162,15 @@
     margin-top: 0.25rem;
 }
 
-/* Interests Grid */
+/* ===========================
+   INTERESTS GRID
+   =========================== */
+
 .interests-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 1rem;
+    margin-top: 1rem;
 }
 
 .interest-checkbox {
@@ -115,28 +178,29 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    background: #f5f5f5;
+    background: #f9f9f9;
     border: 2px solid #ddd;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
     user-select: none;
 }
 
 .interest-checkbox:hover {
     background: #fff;
-    border-color: #ff6600;
+    border-color: var(--secondary);
+    transform: translateY(-2px);
 }
 
 .interest-checkbox input[type="checkbox"] {
     cursor: pointer;
     width: 18px;
     height: 18px;
-    accent-color: #ff6600;
+    accent-color: var(--secondary);
 }
 
 .interest-checkbox input[type="checkbox"]:checked + span {
-    color: #ff6600;
+    color: var(--secondary);
     font-weight: 600;
 }
 
@@ -146,10 +210,13 @@
     font-weight: 500;
 }
 
-/* Generate Button */
+/* ===========================
+   BUTTONS
+   =========================== */
+
 .btn-generate {
     width: 100%;
-    background: linear-gradient(135deg, #16034f, #ff6600);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
     padding: 1rem;
     border: none;
@@ -157,29 +224,72 @@
     cursor: pointer;
     font-size: 1.05rem;
     font-weight: 600;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    gap: 0.75rem;
+    margin-top: 2rem;
 }
 
-.btn-generate:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(22, 3, 79, 0.3);
+.btn-generate:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-generate:active:not(:disabled) {
+    transform: translateY(-1px);
 }
 
 .btn-generate:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    transform: none;
 }
 
-/* Loading Spinner */
+.btn-action {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-action.primary {
+    background: var(--secondary);
+    color: white;
+}
+
+.btn-action.primary:hover {
+    background: #e65c00;
+    transform: translateY(-2px);
+}
+
+.btn-action.secondary {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+
+.btn-action.secondary:hover {
+    background: var(--primary);
+    color: white;
+}
+
+/* ===========================
+   LOADING STATE
+   =========================== */
+
 .loading-spinner {
+    display: inline-block;
     font-size: 2.5rem;
-    color: #ff6600;
+    color: var(--secondary);
     animation: spin 1s linear infinite;
 }
 
@@ -188,17 +298,20 @@
     100% { transform: rotate(360deg); }
 }
 
-/* Itinerary Display */
+/* ===========================
+   ITINERARY DISPLAY
+   =========================== */
+
 .itinerary-display {
     background: white;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow);
     margin-bottom: 2rem;
 }
 
 .itinerary-header {
-    background: linear-gradient(135deg, #16034f, #ff6600);
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
     color: white;
     padding: 2rem;
 }
@@ -211,39 +324,45 @@
 
 .itinerary-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1rem;
-    margin-top: 1rem;
-    font-size: 0.9rem;
+    margin-top: 1.5rem;
+    font-size: 0.95rem;
 }
 
 .meta-item {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
 }
 
 .meta-item i {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
 }
 
-/* Day Cards */
+/* ===========================
+   DAY CARDS
+   =========================== */
+
 .day-card {
-    border-left: 5px solid #ff6600;
+    border-left: 5px solid var(--secondary);
     padding: 1.5rem;
     margin: 1rem;
     background: #f9f9f9;
     border-radius: 6px;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
 .day-card:hover {
     background: #fff;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow);
 }
 
 .day-card h3 {
-    color: #16034f;
+    color: var(--primary);
     margin: 0 0 0.75rem 0;
     font-size: 1.2rem;
 }
@@ -254,33 +373,43 @@
     line-height: 1.6;
 }
 
-/* Activities List */
+/* ===========================
+   ACTIVITIES LIST
+   =========================== */
+
 .activities-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .activity {
     background: white;
     padding: 1rem;
     border-radius: 6px;
-    border-left: 3px solid #00c2cb;
+    border-left: 3px solid var(--accent);
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 1rem;
-    transition: all 0.3s;
+    transition: all 0.3s ease;
 }
 
 .activity:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow);
+    transform: translateX(4px);
+}
+
+.activity-info {
+    flex: 1;
 }
 
 .activity-info h4 {
     margin: 0 0 0.25rem 0;
     color: #333;
     font-weight: 600;
+    font-size: 0.95rem;
 }
 
 .activity-meta {
@@ -292,57 +421,27 @@
     margin-top: 0.5rem;
 }
 
+.activity-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 .activity-cost {
     font-weight: 700;
-    color: #ff6600;
+    color: var(--secondary);
     text-align: right;
     white-space: nowrap;
+    font-size: 1.1rem;
 }
 
-.itinerary-actions {
-    padding: 1.5rem;
-    background: #f9f9f9;
-    display: flex;
-    gap: 1rem;
-    border-top: 1px solid #eee;
-}
+/* ===========================
+   ITINERARY SUMMARY
+   =========================== */
 
-.btn-action {
-    flex: 1;
-    padding: 0.75rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s;
-    font-size: 0.95rem;
-}
-
-.btn-action.primary {
-    background: #ff6600;
-    color: white;
-}
-
-.btn-action.primary:hover {
-    background: #e65c00;
-    transform: translateY(-2px);
-}
-
-.btn-action.secondary {
-    background: white;
-    color: #16034f;
-    border: 2px solid #16034f;
-}
-
-.btn-action.secondary:hover {
-    background: #16034f;
-    color: white;
-}
-
-/* Summary Stats */
 .itinerary-summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 1rem;
     padding: 1.5rem;
     background: linear-gradient(135deg, #f9f9f9, #fff);
@@ -355,18 +454,72 @@
 
 .summary-label {
     color: #999;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
     margin-bottom: 0.5rem;
+    font-weight: 600;
 }
 
 .summary-value {
-    color: #ff6600;
-    font-size: 1.5rem;
+    color: var(--secondary);
+    font-size: 1.8rem;
     font-weight: 700;
 }
 
-/* Empty State */
+/* ===========================
+   ITINERARY ACTIONS
+   =========================== */
+
+.itinerary-actions {
+    padding: 1.5rem;
+    background: #f9f9f9;
+    display: flex;
+    gap: 1rem;
+    border-top: 1px solid #eee;
+    flex-wrap: wrap;
+}
+
+/* ===========================
+   MESSAGES
+   =========================== */
+
+.error-message {
+    background: #fef2f2;
+    color: #991b1b;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid #dc3545;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.error-message i {
+    font-size: 1.2rem;
+}
+
+.success-message {
+    background: #f0fdf4;
+    color: #22863a;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid #28a745;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.success-message i {
+    font-size: 1.2rem;
+}
+
+/* ===========================
+   EMPTY STATE
+   =========================== */
+
 .empty-state {
     text-align: center;
     padding: 3rem 2rem;
@@ -381,12 +534,51 @@
 
 .empty-state p {
     font-size: 1rem;
+    margin: 0;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* ===========================
+   RESPONSIVE DESIGN
+   =========================== */
+
+@media (max-width: 1024px) {
+    .card {
+        padding: 1.5rem;
+    }
+
     .form-row {
         grid-template-columns: 1fr;
+    }
+
+    .interests-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .itinerary-actions {
+        flex-direction: column;
+    }
+
+    .btn-action {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .page-header {
+        padding: 1.5rem;
+    }
+
+    .card {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-row {
+        gap: 1rem;
     }
 
     .interests-grid {
@@ -411,29 +603,47 @@
 
     .itinerary-actions {
         flex-direction: column;
+        gap: 0.75rem;
     }
 
     .btn-action {
         width: 100%;
     }
+
+    .itinerary-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
-/* Error Message */
-.error-message {
-    background: #fee;
-    color: #c33;
-    padding: 1rem;
-    border-radius: 6px;
-    margin: 1rem 0;
-    border-left: 4px solid #c33;
-}
+@media (max-width: 480px) {
+    .page-header {
+        padding: 1rem;
+    }
 
-/* Success Message */
-.success-message {
-    background: #efe;
-    color: #3c3;
-    padding: 1rem;
-    border-radius: 6px;
-    margin: 1rem 0;
-    border-left: 4px solid #3c3;
+    .page-header h1 {
+        font-size: 1.2rem;
+    }
+
+    .card {
+        padding: 1rem;
+    }
+
+    .form-row {
+        gap: 0.75rem;
+    }
+
+    .btn-generate {
+        padding: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .itinerary-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .activity-meta {
+        gap: 0.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
