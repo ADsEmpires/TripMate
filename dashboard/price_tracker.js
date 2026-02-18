@@ -1,54 +1,75 @@
-// Price Tracker functionality
-let priceChart = null;
 const API_BASE = '../actions';
+let priceChart = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadDestinations();
-    loadActiveAlerts();
-    loadPriceTrends();
-    loadBestDeals();
+    loadUserAlerts();
     updateStats();
+    loadBestDeals();
     
-    // Set minimum date to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('departureDate').min = today;
-    document.getElementById('returnDate').min = today;
-    
-    // Form submission
+    // Attach form listener
     document.getElementById('priceAlertForm').addEventListener('submit', handleCreateAlert);
+    
+    // Auto-refresh every 5 minutes
+    setInterval(updateStats, 5 * 60 * 1000);
 });
 
-// Load destinations for dropdown
+// Load destinations
 function loadDestinations() {
     fetch(`${API_BASE}/get_destinations.php`)
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.destinations) {
                 const select = document.getElementById('destination');
                 data.destinations.forEach(dest => {
                     const option = document.createElement('option');
                     option.value = dest.id;
-                    option.textContent = dest.name;
+                    option.textContent = `${dest.name} - ${dest.location}`;
                     select.appendChild(option);
+                });
+                
+                // Load price trends on destination change
+                select.addEventListener('change', function() {
+                    if (this.value) {
+                        loadPriceTrends(this.value);
+                    }
                 });
             }
         })
         .catch(error => console.error('Error loading destinations:', error));
 }
 
-// Handle form submission
+// Create price alert
 function handleCreateAlert(e) {
     e.preventDefault();
     
+    const destinationId = document.getElementById('destination').value;
+    const departureDate = document.getElementById('departureDate').value;
+    const returnDate = document.getElementById('returnDate').value;
+    const maxPrice = document.getElementById('maxPrice').value;
+    const frequency = document.getElementById('frequency').value;
+    const method = document.getElementById('notificationMethod').value;
+    const alertType = document.getElementById('alertType').value;
+    
+    if (!destinationId || !departureDate || !returnDate || !maxPrice) {
+        showNotification('Please fill in all required fields', 'warning');
+        return;
+    }
+    
+    if (new Date(returnDate) <= new Date(departureDate)) {
+        showNotification('Return date must be after departure date', 'error');
+        return;
+    }
+    
     const formData = {
-        destination_id: parseInt(document.getElementById('destination').value),
-        alert_type: document.getElementById('alertType').value,
-        travel_dates_from: document.getElementById('departureDate').value,
-        travel_dates_to: document.getElementById('returnDate').value,
-        max_price: parseFloat(document.getElementById('maxPrice').value),
-        alert_frequency: document.getElementById('frequency').value,
-        notification_method: document.getElementById('notificationMethod').value
+        destination_id: parseInt(destinationId),
+        alert_type: alertType,
+        travel_dates_from: departureDate,
+        travel_dates_to: returnDate,
+        max_price: parseFloat(maxPrice),
+        alert_frequency: frequency,
+        notification_method: method
     };
     
     fetch(`${API_BASE}/track_prices.php`, {
@@ -61,28 +82,67 @@ function handleCreateAlert(e) {
         if (data.status === 'success') {
             showNotification('Price alert created successfully!', 'success');
             document.getElementById('priceAlertForm').reset();
-            loadActiveAlerts();
+            loadUserAlerts();
             updateStats();
         } else {
-            showNotification(data.message, 'error');
+            showNotification(data.message || 'Failed to create alert', 'error');
         }
     })
     .catch(error => {
-        showNotification('Error creating alert', 'error');
         console.error('Error:', error);
+        showNotification('Error creating alert', 'error');
     });
 }
 
-// Load and display active alerts
-function loadActiveAlerts() {
+// Load user alerts
+function loadUserAlerts() {
     fetch(`${API_BASE}/get_user_alerts.php`)
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success' && data.alerts.length > 0) {
-                displayAlerts(data.alerts);
+            const container = document.getElementById('alertsList');
+            
+            if (data.status === 'success' && data.alerts && data.alerts.length > 0) {
+                let html = '';
+                data.alerts.forEach(alert => {
+                    const status = alert.is_active ? '🟢 Active' : '⭕ Inactive';
+                    html += `
+                        <div class="alert-item">
+                            <div class="alert-item-content">
+                                <h3>${escapeHtml(alert.destination_name)}</h3>
+                                <div class="alert-item-details">
+                                    <div class="alert-item-detail">
+                                        <i class="fas fa-calendar"></i>
+                                        ${formatDate(alert.travel_dates_from)} to ${formatDate(alert.travel_dates_to)}
+                                    </div>
+                                    <div class="alert-item-detail">
+                                        <i class="fas fa-money-bill"></i>
+                                        Alert at $${parseFloat(alert.max_price).toFixed(2)}
+                                    </div>
+                                    <div class="alert-item-detail">
+                                        <i class="fas fa-bell"></i>
+                                        ${capitalizeFirstLetter(alert.alert_frequency)}
+                                    </div>
+                                    <div class="alert-item-detail">
+                                        ${status}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert-item-actions">
+                                <button class="btn-secondary btn-small" onclick="editAlert(${alert.id})">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn-secondary btn-small" onclick="deleteAlert(${alert.id})">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
             } else {
-                document.getElementById('alertsList').innerHTML = `
+                container.innerHTML = `
                     <div class="empty-state">
+                        <i class="fas fa-bell"></i>
                         <p>No active alerts yet. Create one above to get started!</p>
                     </div>
                 `;
@@ -91,50 +151,12 @@ function loadActiveAlerts() {
         .catch(error => console.error('Error loading alerts:', error));
 }
 
-// Display alerts
-function displayAlerts(alerts) {
-    const container = document.getElementById('alertsList');
-    container.innerHTML = alerts.map(alert => `
-        <div class="alert-item">
-            <div class="alert-item-content">
-                <h3>${alert.destination_name}</h3>
-                <div class="alert-item-details">
-                    <div class="alert-item-detail">
-                        <span>📅</span>
-                        <span>${formatDate(alert.travel_dates_from)} to ${formatDate(alert.travel_dates_to)}</span>
-                    </div>
-                    <div class="alert-item-detail">
-                        <span>💰</span>
-                        <span>Alert at $${alert.max_price}</span>
-                    </div>
-                    <div class="alert-item-detail">
-                        <span>📬</span>
-                        <span>${alert.alert_frequency}</span>
-                    </div>
-                    <div class="alert-item-detail">
-                        <span>${alert.is_active ? '🟢' : '⭕'}</span>
-                        <span>${alert.is_active ? 'Active' : 'Inactive'}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="alert-item-actions">
-                <button class="btn-secondary" onclick="editAlert(${alert.id})">Edit</button>
-                <button class="btn-secondary" onclick="deleteAlert(${alert.id})">Delete</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-// Load price trends and chart
-function loadPriceTrends() {
-    const destinationId = document.getElementById('destination').value;
-    
-    if (!destinationId) return;
-    
+// Load price trends
+function loadPriceTrends(destinationId) {
     fetch(`${API_BASE}/get_prices.php?destination_id=${destinationId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
+            if (data.status === 'success' && data.data && data.data.price_trends) {
                 displayPriceChart(data.data.price_trends);
             }
         })
@@ -148,14 +170,17 @@ function displayPriceChart(trends) {
     const ctx = document.getElementById('priceChart');
     if (!ctx) return;
     
-    // Destroy existing chart if it exists
+    // Destroy existing chart
     if (priceChart) {
         priceChart.destroy();
     }
     
+    const flightTrends = trends.filter(t => t.travel_type === 'flight');
+    const hotelTrends = trends.filter(t => t.travel_type === 'hotel');
+    
     const labels = trends.map(t => formatDate(t.date));
-    const flightPrices = trends.filter(t => t.travel_type === 'flight').map(t => t.average_price);
-    const hotelPrices = trends.filter(t => t.travel_type === 'hotel').map(t => t.average_price);
+    const flightData = flightTrends.map(t => parseFloat(t.average_price));
+    const hotelData = hotelTrends.map(t => parseFloat(t.average_price));
     
     priceChart = new Chart(ctx, {
         type: 'line',
@@ -164,27 +189,31 @@ function displayPriceChart(trends) {
             datasets: [
                 {
                     label: '✈️ Flight Prices',
-                    data: flightPrices,
+                    data: flightData,
                     borderColor: '#ff6600',
                     backgroundColor: 'rgba(255, 102, 0, 0.1)',
-                    borderWidth: 2,
+                    borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 5,
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#ff6600'
+                    pointBackgroundColor: '#ff6600',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
                 },
                 {
                     label: '🏨 Hotel Prices',
-                    data: hotelPrices,
+                    data: hotelData,
                     borderColor: '#00c2cb',
                     backgroundColor: 'rgba(0, 194, 203, 0.1)',
-                    borderWidth: 2,
+                    borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 5,
                     pointHoverRadius: 7,
-                    pointBackgroundColor: '#00c2cb'
+                    pointBackgroundColor: '#00c2cb',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
                 }
             ]
         },
@@ -194,7 +223,15 @@ function displayPriceChart(trends) {
             plugins: {
                 legend: {
                     display: true,
-                    position: 'top'
+                    position: 'top',
+                    labels: {
+                        font: { size: 12, weight: 600 },
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                },
+                filler: {
+                    propagate: true
                 }
             },
             scales: {
@@ -202,7 +239,18 @@ function displayPriceChart(trends) {
                     beginAtZero: false,
                     title: {
                         display: true,
-                        text: 'Price (USD)'
+                        text: 'Price (USD)',
+                        font: { size: 12, weight: 600 }
+                    },
+                    grid: {
+                        drawBorder: false,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
                     }
                 }
             }
@@ -215,28 +263,40 @@ function loadBestDeals() {
     fetch(`${API_BASE}/get_best_deals.php`)
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success' && data.deals.length > 0) {
-                displayDeals(data.deals);
+            const container = document.getElementById('bestDeals');
+            
+            if (data.status === 'success' && data.deals && data.deals.length > 0) {
+                let html = '';
+                data.deals.forEach(deal => {
+                    html += `
+                        <div class="deal-card">
+                            <h3>${escapeHtml(deal.destination_name)}</h3>
+                            <div class="deal-price">$${parseFloat(deal.price).toFixed(2)}</div>
+                            <div class="deal-savings">
+                                <i class="fas fa-arrow-down"></i>
+                                Save up to ${deal.price_drop}%
+                            </div>
+                            <div class="deal-info">
+                                <div><i class="fas fa-calendar"></i> ${formatDate(deal.travel_date)}</div>
+                                <div><i class="fas fa-clock"></i> Book ${deal.best_booking_window} days before</div>
+                            </div>
+                            <button class="deal-button" onclick="bookNow(${deal.destination_id})">
+                                <i class="fas fa-arrow-right"></i> Book Now
+                            </button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <p>No deals available. Set price alerts to discover amazing offers!</p>
+                    </div>
+                `;
             }
         })
         .catch(error => console.error('Error loading deals:', error));
-}
-
-// Display deals
-function displayDeals(deals) {
-    const container = document.getElementById('bestDeals');
-    container.innerHTML = deals.map(deal => `
-        <div class="deal-card">
-            <h3>${deal.destination_name}</h3>
-            <div class="deal-price">$${deal.price}</div>
-            <div class="deal-savings">Save up to ${deal.price_drop}%</div>
-            <div class="deal-info">
-                <div>📅 ${formatDate(deal.travel_date)}</div>
-                <div>⏱️ Best booked ${deal.best_booking_window} days before</div>
-            </div>
-            <button class="deal-button" onclick="bookNow('${deal.destination_id}')">Book Now</button>
-        </div>
-    `).join('');
 }
 
 // Update statistics
@@ -245,10 +305,10 @@ function updateStats() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                document.getElementById('activeAlerts').textContent = data.active_alerts;
-                document.getElementById('pricesDown').textContent = data.prices_down;
-                document.getElementById('totalSavings').textContent = '$' + data.total_savings;
-                document.getElementById('bestTime').textContent = data.best_booking_days + ' days';
+                document.getElementById('activeAlerts').textContent = data.active_alerts || 0;
+                document.getElementById('pricesDown').textContent = data.prices_down || 0;
+                document.getElementById('totalSavings').textContent = '$' + (data.total_savings || 0);
+                document.getElementById('bestTime').textContent = (data.best_booking_days || 30) + ' days';
             }
         })
         .catch(error => console.error('Error updating stats:', error));
@@ -267,11 +327,26 @@ function deleteAlert(alertId) {
     .then(data => {
         if (data.status === 'success') {
             showNotification('Alert deleted successfully', 'success');
-            loadActiveAlerts();
+            loadUserAlerts();
             updateStats();
+        } else {
+            showNotification('Failed to delete alert', 'error');
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error deleting alert', 'error');
+    });
+}
+
+// Edit alert (placeholder)
+function editAlert(alertId) {
+    showNotification('Edit feature coming soon!', 'warning');
+}
+
+// Book now
+function bookNow(destinationId) {
+    window.location.href = `../search/search.html?destination=${destinationId}`;
 }
 
 // Utility functions
@@ -281,34 +356,4 @@ function formatDate(dateString) {
         month: 'short',
         day: 'numeric'
     });
-}
-
-function showNotification(message, type) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-        <span>${message}</span>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Animate in
-    setTimeout(() => notification.classList.add('show'), 10);
-    
-    // Remove after 5 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 5000);
-}
-
-function toggleSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    sidebar.classList.toggle('minimized');
-}
-
-function bookNow(destinationId) {
-    window.location.href = `search.html?destination=${destinationId}`;
 }

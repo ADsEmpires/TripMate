@@ -1,0 +1,439 @@
+/* Itinerary Page Styles */
+
+/* Base Card Styles */
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+    margin-bottom: 2rem;
+}
+
+.card h2 {
+    color: #16034f;
+    font-size: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.itinerary-form-section {
+    background: linear-gradient(135deg, #f9f9f9, #fff);
+    border: 2px solid #ff6600;
+}
+
+.itinerary-form-section h2 {
+    color: #16034f;
+    font-size: 1.6rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Page Header */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    color: #16034f;
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+}
+
+.page-header p {
+    color: #666;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.itinerary-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid #eee;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #16034f;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group select {
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #ff6600;
+    box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+}
+
+.form-group small {
+    color: #999;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* Interests Grid */
+.interests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.interest-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #f5f5f5;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    user-select: none;
+}
+
+.interest-checkbox:hover {
+    background: #fff;
+    border-color: #ff6600;
+}
+
+.interest-checkbox input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    accent-color: #ff6600;
+}
+
+.interest-checkbox input[type="checkbox"]:checked + span {
+    color: #ff6600;
+    font-weight: 600;
+}
+
+.interest-checkbox span {
+    flex: 1;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Generate Button */
+.btn-generate {
+    width: 100%;
+    background: linear-gradient(135deg, #16034f, #ff6600);
+    color: white;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(22, 3, 79, 0.3);
+}
+
+.btn-generate:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    font-size: 2.5rem;
+    color: #ff6600;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Itinerary Display */
+.itinerary-display {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.itinerary-header {
+    background: linear-gradient(135deg, #16034f, #ff6600);
+    color: white;
+    padding: 2rem;
+}
+
+.itinerary-header h2 {
+    margin: 0;
+    font-size: 1.8rem;
+    color: white;
+}
+
+.itinerary-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.meta-item i {
+    font-size: 1.1rem;
+}
+
+/* Day Cards */
+.day-card {
+    border-left: 5px solid #ff6600;
+    padding: 1.5rem;
+    margin: 1rem;
+    background: #f9f9f9;
+    border-radius: 6px;
+    transition: all 0.3s;
+}
+
+.day-card:hover {
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.day-card h3 {
+    color: #16034f;
+    margin: 0 0 0.75rem 0;
+    font-size: 1.2rem;
+}
+
+.day-card p {
+    color: #666;
+    margin: 0 0 1rem 0;
+    line-height: 1.6;
+}
+
+/* Activities List */
+.activities-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.activity {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border-left: 3px solid #00c2cb;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    transition: all 0.3s;
+}
+
+.activity:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.activity-info h4 {
+    margin: 0 0 0.25rem 0;
+    color: #333;
+    font-weight: 600;
+}
+
+.activity-meta {
+    font-size: 0.85rem;
+    color: #999;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.activity-cost {
+    font-weight: 700;
+    color: #ff6600;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.itinerary-actions {
+    padding: 1.5rem;
+    background: #f9f9f9;
+    display: flex;
+    gap: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.btn-action {
+    flex: 1;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s;
+    font-size: 0.95rem;
+}
+
+.btn-action.primary {
+    background: #ff6600;
+    color: white;
+}
+
+.btn-action.primary:hover {
+    background: #e65c00;
+    transform: translateY(-2px);
+}
+
+.btn-action.secondary {
+    background: white;
+    color: #16034f;
+    border: 2px solid #16034f;
+}
+
+.btn-action.secondary:hover {
+    background: #16034f;
+    color: white;
+}
+
+/* Summary Stats */
+.itinerary-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f9f9f9, #fff);
+    border-top: 1px solid #eee;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-label {
+    color: #999;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.summary-value {
+    color: #ff6600;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    font-size: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .interests-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .itinerary-header h2 {
+        font-size: 1.4rem;
+    }
+
+    .itinerary-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .activity {
+        flex-direction: column;
+    }
+
+    .activity-cost {
+        text-align: left;
+    }
+
+    .itinerary-actions {
+        flex-direction: column;
+    }
+
+    .btn-action {
+        width: 100%;
+    }
+}
+
+/* Error Message */
+.error-message {
+    background: #fee;
+    color: #c33;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid #c33;
+}
+
+/* Success Message */
+.success-message {
+    background: #efe;
+    color: #3c3;
+    padding: 1rem;
+    border-radius: 6px;
+    margin: 1rem 0;
+    border-left: 4px solid #3c3;
+}
