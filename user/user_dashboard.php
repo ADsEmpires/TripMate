@@ -1,16 +1,90 @@
 <?php
-// Simulate user data - in a real application, this would come from a database or session
-$userData = [
-    'name' => "Argha Akhuli",
-    'shortName' => "Argha",
-    'lastLogin' => "2 days ago"
-];
+session_start();
+require_once __DIR__ . '/../database/dbconfig.php';
+
+// Get current user from session
+$user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+$userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : (isset($_SESSION['username']) ? $_SESSION['username'] : 'Guest');
+$userAvatar = isset($_SESSION['user_avatar']) ? $_SESSION['user_avatar'] : 'default-avatar.png';
+
+// Get user recommendations
+$recommendations = [];
+$rec_stmt = $conn->prepare("SELECT id, name, type, location, budget, image_urls FROM destinations ORDER BY RAND() LIMIT 4");
+if ($rec_stmt) {
+  $rec_stmt->execute();
+  $rec_result = $rec_stmt->get_result();
+  while ($row = $rec_result->fetch_assoc()) {
+    $recommendations[] = $row;
+  }
+  $rec_stmt->close();
+}
+
+// Get user travel history
+$travel_history = [];
+if ($user_id) {
+  $history_stmt = $conn->prepare("SELECT activity_type, activity_details, created_at FROM user_history WHERE user_id = ? AND activity_type = 'trip' ORDER BY created_at DESC LIMIT 5");
+  $history_stmt->bind_param("i", $user_id);
+  $history_stmt->execute();
+  $history_result = $history_stmt->get_result();
+  while ($row = $history_result->fetch_assoc()) {
+    $travel_history[] = $row;
+  }
+  $history_stmt->close();
+}
+
+// Get search history
+$search_history = [];
+if ($user_id) {
+  $search_stmt = $conn->prepare("SELECT * FROM search_history WHERE user_id = ? ORDER BY search_date DESC LIMIT 5");
+  $search_stmt->bind_param("i", $user_id);
+  $search_stmt->execute();
+  $search_result = $search_stmt->get_result();
+  while ($row = $search_result->fetch_assoc()) {
+    $query = $row['search_query'] ?? $row['query'] ?? $row['search_term'] ?? $row['term'] ?? '';
+    $date  = $row['search_date']  ?? $row['created_at'] ?? $row['date'] ?? null;
+
+    $search_history[] = [
+      'search_query' => $query,
+      'search_date'  => $date
+    ];
+  }
+  $search_stmt->close();
+}
+
+// Get active price alerts count
+$active_alerts = 0;
+if ($user_id) {
+  $alert_stmt = $conn->prepare("SELECT COUNT(*) as count FROM price_alerts WHERE user_id = ? AND is_active = 1");
+  $alert_stmt->bind_param("i", $user_id);
+  $alert_stmt->execute();
+  $alert_result = $alert_stmt->get_result();
+  if ($row = $alert_result->fetch_assoc()) {
+    $active_alerts = $row['count'];
+  }
+  $alert_stmt->close();
+}
+
+// Get favorite destinations count
+$favorites_count = 0;
+if ($user_id) {
+  $fav_stmt = $conn->prepare("SELECT COUNT(*) as count FROM favorites WHERE user_id = ?");
+  $fav_stmt->bind_param("i", $user_id);
+  $fav_stmt->execute();
+  $fav_result = $fav_stmt->get_result();
+  if ($row = $fav_result->fetch_assoc()) {
+    $favorites_count = $row['count'];
+  }
+  $fav_stmt->close();
+}
+
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <title>Tripmate — User Dashboard</title>
+  <title>TripMate — User Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,131 +94,558 @@ $userData = [
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Chart.js for price trends -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  
   <style>
-    .nav-blue-bg {
-      background-color: #1e3a8a;
+    :root {
+      --primary: #16034f;
+      --secondary: #ff6600;
+      --accent: #00c2cb;
+      --light: #f5f7fa;
+      --dark: #333;
+      --white: #fff;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --nav-height: 70px;
+      --sidebar-width: 256px;
     }
-    .orange-button {
-      background-color: #ea580c;
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    .orange-button:hover {
-      background-color: #c2410c;
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--light);
+      padding-top: var(--nav-height);
+      padding-left: var(--sidebar-width);
+      min-height: 100vh;
     }
+
+    /* Navigation Bar */
     .floating-nav {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
+      height: var(--nav-height);
+      background: linear-gradient(135deg, var(--primary), #1a0840);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 2rem;
       z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--shadow);
     }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .nav-logo i {
+      color: var(--secondary);
+      font-size: 1.8rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: white;
+      text-decoration: none;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+    }
+
+    .nav-links a:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--secondary);
+    }
+
+    /* Sidebar */
     .floating-sidebar {
       position: fixed;
-      top: 64px; /* Height of the floating nav */
-      bottom: 0;
       left: 0;
-      z-index: 900;
+      top: var(--nav-height);
+      width: var(--sidebar-width);
+      height: calc(100vh - var(--nav-height));
+      background: linear-gradient(180deg, var(--primary), #1a0840);
+      color: white;
+      padding: 1.5rem 0;
       overflow-y: auto;
+      z-index: 900;
+      box-shadow: var(--shadow);
     }
-    body {
-      padding-top: 64px; /* Height of the floating nav */
-      padding-left: 256px; /* Width of the sidebar */
+
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 1rem;
     }
-    .main-content {
-      margin-left: 0;
+
+    .sidebar-nav {
+      padding: 0 1rem;
     }
-    .map-container {
-      height: 320px;
+
+    .nav-section {
+      margin-bottom: 2rem;
     }
-    .trip-card {
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    .nav-section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 1rem 1rem 0.5rem;
+      font-weight: 600;
+      letter-spacing: 1px;
     }
-    .trip-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+
+    .nav-item {
+      list-style: none;
+      margin-bottom: 0.5rem;
     }
-    .details-panel {
-      max-height: 0;
+
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      border-radius: 6px;
+      transition: all 0.3s;
+      font-size: 0.95rem;
+    }
+
+    .nav-item a:hover,
+    .nav-item a.active {
+      background: var(--secondary);
+      color: white;
+      padding-left: 1.25rem;
+    }
+
+    .nav-item i {
+      width: 1.25rem;
+      text-align: center;
+    }
+
+    .sidebar-alert-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.5rem;
+      height: 1.5rem;
+      background: var(--secondary);
+      color: white;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-left: auto;
+    }
+
+    .sidebar-user {
+      padding: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: auto;
+    }
+
+    .sidebar-user-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .sidebar-user-level {
+      font-size: 0.8rem;
+      color: var(--secondary);
+      margin-top: 0.25rem;
+    }
+
+    /* Profile Button */
+    .profile-button {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--secondary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .profile-button:hover {
+      background: #e65c00;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 102, 0, 0.3);
+    }
+
+    .profile-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      min-width: 200px;
+      margin-top: 0.5rem;
+      display: none;
+      z-index: 10;
       overflow: hidden;
-      transition: max-height 0.5s ease;
     }
-    .details-panel.open {
-      max-height: 500px;
+
+    .profile-menu.show {
+      display: block;
     }
-    .place-item {
-      transition: transform 0.2s ease;
+
+    .profile-menu a,
+    .profile-menu button {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.75rem 1.25rem;
+      border: none;
+      background: none;
+      text-align: left;
+      cursor: pointer;
+      color: var(--dark);
+      text-decoration: none;
+      transition: all 0.3s;
+      font-size: 0.95rem;
     }
-    .place-item:hover {
-      transform: translateX(5px);
+
+    .profile-menu a:hover,
+    .profile-menu button:hover {
+      background: var(--light);
+      color: var(--secondary);
     }
+
+    .profile-menu hr {
+      margin: 0.5rem 0;
+      border: none;
+      border-top: 1px solid var(--light);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 2rem;
+    }
+
+    .page-header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .page-header h2 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      border-left: 4px solid var(--secondary);
+      transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    .stat-icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin: 0.5rem 0;
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+    }
+
+    .card h3 {
+      color: var(--primary);
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    /* Recommendations Grid */
+    .recommendations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .destination-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .destination-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .destination-image {
+      width: 100%;
+      height: 180px;
+      background: #f0f0f0;
+      object-fit: cover;
+    }
+
+    .destination-content {
+      padding: 1.25rem;
+    }
+
+    .destination-name {
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .destination-location {
+      color: #999;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .destination-price {
+      color: var(--secondary);
+      font-weight: 700;
+      font-size: 1.2rem;
+    }
+
+    /* Price Tracker Widget */
+    .price-tracker-widget {
+      background: linear-gradient(135deg, #fff9f0, #fff);
+      border: 2px solid var(--secondary);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .price-tracker-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .price-tracker-header h3 {
+      margin: 0;
+      color: var(--primary);
+      font-size: 1.3rem;
+    }
+
+    .price-tracker-badge {
+      background: var(--secondary);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .price-tracker-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--secondary);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s;
+      margin-top: 1rem;
+    }
+
+    .price-tracker-link:hover {
+      background: #e65c00;
+      transform: translateX(4px);
+    }
+
+    /* Map */
+    #map {
+      height: 320px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* Responsive */
     @media (max-width: 1024px) {
       body {
         padding-left: 0;
       }
+
       .floating-sidebar {
         transform: translateX(-100%);
-        transition: transform 0.3s ease;
+        transition: transform 0.3s;
       }
+
       .floating-sidebar.open {
         transform: translateX(0);
       }
-      .main-content {
-        margin-left: 0;
+
+      .nav-links {
+        display: none;
       }
+
       .sidebar-toggle {
         display: block;
       }
     }
-    /* Hide zoom controls on map */
+
+    @media (max-width: 768px) {
+      .floating-nav {
+        padding: 0 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .recommendations-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .page-header h2 {
+        font-size: 1.4rem;
+      }
+    }
+
     .leaflet-control-zoom {
       display: none !important;
     }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #999;
+    }
+
+    .empty-state i {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.5;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
-<body class="bg-gray-50">
 
-  <!-- Floating Navigation Bar -->
-  <nav class="floating-nav nav-blue-bg text-white p-4 flex justify-between items-center">
-    <!-- Logo and Brand -->
-    <div class="flex items-center">
-      <i class="fas fa-compass text-2xl mr-2 text-orange-500"></i>
-      <h1 class="text-xl font-bold">Tripmate</h1>
+<body class="bg-gray-50">
+  <!-- Navigation Bar -->
+  <nav class="floating-nav">
+    <div class="nav-logo">
+      <i class="fas fa-compass"></i>
+      <span>TripMate</span>
     </div>
-    
-    <!-- Navigation Links -->
-    <div class="hidden md:flex items-center space-x-6">
-      <a href="index.php" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-home mr-1"></i> Home
-      </a>
-      <a href="search.php" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-search mr-1"></i> Search
-      </a>
-      <a href="#" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-suitcase mr-1"></i> My Trips
-      </a>
-    </div>
-    
-    <!-- Mobile Menu Button -->
-    <button class="md:hidden sidebar-toggle text-white" onclick="toggleSidebar()">
-      <i class="fas fa-bars text-xl"></i>
-    </button>
-    
-    <!-- Profile Section -->
-    <div class="flex items-center space-x-4">
-      <!-- Profile Dropdown -->
-      <div class="relative">
-        <button id="profileBtn" class="orange-button text-white rounded-full px-4 py-2 font-medium hover:bg-orange-700 transition flex items-center">
-          <i class="fas fa-user-circle mr-2"></i> 
-          <span id="username" class="hidden md:inline"><?php echo $userData['name']; ?></span>
+
+    <ul class="nav-links" style="display: none;">
+      <li><a href="../main/index.html"><i class="fas fa-home"></i> Home</a></li>
+      <li><a href="../search/search.html"><i class="fas fa-search"></i> Search</a></li>
+      <li><a href="../user/my_trips.html"><i class="fas fa-suitcase"></i> My Trips</a></li>
+    </ul>
+
+    <div style="display: flex; align-items: center; gap: 1.5rem;">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; display: none;">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <div style="position: relative;">
+        <button class="profile-button" id="profileBtn" onclick="toggleProfileMenu()">
+          <i class="fas fa-user-circle"></i>
+          <span id="profileName" style="display: none;"><?php echo htmlspecialchars($userName); ?></span>
         </button>
 
-        <!-- Dropdown -->
-        <div id="profileMenu" class="hidden absolute right-0 mt-2 w-40 bg-white border rounded shadow-md z-10">
-          <a href="#" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">
-            <i class="fas fa-user mr-2"></i> My Profile
+        <div class="profile-menu" id="profileMenu">
+          <a href="../user/user_profile.php">
+            <i class="fas fa-user"></i>
+            My Profile
           </a>
-          <button id="logoutBtn" class="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100">
-            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+          <a href="../user/favourites.html">
+            <i class="fas fa-heart"></i>
+            Favorites
+          </a>
+          <a href="../dashboard/price_tracker.html">
+            <i class="fas fa-tag"></i>
+            Price Tracker
+          </a>
+          <hr>
+          <button onclick="logout()" style="color: #c33;">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
           </button>
         </div>
       </div>
@@ -152,475 +653,318 @@ $userData = [
   </nav>
 
   <!-- Sidebar -->
-  <aside class="floating-sidebar w-64 nav-blue-bg text-white shadow-md flex flex-col">
-    <div class="px-6 py-4 border-b border-blue-700">
-      <!-- Logo removed from sidebar as requested -->
+  <aside class="floating-sidebar">
+    <div class="sidebar-header">
+      <h3 style="margin: 0; font-size: 1.1rem;">Navigation</h3>
     </div>
-    <nav class="flex-1 px-4 py-6 space-y-4">
-      <button class="orange-button w-full text-left font-medium py-2 px-4 rounded-lg flex items-center">
-        <i class="fas fa-robot mr-2"></i> Travel Assistant
-      </button>
-      <ul class="space-y-3">
-        <li>
-          <a href="my_trips.php" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-suitcase mr-3"></i> My Trips
-          </a>
-        </li>
-        <li>
-          <a href="#" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-blog mr-3"></i> Blog
-          </a>
-        </li>
-        <li>
-          <a href="favourites.php" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-heart mr-3"></i> Favourites
-          </a>
-        </li>
-        <li>
-          <a href="#" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-calculator mr-3"></i> Budget Planner
-          </a>
-        </li>
-      </ul>
+
+    <nav class="sidebar-nav">
+      <!-- Main Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">Main</div>
+        <ul>
+          <li class="nav-item">
+            <a href="user_dashboard.php" class="active">
+              <i class="fas fa-th-large"></i>
+              Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../search/search.html">
+              <i class="fas fa-search"></i>
+              Search Destinations
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Travel Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">Travel</div>
+        <ul>
+          <li class="nav-item">
+            <a href="my_trips.html">
+              <i class="fas fa-suitcase"></i>
+              My Trips
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="favourites.html">
+              <i class="fas fa-heart"></i>
+              Favorites
+              <?php if ($favorites_count > 0): ?>
+                <span class="sidebar-alert-badge"><?php echo $favorites_count; ?></span>
+              <?php endif; ?>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Planning Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">Planning</div>
+        <ul>
+          <li class="nav-item">
+            <a href="../dashboard/price_tracker.html">
+              <i class="fas fa-tag"></i>
+              💰 Price Tracker
+              <?php if ($active_alerts > 0): ?>
+                <span class="sidebar-alert-badge"><?php echo $active_alerts; ?></span>
+              <?php endif; ?>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../tools/budget_planner.html">
+              <i class="fas fa-calculator"></i>
+              Budget Planner
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="user_profile.php">
+              <i class="fas fa-user"></i>
+              My Profile
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- More Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">More</div>
+        <ul>
+          <li class="nav-item">
+            <a href="../blog/blog.html">
+              <i class="fas fa-blog"></i>
+              Blog & Tips
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="../main/index.html">
+              <i class="fas fa-home"></i>
+              Back to Home
+            </a>
+          </li>
+        </ul>
+      </div>
     </nav>
-    <div class="px-6 py-4 border-t border-blue-700">
-      <p class="text-sm font-medium"><?php echo $userData['name']; ?></p>
-      <span class="text-xs text-orange-300">Free Account</span>
+
+    <div class="sidebar-user">
+      <div class="sidebar-user-name" id="sidebarUserName"><?php echo htmlspecialchars($userName); ?></div>
+      <div class="sidebar-user-level" id="sidebarUserLevel">Member Account</div>
     </div>
   </aside>
 
   <!-- Main Content -->
-  <main class="main-content flex-1 p-8 space-y-10">
-
-    <!-- Welcome Notice -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-700 text-white p-6 rounded-2xl shadow-lg">
-      <h2 class="text-2xl font-bold mb-2">Welcome back, <span id="welcomeUsername"><?php echo $userData['shortName']; ?></span>!</h2>
-      <p class="text-blue-100">We've missed you! Your last login was <span id="lastLogin"><?php echo $userData['lastLogin']; ?></span>. Ready to plan your next adventure?</p>
+  <main class="main-content">
+    <!-- Page Header -->
+    <div class="page-header">
+      <h2>Welcome back, <span id="welcomeName"><?php echo htmlspecialchars($userName); ?></span>! 👋</h2>
+      <p>Here's what's happening with your travels today.</p>
     </div>
 
-    <!-- Header -->
-    <div class="flex justify-between items-center relative">
-      <div>
-        <h2 class="text-lg font-semibold">Your travel dashboard</h2>
-        <p class="text-2xl font-bold">Tell us your <span class="text-blue-600">Travel Plan</span> in one sentence</p>
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-label">Active Price Alerts</div>
+        <div class="stat-value"><?php echo $active_alerts; ?></div>
       </div>
-      <div class="flex items-center space-x-4 text-sm">
-
-        <!-- Language -->
-        <select class="border rounded px-2 py-1">
-          <option>English (US)</option>
-          <option>English (IN)</option>
-        </select>
-
-        <!-- Currency -->
-        <select class="border rounded px-2 py-1">
-          <option>INR (₹)</option>
-          <option>USD ($)</option>
-          <option>EUR (€)</option>
-        </select>
-
-        <!-- Notification -->
-        <button class="relative p-2 rounded-full hover:bg-gray-200 transition">
-          <i class="fas fa-bell"></i>
-        </button>
+      <div class="stat-card">
+        <div class="stat-icon">❤️</div>
+        <div class="stat-label">Favorite Places</div>
+        <div class="stat-value"><?php echo $favorites_count; ?></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🗺️</div>
+        <div class="stat-label">Destinations Explored</div>
+        <div class="stat-value"><?php echo count($travel_history); ?></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔍</div>
+        <div class="stat-label">Recent Searches</div>
+        <div class="stat-value"><?php echo count($search_history); ?></div>
       </div>
     </div>
 
-    <!-- Suggested Trips -->
-    <div class="flex flex-wrap gap-2">
-      <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">Romantic 3-day trip in Paris</span>
-      <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">I have 5 days in Japan</span>
-      <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">I want a 7-day trip to New Zealand</span>
-    </div>
-
-    <!-- Recommended Destinations -->
-    <div>
-      <h3 class="text-lg font-semibold mb-6">Where you should go next</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Kyoto Card -->
-        <div class="bg-white rounded-2xl shadow hover:shadow-lg transition overflow-hidden trip-card">
-          <img src="https://images.unsplash.com/photo-1504893524553-b8553fbb1d2d" class="h-40 w-full object-cover">
-          <div class="p-4">
-            <p class="font-semibold">Kyoto</p>
-            <p class="text-sm text-gray-500">Cherry blossoms in full bloom this week!</p>
-            <p class="text-sm mt-2">₹70,000 – ₹95,000</p>
-            <p class="text-xs text-gray-400">Now – Apr 5</p>
-          </div>
-        </div>
-        <!-- Bali Card -->
-        <div class="bg-white rounded-2xl shadow hover:shadow-lg transition overflow-hidden trip-card">
-          <img src="https://images.unsplash.com/photo-1518548419970-58e3b4079ab2" class="h-40 w-full object-cover">
-          <div class="p-4">
-            <p class="font-semibold">Bali</p>
-            <p class="text-sm text-gray-500">Perfect tropical getaway</p>
-            <p class="text-sm mt-2">₹50,000 – ₹75,000</p>
-            <p class="text-xs text-gray-400">Year-round destination</p>
-          </div>
-        </div>
-        <!-- Paris Card -->
-        <div class="bg-white rounded-2xl shadow hover:shadow-lg transition overflow-hidden trip-card">
-          <img src="https://images.unsplash.com/photo-1502602898657-3e91760cbb34" class="h-40 w-full object-cover">
-          <div class="p-4">
-            <p class="font-semibold">Paris</p>
-            <p class="text-sm text-gray-500">The city of love and lights</p>
-            <p class="text-sm mt-2">₹85,000 – ₹1,20,000</p>
-            <p class="text-xs text-gray-400">Best in Spring</p>
-          </div>
-        </div>
-        <!-- New Zealand Card -->
-        <div class="bg-white rounded-2xl shadow hover:shadow-lg transition overflow-hidden trip-card">
-          <img src="https://images.unsplash.com/photo-1507699622108-4be3abd695ad" class="h-40 w-full object-cover">
-          <div class="p-4">
-            <p class="font-semibold">New Zealand</p>
-            <p class="text-sm text-gray-500">Adventure awaits</p>
-            <p class="text-sm mt-2">₹1,20,000 – ₹1,80,000</p>
-            <p class="text-xs text-gray-400">Nov - Mar</p>
-          </div>
-        </div>
+    <!-- Price Tracker Widget -->
+    <div class="price-tracker-widget">
+      <div class="price-tracker-header">
+        <h3>💰 Price Tracker</h3>
+        <span class="price-tracker-badge"><?php echo $active_alerts; ?> Active Alerts</span>
       </div>
+      <p style="color: #666; margin: 0 0 1rem 0;">
+        Monitor flight and hotel prices for your favorite destinations. Get instant alerts when prices drop!
+      </p>
+      <a href="../dashboard/price_tracker.html" class="price-tracker-link">
+        <i class="fas fa-arrow-right"></i>
+        Go to Price Tracker
+      </a>
     </div>
 
-    <!-- 🌍 Travel Map -->
-    <div>
-      <h3 class="text-lg font-semibold mb-4">Your Travel Map</h3>
-      <div id="map" class="w-full map-container rounded-2xl shadow"></div>
+    <!-- Personalized Recommendations -->
+    <div class="card">
+      <h3>
+        <i class="fas fa-star"></i>
+        Personalized Recommendations
+      </h3>
+      <?php if (count($recommendations) > 0): ?>
+        <div class="recommendations-grid">
+          <?php foreach ($recommendations as $dest): ?>
+            <div class="destination-card" onclick="window.location.href='../search/search.html?dest=<?php echo urlencode($dest['name']); ?>'">
+              <?php 
+                $image_url = 'placeholder.png';
+                if (!empty($dest['image_urls'])) {
+                  try {
+                    $images = json_decode($dest['image_urls'], true);
+                    if (is_array($images) && count($images) > 0) {
+                      $image_url = $images[0];
+                    }
+                  } catch (Exception $e) {}
+                }
+              ?>
+              <img src="<?php echo htmlspecialchars($image_url); ?>" alt="<?php echo htmlspecialchars($dest['name']); ?>" class="destination-image" onerror="this.src='../image/placeholder.png'">
+              <div class="destination-content">
+                <div class="destination-name"><?php echo htmlspecialchars($dest['name']); ?></div>
+                <div class="destination-location">
+                  <i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($dest['location']); ?>
+                </div>
+                <div class="destination-price">
+                  ₹<?php echo number_format($dest['budget']); ?>/person
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No recommendations available yet. Try searching for destinations!</p>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- Travel Map -->
+    <div class="card">
+      <h3>
+        <i class="fas fa-map"></i>
+        Your Travel Map
+      </h3>
+      <div id="map"></div>
     </div>
 
     <!-- Travel History -->
-    <div class="bg-white rounded-2xl shadow p-6">
-      <h3 class="text-lg font-semibold mb-6">Your Travel History</h3>
-      <div class="space-y-6">
-        <!-- Trip 1 -->
-        <div class="border-b pb-6">
-          <div class="flex items-start">
-            <img src="https://images.unsplash.com/photo-1549144511-f3a4c0e012ae" class="w-24 h-24 rounded-lg object-cover mr-4">
-            <div class="flex-1">
-              <h4 class="font-semibold">Bali Adventure</h4>
-              <p class="text-sm text-gray-500">January 15-22, 2023</p>
-              <p class="text-sm mt-2">Explored Ubud, Seminyak, and Nusa Penida. Stayed at the beautiful Ayana Resort.</p>
-              <div class="flex mt-2">
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Beach</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Culture</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Adventure</span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end space-y-2">
-              <button class="text-blue-600 hover:text-blue-800">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="view-details-btn orange-button text-white px-3 py-1 rounded text-sm" data-trip="bali">
-                View Details
-              </button>
-            </div>
-          </div>
-          
-          <!-- Details Panel for Bali -->
-          <div id="bali-details" class="details-panel mt-4 pl-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="card">
+      <h3>
+        <i class="fas fa-history"></i>
+        Recent Travel History
+      </h3>
+      <?php if (count($travel_history) > 0): ?>
+        <div style="space-y: 1rem;">
+          <?php foreach ($travel_history as $history): ?>
+            <div style="padding: 1rem; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;">
               <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-hotel mr-2"></i>Accommodation</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-star text-yellow-400 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Ayana Resort</p>
-                      <p class="text-xs text-gray-500">5-star luxury resort with ocean view</p>
-                    </div>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-moon text-purple-500 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Ubud Rainforest Retreat</p>
-                      <p class="text-xs text-gray-500">3 nights in a private villa</p>
-                    </div>
-                  </li>
-                </ul>
+                <div style="font-weight: 600; color: var(--primary);"><?php echo htmlspecialchars($history['activity_type']); ?></div>
+                <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">
+                  <?php echo htmlspecialchars($history['activity_details'] ?? 'Trip logged'); ?>
+                </div>
               </div>
-              <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-map-marked-alt mr-2"></i>Places Visited</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-umbrella-beach text-blue-400 mr-2"></i>
-                    <span>Seminyak Beach</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-water text-blue-300 mr-2"></i>
-                    <span>Tegenungan Waterfall</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-tree text-green-500 mr-2"></i>
-                    <span>Sacred Monkey Forest</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-mountain text-brown-500 mr-2"></i>
-                    <span>Mount Batur Sunrise</span>
-                  </li>
-                </ul>
+              <div style="color: #999; font-size: 0.85rem;">
+                <?php echo date('M d, Y', strtotime($history['created_at'])); ?>
               </div>
             </div>
-          </div>
+          <?php endforeach; ?>
         </div>
-        
-        <!-- Trip 2 -->
-        <div class="border-b pb-6">
-          <div class="flex items-start">
-            <img src="https://images.unsplash.com/photo-1524473994769-c47bb6f24cf4" class="w-24 h-24 rounded-lg object-cover mr-4">
-            <div class="flex-1">
-              <h4 class="font-semibold">Japanese Cultural Journey</h4>
-              <p class="text-sm text-gray-500">March 28 - April 10, 2023</p>
-              <p class="text-sm mt-2">Visited Tokyo, Kyoto, and Osaka during cherry blossom season. Experienced traditional tea ceremonies.</p>
-              <div class="flex mt-2">
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Culture</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Food</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Nature</span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end space-y-2">
-              <button class="text-blue-600 hover:text-blue-800">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="view-details-btn orange-button text-white px-3 py-1 rounded text-sm" data-trip="japan">
-                View Details
-              </button>
-            </div>
-          </div>
-          
-          <!-- Details Panel for Japan -->
-          <div id="japan-details" class="details-panel mt-4 pl-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-hotel mr-2"></i>Accommodation</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-building text-gray-600 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Park Hotel Tokyo</p>
-                      <p class="text-xs text-gray-500">4-star hotel in Shiodome district</p>
-                    </div>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-bed text-brown-400 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Traditional Ryokan</p>
-                      <p class="text-xs text-gray-500">2 nights in Kyoto with kaiseki meals</p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-map-marked-alt mr-2"></i>Places Visited</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-torii-gate text-red-500 mr-2"></i>
-                    <span>Fushimi Inari Shrine</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-monument text-gray-700 mr-2"></i>
-                    <span>Tokyo Imperial Palace</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-shopping-cart text-pink-500 mr-2"></i>
-                    <span>Shibuya Crossing</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-utensils text-orange-400 mr-2"></i>
-                    <span>Dotonbori Food Street</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+      <?php else: ?>
+        <div class="empty-state">
+          <i class="fas fa-suitcase"></i>
+          <p>No travel history yet. Start exploring destinations!</p>
         </div>
-        
-        <!-- Trip 3 -->
-        <div>
-          <div class="flex items-start">
-            <img src="https://images.unsplash.com/photo-1503919545889-aef636e10ad4" class="w-24 h-24 rounded-lg object-cover mr-4">
-            <div class="flex-1">
-              <h4 class="font-semibold">European Adventure</h4>
-              <p class="text-sm text-gray-500">June 10-25, 2023</p>
-              <p class="text-sm mt-2">Explored Paris, Rome, and Barcelona. Tasted local cuisines and visited historical landmarks.</p>
-              <div class="flex mt-2">
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">History</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">Architecture</span>
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Food</span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end space-y-2">
-              <button class="text-blue-600 hover:text-blue-800">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="view-details-btn orange-button text-white px-3 py-1 rounded text-sm" data-trip="europe">
-                View Details
-              </button>
-            </div>
-          </div>
-          
-          <!-- Details Panel for Europe -->
-          <div id="europe-details" class="details-panel mt-4 pl-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-hotel mr-2"></i>Accommodation</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-hotel text-purple-500 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Hôtel Plaza Athénée</p>
-                      <p class="text-xs text-gray-500">5-star luxury hotel in Paris</p>
-                    </div>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-building text-yellow-500 mr-2"></i>
-                    <div>
-                      <p class="font-medium">Trastevere Apartment</p>
-                      <p class="text-xs text-gray-500">Historic district in Rome</p>
-                    </div>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h5 class="font-semibold text-blue-700 mb-2"><i class="fas fa-map-marked-alt mr-2"></i>Places Visited</h5>
-                <ul class="space-y-2">
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-archway text-brown-500 mr-2"></i>
-                    <span>Arc de Triomphe</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-church text-gray-600 mr-2"></i>
-                    <span>Sagrada Família</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-history text-yellow-600 mr-2"></i>
-                    <span>Colosseum</span>
-                  </li>
-                  <li class="place-item flex items-center">
-                    <i class="fas fa-utensils text-red-400 mr-2"></i>
-                    <span>Tapas bars in Barcelona</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- Recent Searches -->
+    <div class="card">
+      <h3>
+        <i class="fas fa-search"></i>
+        Recent Searches
+      </h3>
+      <?php if (count($search_history) > 0): ?>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+          <?php foreach ($search_history as $search): ?>
+            <a href="../search/search.html?q=<?php echo urlencode($search['search_query']); ?>" 
+               style="display: inline-block; padding: 0.5rem 1.25rem; background: var(--light); color: var(--primary); border-radius: 50px; text-decoration: none; font-size: 0.9rem; transition: all 0.3s;" 
+               onmouseover="this.style.background='var(--secondary)'; this.style.color='white';" 
+               onmouseout="this.style.background='var(--light)'; this.style.color='var(--primary)';">
+              <?php echo htmlspecialchars($search['search_query']); ?>
+            </a>
+          <?php endforeach; ?>
         </div>
-      </div>
+      <?php else: ?>
+        <div class="empty-state">
+          <i class="fas fa-search"></i>
+          <p>No search history. Try searching for your next destination!</p>
+        </div>
+      <?php endif; ?>
     </div>
   </main>
 
-  <!-- Logout Confirmation Modal -->
-  <div id="logoutModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 shadow-lg w-80 text-center">
-      <h2 class="text-lg font-semibold mb-4">Are you sure you want to logout?</h2>
-      <div class="flex justify-around">
-      <button id="confirmLogout" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Yes</button>
-      <button id="cancelLogout" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">No</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Map Script -->
   <script>
-    // Initialize map
-    var map = L.map('map', {
-      zoomControl: false // This removes the + and - buttons
-    }).setView([20, 0], 2);
-
-    // Tile Layer
+    // Initialize Leaflet Map
+    const map = L.map('map', { zoomControl: false }).setView([20, 0], 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(map);
 
-    // Example visited places (green)
-    var visited = [
-      { name: "Japan", coords: [36.2, 138.2] },
-      { name: "France", coords: [46.2, 2.2] },
-      { name: "Indonesia", coords: [-0.8, 113.9] },
-      { name: "Italy", coords: [41.9, 12.5] },
-      { name: "Spain", coords: [40.4, -3.7] }
-    ];
-    visited.forEach(place => {
-      L.circleMarker(place.coords, {
-        color: "green",
-        radius: 8,
-        fillOpacity: 0.7
-      }).addTo(map).bindPopup("Visited: " + place.name);
-    });
+    // Toggle Profile Menu
+    function toggleProfileMenu() {
+      const menu = document.getElementById('profileMenu');
+      menu.classList.toggle('show');
+    }
 
-    // Example favorites (gold)
-    var favorites = [
-      { name: "New Zealand", coords: [-40.9, 174.9] },
-      { name: "Greece", coords: [39.1, 21.8] }
-    ];
-    favorites.forEach(place => {
-      L.circleMarker(place.coords, {
-        color: "gold",
-        radius: 8,
-        fillOpacity: 0.7
-      }).addTo(map).bindPopup("Favorite: " + place.name);
-    });
-
-    // Profile Dropdown Toggle
-    const profileBtn = document.getElementById("profileBtn");
-    const profileMenu = document.getElementById("profileMenu");
-    profileBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      profileMenu.classList.toggle("hidden");
-    });
-
-    // Close dropdown when clicking elsewhere
-    document.addEventListener('click', (e) => {
-      if (!profileBtn.contains(e.target) && !profileMenu.contains(e.target)) {
-        profileMenu.classList.add('hidden');
+    // Close menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const menu = document.getElementById('profileMenu');
+      const btn = document.getElementById('profileBtn');
+      if (!menu.contains(event.target) && !btn.contains(event.target)) {
+        menu.classList.remove('show');
       }
     });
 
-    // Logout Confirmation
-    const logoutBtn = document.getElementById("logoutBtn");
-    const logoutModal = document.getElementById("logoutModal");
-    const confirmLogout = document.getElementById("confirmLogout");
-    const cancelLogout = document.getElementById("cancelLogout");
-
-    logoutBtn.addEventListener("click", () => {
-      logoutModal.classList.remove("hidden");
-    });
-
-    cancelLogout.addEventListener("click", () => {
-      logoutModal.classList.add("hidden");
-    });
-
-    confirmLogout.addEventListener("click", () => {
-      // Redirect to sign in login page
-      window.location.href = "signin.php";
-    });
-
-    // Toggle sidebar on mobile
+    // Toggle Sidebar
     function toggleSidebar() {
-      document.querySelector('.floating-sidebar').classList.toggle('open');
+      const sidebar = document.querySelector('.floating-sidebar');
+      sidebar.classList.toggle('open');
     }
 
-    // View details functionality
-    document.querySelectorAll('.view-details-btn').forEach(button => {
-      button.addEventListener('click', function() {
-        const tripId = this.getAttribute('data-trip');
-        const detailsPanel = document.getElementById(`${tripId}-details`);
-        
-        // Close all other open panels
-        document.querySelectorAll('.details-panel').forEach(panel => {
-          if (panel.id !== `${tripId}-details`) {
-            panel.classList.remove('open');
-          }
+    // Logout
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        fetch('../auth/logout.php').then(() => {
+          window.location.href = '../main/index.html';
         });
-        
-        // Toggle current panel
-        detailsPanel.classList.toggle('open');
-        
-        // Update button text
-        if (detailsPanel.classList.contains('open')) {
-          this.textContent = 'Hide Details';
-        } else {
-          this.textContent = 'View Details';
-        }
-      });
+      }
+    }
+
+    // Show profile name on larger screens
+    window.addEventListener('resize', function() {
+      const span = document.querySelector('.profile-button span');
+      if (window.innerWidth > 768) {
+        span.style.display = 'inline';
+      } else {
+        span.style.display = 'none';
+      }
+    });
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set sidebar toggle button visibility
+      const toggle = document.querySelector('.sidebar-toggle');
+      if (window.innerWidth <= 1024) {
+        toggle.style.display = 'block';
+      }
     });
   </script>
 </body>
+
 </html>
