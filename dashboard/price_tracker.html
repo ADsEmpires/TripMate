@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Tracker & Alerts - TripMate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="price_tracker.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo">
+                <i class="fas fa-compass"></i>
+                <span>TripMate</span>
+            </div>
+            <div class="user-profile">
+                <span id="username">User</span>
+                <img id="userAvatar" src="default-avatar.png" alt="User Avatar" class="avatar">
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <button class="minimize-btn" onclick="toggleSidebar()">☰</button>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> <span>Dashboard</span></a></li>
+                    <li><a href="search.html"><i class="fas fa-search"></i> <span>Search</span></a></li>
+                    <li><a href="price_tracker.html" class="active"><i class="fas fa-tag"></i> <span>Price Tracker</span></a></li>
+                    <li><a href="itinerary.html"><i class="fas fa-calendar"></i> <span>Itineraries</span></a></li>
+                    <li><a href="reviews.html"><i class="fas fa-star"></i> <span>Reviews</span></a></li>
+                    <li><a href="rewards.html"><i class="fas fa-gift"></i> <span>Rewards</span></a></li>
+                    <li><a href="profile.html"><i class="fas fa-user"></i> <span>Profile</span></a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>💰 Price Tracker & Alerts</h1>
+                <p>Monitor flight and hotel prices in real-time</p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <h3>Active Alerts</h3>
+                    <p class="stat-number" id="activeAlerts">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📉</div>
+                    <h3>Prices Down</h3>
+                    <p class="stat-number" id="pricesDown">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💾</div>
+                    <h3>Potential Savings</h3>
+                    <p class="stat-number" id="totalSavings">$0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏰</div>
+                    <h3>Best Time to Book</h3>
+                    <p class="stat-number" id="bestTime">30 days</p>
+                </div>
+            </div>
+
+            <!-- Create Price Alert Section -->
+            <div class="card alert-section">
+                <h2>Create a Price Alert</h2>
+                <form id="priceAlertForm" class="alert-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="destination">Destination</label>
+                            <select id="destination" required>
+                                <option value="">-- Select a destination --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="alertType">Track</label>
+                            <select id="alertType" required>
+                                <option value="flight">✈️ Flights</option>
+                                <option value="hotel">🏨 Hotels</option>
+                                <option value="both">✈️ Both</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="departureDate">Departure</label>
+                            <input type="date" id="departureDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="returnDate">Return</label>
+                            <input type="date" id="returnDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="maxPrice">Max Price ($)</label>
+                            <input type="number" id="maxPrice" min="10" step="10" placeholder="e.g., 500" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="frequency">Alert Frequency</label>
+                            <select id="frequency" required>
+                                <option value="realtime">🔔 Real-time</option>
+                                <option value="daily" selected>📅 Daily</option>
+                                <option value="weekly">📆 Weekly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="notificationMethod">Notify via</label>
+                            <select id="notificationMethod" required>
+                                <option value="email" selected>📧 Email</option>
+                                <option value="in_app">🔔 In-App</option>
+                                <option value="sms">📱 SMS</option>
+                            </select>
+                        </div>
+                        <div class="form-group button-group">
+                            <button type="submit" class="btn-primary">Create Alert</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Active Price Alerts -->
+            <div class="card alerts-list-section">
+                <h2>Your Price Alerts</h2>
+                <div id="alertsList" class="alerts-list">
+                    <div class="empty-state">
+                        <p>No active alerts yet. Create one above to get started!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Comparison Chart -->
+            <div class="card price-trends-section">
+                <h2>Price Trends</h2>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Best Deals Section -->
+            <div class="card deals-section">
+                <h2>💎 Best Deals</h2>
+                <div id="bestDeals" class="deals-grid">
+                    <div class="empty-state">
+                        <p>No deals found. Set up price alerts to discover amazing offers!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Your existing dashboard JS -->
+    <script src="dashboard.js"></script>
+    <!-- Price Tracker JS -->
+    <script src="price_tracker.js"></script>
+</body>
+</html>
