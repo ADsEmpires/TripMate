@@ -1,0 +1,9 @@
+# Allow .html/.htm files to be parsed as PHP so embedded <?php ?> blocks work
+# This avoids changing the .html file contents while letting PHP inside run.
+# If you prefer, rename the file to .php or use the provided user_dashboard01.php instead.
+
+# For most XAMPP/Apache setups:
+AddType application/x-httpd-php .html .htm
+
+# Optional: ensure DirectoryIndex prioritizes index.php
+# DirectoryIndex index.php index.html

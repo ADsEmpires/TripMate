@@ -3,7 +3,7 @@
  * File: user/auto-logout.js
  * 
  * Features:
- * - Auto logout after 2 minutes of inactivity (decreased from 30 minutes)
+ * - Auto logout after 2 minutes of inactivity
  * - Warning popup 1 minute before logout
  * - Reset button to restart timer
  * - Logout on browser/tab close
@@ -48,13 +48,22 @@ class AutoLogoutManager {
     
     isUserLoggedIn() {
         // Check if user is logged in using the main session keys
-        const hasSession = !!(sessionStorage.getItem('user_id') || localStorage.getItem('tripmate_active_user_id'));
+        // Also check for the class on body that user-profile.js adds
+        const hasSession = !!(
+            sessionStorage.getItem('user_id') || 
+            sessionStorage.getItem('userid') || 
+            localStorage.getItem('tripmate_active_user_id') ||
+            document.body.classList.contains('user-logged-in')
+        );
         console.log('Auto-logout: Checking login status -', hasSession);
         return hasSession;
     }
     
     getUserName() {
-        return sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
+        return sessionStorage.getItem('user_name') || 
+               sessionStorage.getItem('username') || 
+               localStorage.getItem('tripmate_active_user_name') || 
+               'User';
     }
     
     setupUnloadListener() {
@@ -62,7 +71,9 @@ class AutoLogoutManager {
         window.addEventListener('beforeunload', () => {
             if (this.isUserLoggedIn()) {
                 // Use Beacon API to ensure logout request is sent even on page unload
-                navigator.sendBeacon(this.logoutUrl, 'action=logout');
+                const formData = new FormData();
+                formData.append('action', 'logout');
+                navigator.sendBeacon(this.logoutUrl, formData);
             }
         });
     }
@@ -372,8 +383,11 @@ class AutoLogoutManager {
         this.clearUserSession();
         
         // Use Beacon API for reliable logout even during page unload
+        const formData = new FormData();
+        formData.append('action', 'logout');
+        
         if (navigator.sendBeacon) {
-            navigator.sendBeacon(this.logoutUrl, 'action=logout');
+            navigator.sendBeacon(this.logoutUrl, formData);
         }
         
         // Redirect to logout page
@@ -398,8 +412,8 @@ class AutoLogoutManager {
     
     showToast(message, type = 'info') {
         // Use existing toast function if available
-        if (typeof showToast === 'function') {
-            showToast(message, type);
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
         } else {
             // Fallback simple notification
             const toast = document.createElement('div');
@@ -441,11 +455,11 @@ class AutoLogoutManager {
 }
 
 // Initialize auto-logout system when DOM is ready
-// Only initialize if user is actually logged in
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if user is logged in using the same method as user-profile.js
-    const isLoggedIn = document.body.classList.contains('user-logged-in') && 
-                      (sessionStorage.getItem('userid') || sessionStorage.getItem('user_id'));
+    // Check if user is logged in using multiple methods
+    const isLoggedIn = document.body.classList.contains('user-logged-in') || 
+                      sessionStorage.getItem('userid') || 
+                      sessionStorage.getItem('user_id');
     
     if (isLoggedIn) {
         console.log('Initializing auto-logout system for logged-in user');

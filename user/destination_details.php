@@ -44,31 +44,29 @@ function resolve_image_path($base_url, $filename, $subdir = '/uploads/')
 {
     $filename = trim($filename);
     if (empty($filename)) return $base_url . '/images/no-image.jpg';
-    $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
-    if (empty($doc_root)) return $base_url . $subdir . $filename;
-    $server_path = $doc_root . $base_url . $subdir . $filename;
+    $server_path = $_SERVER['DOCUMENT_ROOT'] . $base_url . $subdir . $filename;
     if (file_exists($server_path) && !is_dir($server_path)) {
         return $base_url . $subdir . $filename;
     }
     // try uploads root
-    $server_path2 = $doc_root . $base_url . '/uploads/' . $filename;
+    $server_path2 = $_SERVER['DOCUMENT_ROOT'] . $base_url . '/uploads/' . $filename;
     if (file_exists($server_path2) && !is_dir($server_path2)) {
         return $base_url . '/uploads/' . $filename;
     }
-    return $base_url . '/image/no-image.jpg';
+    return $base_url . '/images/no-image.jpg';
 }
 
 // --- Pick cover image and OG image ---
-$coverImage = $base_url . '/image/no-image.jpg';
+$coverImage = $base_url . '/images/no-image.jpg';
 if (!empty($images)) {
     foreach ($images as $img) {
         $p = resolve_image_path($base_url, $img);
-        if ($p !== $base_url . '/image/no-image.jpg') {
+        if ($p !== $base_url . '/images/no-image.jpg') {
             $coverImage = $p;
             break;
         }
     }
-    if ($coverImage === $base_url . '/image/no-image.jpg') {
+    if ($coverImage === $base_url . '/images/no-image.jpg') {
         $coverImage = resolve_image_path($base_url, $images[0]);
     }
 }
@@ -183,6 +181,9 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
     <!-- PhotoSwipe (lightbox) v5 (modern) -->
     <link rel="stylesheet" href="https://unpkg.com/photoswipe@5/dist/photoswipe.css">
 
+    <!-- User Profile CSS -->
+    <link rel="stylesheet" href="../user/user-profile.css">
+
     <!-- Basic styles & Ken Burns / layout -->
     <style>
         :root {
@@ -190,12 +191,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             --primary: #16034f;
             --muted: #6b7280;
             --card: #fff;
-            --primary-dark: #0063b1;
-            --border: #e0e0e0;
-            --dark-text: #333;
-            --light-text: #666;
-            --shadow: 0 4px 12px rgba(0,0,0,0.08);
-            --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
         }
 
         * {
@@ -259,88 +254,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             font-weight: 600
         }
 
-        /* User Profile Styles - Only show when logged in */
-        .user-profile {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            display: none; /* Hidden by default */
-        }
-        .user-profile.visible {
-            display: block;
-        }
-        .profile-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .profile-btn:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-        }
-        .profile-dropdown {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            width: 220px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 16px;
-            margin-top: 8px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
-            z-index: 1001;
-        }
-        .profile-dropdown.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-        .user-info {
-            padding-bottom: 12px;
-            margin-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-            color: var(--light-text);
-        }
-        .user-name {
-            font-weight: 600;
-            color: var(--primary);
-        }
-        .profile-dropdown a {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0;
-            color: var(--dark-text);
-            text-decoration: none;
-            font-size: 14px;
-            transition: color 0.2s;
-        }
-        .profile-dropdown a:hover {
-            color: var(--primary);
-        }
-        .profile-dropdown a i {
-            width: 18px;
-            text-align: center;
-        }
-
         /* Hero / cover with Ken Burns (slow zoom) */
-        /* Use viewport-based heights but clamp to reasonable min/max to fit various screens */
         .hero {
             position: relative;
             border-radius: 12px;
@@ -354,7 +268,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             overflow: hidden
         }
 
-        /* responsive hero height */
         .hero .media img,
         .hero .media video {
             width: 100%;
@@ -383,7 +296,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
 
-        /* translucent gradient overlay */
         .hero .overlay {
             position: absolute;
             inset: 0;
@@ -391,7 +303,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             pointer-events: none;
         }
 
-        /* CTA badges on hero */
         .hero .badges {
             position: absolute;
             left: 14px;
@@ -436,8 +347,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             font-size: 0.95rem
         }
 
-        /* sticky mini-card under hero */
-        /* Use width constraints so it doesn't overflow on small screens */
         .mini-card {
             position: sticky;
             top: 78px;
@@ -506,8 +415,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             color: #fff
         }
 
-        /* layout sections */
-        /* Use responsive grid with a better minmax for the sidebar */
         .grid {
             display: grid;
             grid-template-columns: 1fr 320px;
@@ -527,7 +434,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
 
-        /* Cards */
         .card {
             background: #fff;
             padding: 16px;
@@ -541,7 +447,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             margin-bottom: 10px
         }
 
-        /* Cuisines: small chips with optional images */
         .cuisines-grid {
             display: flex;
             flex-wrap: wrap;
@@ -570,8 +475,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             flex-shrink: 0
         }
 
-        /* gallery */
-        /* let thumbnails adapt to container width: use auto rows */
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -605,7 +508,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
 
-        /* Swiper - ensure it adapts height gracefully */
         .swiper {
             width: 100%;
             border-radius: 8px;
@@ -619,11 +521,24 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             display: block
         }
 
-        /* map */
         #map {
             height: 300px;
             border-radius: 8px;
             overflow: hidden
+        }
+
+        .map-container {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .google-map-frame {
+            width: 100%;
+            height: 100%;
+            border: 0;
         }
 
         @media (max-width:640px) {
@@ -632,7 +547,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
 
-        /* reviews */
         .review {
             border-radius: 8px;
             padding: 10px;
@@ -652,7 +566,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             color: #333
         }
 
-        /* collapsible description */
         .collapsible {
             max-height: 120px;
             overflow: hidden;
@@ -663,7 +576,6 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             max-height: 1200px
         }
 
-        /* TOC sticky */
         .toc {
             position: sticky;
             top: 110px;
@@ -680,82 +592,638 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             font-weight: 600
         }
 
-        /* responsive */
-        @media(max-width:640px) {
-            .container {
-                padding: calc(64px + 16px) 12px 40px
-            }
+        /* Weather Widget Enhanced Styles */
+        .weather-widget {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 16px;
+            color: white;
+            margin-top: 16px;
+        }
 
-            .navbar a.btn {
-                padding: 6px 8px;
-                font-size: 0.9rem
-            }
+        .weather-current {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
 
-            .mini-card {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-                padding: 10px
-            }
+        .weather-temp {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
 
-            .mini-left img {
-                width: 48px;
-                height: 48px
-            }
+        .weather-icon {
+            font-size: 3rem;
+        }
 
-            .hero .hero-title {
-                left: 12px;
-                bottom: 12px;
-                max-width: 85%
-            }
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
 
-            .badge {
-                font-size: 0.85rem;
-                padding: 6px 8px
-            }
+        .weather-detail-item {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
 
-            .swiper .swiper-slide img {
-                height: clamp(160px, 30vw, 260px)
-            }
+        .weather-detail-item i {
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
 
-            .cuisine-chip img {
-                width: 24px;
-                height: 24px
+        .weather-detail-item span {
+            display: block;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .weather-detail-item strong {
+            display: block;
+            font-size: 1.2rem;
+            margin-top: 4px;
+        }
+
+        .weather-forecast {
+            display: flex;
+            overflow-x: auto;
+            gap: 12px;
+            padding: 8px 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+        }
+
+        .weather-forecast::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .weather-forecast::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 4px;
+        }
+
+        .forecast-day {
+            min-width: 80px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .forecast-day .day {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .forecast-day .temp {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .forecast-day .condition {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .forecast-day i {
+            font-size: 1.5rem;
+            margin: 4px 0;
+        }
+
+        .weather-loading,
+        .weather-error {
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            color: #666;
+        }
+
+        /* Google Images Gallery */
+        .google-images-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .google-images-grid img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .google-images-grid img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .image-source-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            color: #666;
+        }
+
+        .gallery-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eef4ff;
+            padding-bottom: 10px;
+        }
+
+        .gallery-tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .gallery-tab.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .gallery-tab:not(.active):hover {
+            background: #eef4ff;
+        }
+
+        .gallery-section {
+            display: none;
+        }
+
+        .gallery-section.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .google-images-grid {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
-    </style>
 
+        @media (max-width: 480px) {
+            .google-images-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+                /* Budget Package Section Styles */
+        .budget-section-wrapper {
+            margin-top: 2rem;
+        }
+
+        .budget-container {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(22, 3, 79, 0.1);
+            padding: 1.5rem;
+        }
+
+        .budget-section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #16034f;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .budget-section-icon {
+            color: #ff6600;
+        }
+
+        .budget-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .budget-btn {
+            flex: 1;
+            min-width: 150px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .budget-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .budget-btn-low {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .budget-btn-medium {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .budget-btn-high {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .budget-btn-price {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            display: block;
+        }
+
+        .budget-btn.ring-4 {
+            box-shadow: 0 0 0 4px #ff6600;
+            transform: scale(1.05);
+        }
+
+        /* Trip Details Form */
+        .trip-details-form {
+            background: #f9fafb;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 2px solid #ff6600;
+            transition: all 0.3s ease;
+        }
+
+        .trip-details-form.hidden {
+            display: none;
+        }
+
+        .trip-details-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #16034f;
+            margin-bottom: 1rem;
+        }
+
+        .trip-details-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .trip-details-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .trip-detail-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .trip-detail-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4b5563;
+            margin-bottom: 0.5rem;
+        }
+
+        .trip-detail-input {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            color: #111827;
+            background: white;
+        }
+
+        .trip-detail-input:focus {
+            outline: none;
+            border-color: #ff6600;
+            box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.1);
+        }
+
+        .calculate-btn {
+            background: #ff6600;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .calculate-btn:hover {
+            background: #e65c00;
+        }
+
+        /* Package Details */
+        .package-details {
+            display: block;
+        }
+
+        .package-details.hidden {
+            display: none;
+        }
+
+        .budget-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            color: white;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .package-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        .package-section-header {
+            padding: 0.75rem 1.5rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .package-section-header-blue {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .package-section-header-purple {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }
+
+        .package-grid {
+            padding: 1rem;
+            background: #f9fafb;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .package-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Hotel and Flight Cards */
+        .package-grid > div {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .package-grid > div:hover {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .package-grid > div.border-4 {
+            border: 4px solid #ff6600;
+            background: #fff7f0;
+        }
+
+        .hotel-card {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .hotel-card-image {
+            width: 6rem;
+            height: 6rem;
+            background: #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .hotel-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hotel-card-content {
+            flex: 1;
+        }
+
+        .hotel-card-title {
+            font-weight: 700;
+            color: #16034f;
+            margin: 0 0 0.25rem 0;
+        }
+
+        .hotel-card-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .hotel-card-stars {
+            color: #fbbf24;
+        }
+
+        .hotel-card-price {
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin-top: 0.5rem;
+        }
+
+        .hotel-card-badge {
+            font-size: 0.75rem;
+            background: #d1fae5;
+            color: #059669;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+
+        /* Flight Card */
+        .flight-card {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .flight-card-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .flight-card-icon {
+            width: 3rem;
+            height: 3rem;
+            background: #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .flight-card-icon i {
+            font-size: 1.5rem;
+            color: #ff6600;
+        }
+
+        .flight-card-info h4 {
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .flight-card-info p {
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin: 0.25rem 0 0 0;
+        }
+
+        .flight-card-price {
+            text-align: right;
+        }
+
+        .flight-card-price-amount {
+            font-weight: 700;
+            color: #ff6600;
+            margin: 0;
+        }
+
+        .flight-card-price-details {
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin: 0.25rem 0 0 0;
+        }
+
+        .flight-card-tags {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .flight-card-tag {
+            background: #f3f4f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        /* Total Cost Section */
+        .total-cost-section {
+            background: linear-gradient(135deg, #16034f, #2a0a8a);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        .total-cost-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 0 1rem 0;
+            color: white;
+        }
+
+        .cost-breakdown {
+            margin-bottom: 1rem;
+        }
+
+        .cost-breakdown > div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .cost-breakdown span:first-child {
+            color: #e5e7eb;
+        }
+
+        .cost-breakdown .font-bold {
+            color: white;
+            font-weight: 700;
+        }
+
+        .total-cost-amount {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #818cf8;
+            color: white;
+        }
+
+        .total-cost-amount .text-sm {
+            font-size: 0.875rem;
+            font-weight: 400;
+            display: block;
+            margin-top: 0.25rem;
+            color: #fecaca;
+        }
+
+        .book-package-btn {
+            width: 100%;
+            background: #ff6600;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .book-package-btn:hover {
+            background: #e65c00;
+            transform: scale(1.05);
+        }
+        /* Rest of your existing styles remain the same */
+        /* ... (keep all your existing styles from line 348 to the end) ... */
+    </style>
 </head>
 
-<body>
+<body <?php echo (isset($_SESSION['user_id']) ? 'class="user-logged-in"' : ''); ?>>
 
     <!-- NAV -->
     <header class="navbar">
         <div class="logo"><i class="fas fa-compass"></i> <strong style="margin-left:6px">TripMate</strong></div>
         <div>
             <a class="btn" href="../search/search.html">Back to Search</a>
-            <a class="btn" href="user_dashboard.php">Dashboard</a>
+            <a class="btn" href="../user/user_dashboard.php">Dashboard</a>
         </div>
     </header>
-
-    <!-- User Profile (will be shown only after login) -->
-    <div class="user-profile" id="userProfile">
-        <button class="profile-btn">
-            <i class="fas fa-user"></i>
-            <span id="profileUserName">User</span>
-        </button>
-        <div class="profile-dropdown">
-            <div class="user-info">
-                Welcome, <span class="user-name" id="dropdownUserName">User</span>
-            </div>
-            <a href="../user/user_dashboard.php" id="dashboardLink">
-                <i class="fas fa-tachometer-alt"></i> Dashboard
-            </a>
-            <a href="#" id="logoutBtn">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
-        </div>
-    </div>
 
     <main class="container" role="main">
 
@@ -807,8 +1275,51 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                 <button id="favBtnMini" class="btn-small btn-fav" aria-pressed="<?php echo $is_favorite ? 'true' : 'false'; ?>"><i class="fa<?php echo $is_favorite ? 's' : 'r'; ?> fa-heart"></i> <span id="favLabel"><?php echo $is_favorite ? 'Favorited' : 'Save'; ?></span></button>
                 <button id="shareBtnMini" class="btn-small" title="Share"><i class="fas fa-share-alt"></i> Share</button>
                 <button id="planBtn" class="btn-small btn-book"><i class="fas fa-calendar-plus"></i> Save to Trip</button>
+                <a class="btn-small btn-book" href="../bookings/booking_page.php?destination_id=<?php echo $destination_id; ?>" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px"><i class="fas fa-ticket-alt"></i> Book Now</a>
             </div>
         </div>
+
+        <!-- Fetch budget data for this destination -->
+        <?php
+        // Fetch budget data for this destination
+        $hotel_stmt = $conn->prepare("SELECT * FROM hotels WHERE destination_id = ? ORDER BY 
+        CASE hotel_type 
+            WHEN 'low' THEN 1 
+            WHEN 'medium' THEN 2 
+            WHEN 'high' THEN 3 
+        END, price_per_night ASC");
+        $hotel_stmt->bind_param("i", $destination_id);
+        $hotel_stmt->execute();
+        $hotels = $hotel_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        $flight_stmt = $conn->prepare("SELECT * FROM flights WHERE destination_id = ? ORDER BY 
+        CASE flight_type 
+            WHEN 'low' THEN 1 
+            WHEN 'medium' THEN 2 
+            WHEN 'high' THEN 3 
+        END, price_per_person ASC");
+        $flight_stmt->bind_param("i", $destination_id);
+        $flight_stmt->execute();
+        $flights = $flight_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Group by type
+        $hotels_by_type = ['low' => [], 'medium' => [], 'high' => []];
+        foreach ($hotels as $hotel) {
+            $hotels_by_type[$hotel['hotel_type']][] = $hotel;
+        }
+
+        $flights_by_type = ['low' => [], 'medium' => [], 'high' => []];
+        foreach ($flights as $flight) {
+            $flights_by_type[$flight['flight_type']][] = $flight;
+        }
+
+        // Get departure cities for dropdown
+        $departure_cities = array_unique(array_column($flights, 'departure_city'));
+        sort($departure_cities);
+
+        // Google API Key (store this in environment variables for security)
+        $google_api_key = 'AIzaSyAUxNjg6qu6UCn_C0sm4Oo9lwAfnglis7g'; // Replace with your actual API key
+        ?>
 
         <!-- Main layout grid: content + sidebar (TOC, map, weather, currency) -->
         <div class="grid" id="content-grid">
@@ -922,40 +1433,54 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                 <div class="card" style="margin-top:18px" id="gallery">
                     <div class="section-title">Gallery</div>
 
-                    <!-- Main carousel (Swiper) -->
-                    <div class="swiper" id="mainSwiper" style="height:auto">
-                        <div class="swiper-wrapper">
+                    <!-- Gallery Tabs -->
+                    <div class="gallery-tabs">
+                        <div class="gallery-tab active" onclick="switchGalleryTab('local')">Local Images</div>
+                        <div class="gallery-tab" onclick="switchGalleryTab('google')">Google Images</div>
+                    </div>
+
+                    <!-- Local Images Gallery Section -->
+                    <div id="localGallerySection" class="gallery-section active">
+                        <!-- Main carousel (Swiper) -->
+                        <div class="swiper" id="mainSwiper" style="height:auto">
+                            <div class="swiper-wrapper">
+                                <?php
+                                if (!empty($images)) {
+                                    foreach ($images as $img) {
+                                        $imgPath = resolve_image_path($base_url, $img);
+                                        echo '<div class="swiper-slide"><img src="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-src="' . htmlspecialchars($imgPath) . '"></div>';
+                                    }
+                                } else {
+                                    echo '<div class="swiper-slide"><img src="' . htmlspecialchars($coverImage) . '" alt="No images" loading="lazy"></div>';
+                                }
+                                ?>
+                            </div>
+                            <div class="swiper-button-next"></div>
+                            <div class="swiper-button-prev"></div>
+                            <div class="swiper-pagination"></div>
+                        </div>
+
+                        <!-- Thumbnail grid (opens PhotoSwipe) -->
+                        <div style="margin-top:12px" class="gallery-grid" id="thumbGrid">
                             <?php
                             if (!empty($images)) {
                                 foreach ($images as $img) {
                                     $imgPath = resolve_image_path($base_url, $img);
-                                    // Provide srcset for responsive; creating small names would usually be server-side. Here we point same file.
-                                    echo '<div class="swiper-slide"><img src="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-src="' . htmlspecialchars($imgPath) . '"></div>';
+                                    $small = $imgPath;
+                                    echo '<img src="' . htmlspecialchars($small) . '" data-full="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-ready="0">';
                                 }
                             } else {
-                                echo '<div class="swiper-slide"><img src="' . htmlspecialchars($coverImage) . '" alt="No images" loading="lazy"></div>';
+                                echo '<div class="muted">No images available</div>';
                             }
                             ?>
                         </div>
-                        <!-- navigation -->
-                        <div class="swiper-button-next"></div>
-                        <div class="swiper-button-prev"></div>
-                        <div class="swiper-pagination"></div>
                     </div>
 
-                    <!-- Thumbnail grid (opens PhotoSwipe) -->
-                    <div style="margin-top:12px" class="gallery-grid" id="thumbGrid">
-                        <?php
-                        if (!empty($images)) {
-                            foreach ($images as $img) {
-                                $imgPath = resolve_image_path($base_url, $img);
-                                $small = $imgPath; // ideally point to smaller variant
-                                echo '<img src="' . htmlspecialchars($small) . '" data-full="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-ready="0">';
-                            }
-                        } else {
-                            echo '<div class="muted">No images available</div>';
-                        }
-                        ?>
+                    <!-- Google Images Gallery Section -->
+                    <div id="googleGallerySection" class="gallery-section">
+                        <div id="googleImagesContainer" class="google-images-grid">
+                            <div class="weather-loading">Loading Google Images...</div>
+                        </div>
                     </div>
                 </div>
 
@@ -986,50 +1511,187 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                     ?>
                 </div>
 
-                <!-- Reviews & add review -->
-                <div class="card" style="margin-top:18px" id="reviews">
-                    <div class="section-title">Ratings & Reviews <small style="color:var(--muted)"> (<?php echo $reviews_count; ?>)</small></div>
-                    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
-                        <div style="font-size:1.6rem;font-weight:800"><?php echo $average_rating ? $average_rating : '—'; ?></div>
-                        <div style="color:var(--muted)"><?php echo $reviews_count; ?> reviews</div>
-                    </div>
+                <!-- Hotels Section - Interactive -->
+                <div class="card" style="margin-top:18px" id="hotels">
+                    <div class="section-title">Hotels & Accommodations</div>
 
-                    <?php if (!empty($reviews)): foreach ($reviews as $r): ?>
-                            <div class="review" style="margin-bottom:10px">
-                                <div style="width:44px;height:44px;border-radius:8px;background:#f3f4f6;display:flex;align-items:center;justify-content:center"><?php echo strtoupper(substr($r['user_name'] ?? 'U', 0, 1)); ?></div>
-                                <div>
-                                    <div class="meta"><?php echo htmlspecialchars($r['user_name'] ?? 'User'); ?> • <small style="color:var(--muted)"><?php echo htmlspecialchars($r['rating']); ?> ★</small></div>
-                                    <div class="text"><?php echo nl2br(htmlspecialchars($r['comment'])); ?></div>
+                    <?php
+                    // Fetch hotels for this destination
+                    $hotel_list_stmt = $conn->prepare("SELECT * FROM hotels WHERE destination_id = ? ORDER BY 
+                        CASE hotel_type 
+                            WHEN 'low' THEN 1 
+                            WHEN 'medium' THEN 2 
+                            WHEN 'high' THEN 3 
+                        END, price_per_night ASC");
+                    $hotel_list_stmt->bind_param("i", $destination_id);
+                    $hotel_list_stmt->execute();
+                    $all_hotels = $hotel_list_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    $hotel_list_stmt->close();
+
+                    if (!empty($all_hotels)):
+                    ?>
+                        <div style="display:flex;flex-direction:column;gap:12px">
+                            <?php foreach ($all_hotels as $hotel):
+                                $hotel_id = 'hotel_' . $hotel['id'];
+                                $amenities = json_decode($hotel['amenities'], true);
+                            ?>
+                                <div class="hotel-item" style="border:1px solid #eef4ff;border-radius:10px;overflow:hidden">
+                                    <!-- Hotel Header (Clickable) -->
+                                    <div class="hotel-header"
+                                        onclick="toggleHotelDetails('<?php echo $hotel_id; ?>')"
+                                        style="padding:14px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid transparent;transition:all 0.2s ease"
+                                        onmouseover="this.style.backgroundColor='#f8f9ff'"
+                                        onmouseout="this.style.backgroundColor='#fff'">
+
+                                        <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;flex:1">
+                                            <!-- Hotel Image -->
+                                            <div style="width:70px;height:70px;border-radius:8px;overflow:hidden;flex-shrink:0">
+                                                <img src="<?php
+                                                            $hotel_img = !empty($hotel['image_url']) ? $hotel['image_url'] : $base_url . '/images/hotel-placeholder.jpg';
+                                                            if (strpos($hotel_img, 'http') !== 0) {
+                                                                $hotel_img = $base_url . $hotel_img;
+                                                            }
+                                                            echo htmlspecialchars($hotel_img);
+                                                            ?>" alt="<?php echo htmlspecialchars($hotel['hotel_name']); ?>" style="width:100%;height:100%;object-fit:cover">
+                                            </div>
+
+                                            <!-- Basic Info -->
+                                            <div style="flex:1">
+                                                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                                                    <h4 style="margin:0;font-size:1.1rem;font-weight:700;color:#16034f">
+                                                        <?php echo htmlspecialchars($hotel['hotel_name']); ?>
+                                                    </h4>
+                                                    <span class="badge" style="background:<?php
+                                                                                            echo $hotel['hotel_type'] == 'low' ? '#10b981' : ($hotel['hotel_type'] == 'medium' ? '#f59e0b' : '#ef4444');
+                                                                                            ?>;color:white;padding:4px 10px;border-radius:20px;font-size:0.8rem">
+                                                        <?php echo ucfirst($hotel['hotel_type']); ?> Budget
+                                                    </span>
+                                                </div>
+
+                                                <div style="display:flex;align-items:center;gap:15px;margin-top:6px;flex-wrap:wrap">
+                                                    <div style="display:flex;align-items:center;gap:5px">
+                                                        <i class="fas fa-star" style="color:#fbbf24"></i>
+                                                        <span><?php echo $hotel['hotel_rating']; ?> Rating</span>
+                                                    </div>
+                                                    <div style="display:flex;align-items:center;gap:5px">
+                                                        <i class="fas fa-rupee-sign" style="color:#16034f"></i>
+                                                        <span><strong>₹<?php echo number_format($hotel['price_per_night']); ?></strong>/night</span>
+                                                    </div>
+                                                    <?php if ($hotel['free_cancellation']): ?>
+                                                        <span style="color:#10b981;font-size:0.9rem">
+                                                            <i class="fas fa-check-circle"></i> Free Cancellation
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Expand/Collapse Icon -->
+                                        <i class="fas fa-chevron-down" id="<?php echo $hotel_id; ?>_icon" style="color:#16034f;transition:transform 0.3s ease;margin-left:10px"></i>
+                                    </div>
+
+                                    <!-- Hotel Details (Hidden by Default) -->
+                                    <div id="<?php echo $hotel_id; ?>_details" class="hotel-details" style="display:none;padding:20px;background:#f9fafc;border-top:1px solid #eef4ff">
+                                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px">
+                                            <!-- Left Column: Description & Amenities -->
+                                            <div>
+                                                <h5 style="color:#16034f;margin:0 0 10px 0;font-size:1rem">Description</h5>
+                                                <p style="color:#4b5563;line-height:1.6;margin-bottom:15px">
+                                                    <?php echo !empty($hotel['description']) ? nl2br(htmlspecialchars($hotel['description'])) : 'No description available.'; ?>
+                                                </p>
+
+                                                <h5 style="color:#16034f;margin:15px 0 10px 0;font-size:1rem">Amenities</h5>
+                                                <?php if (!empty($amenities) && is_array($amenities)): ?>
+                                                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                                                        <?php foreach ($amenities as $amenity): ?>
+                                                            <span style="background:#eef2ff;color:#16034f;padding:5px 12px;border-radius:20px;font-size:0.9rem">
+                                                                <i class="fas fa-check" style="color:#10b981;margin-right:5px"></i>
+                                                                <?php echo htmlspecialchars($amenity); ?>
+                                                            </span>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <p class="muted">No amenities information available.</p>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <!-- Right Column: Address & Contact -->
+                                            <div>
+                                                <h5 style="color:#16034f;margin:0 0 10px 0;font-size:1rem">Location & Contact</h5>
+                                                <?php if (!empty($hotel['address'])): ?>
+                                                    <p style="color:#4b5563;margin-bottom:8px">
+                                                        <i class="fas fa-map-marker-alt" style="color:#ff6600;margin-right:8px"></i>
+                                                        <?php echo htmlspecialchars($hotel['address']); ?>
+                                                    </p>
+                                                <?php endif; ?>
+
+                                                <?php if (!empty($hotel['contact_number'])): ?>
+                                                    <p style="color:#4b5563;margin-bottom:8px">
+                                                        <i class="fas fa-phone" style="color:#ff6600;margin-right:8px"></i>
+                                                        <?php echo htmlspecialchars($hotel['contact_number']); ?>
+                                                    </p>
+                                                <?php endif; ?>
+
+                                                <div style="display:flex;gap:15px;margin:15px 0">
+                                                    <?php if (!empty($hotel['check_in_time'])): ?>
+                                                        <div>
+                                                            <span style="color:#6b7280;font-size:0.9rem">Check-in</span>
+                                                            <div style="font-weight:600;color:#16034f">
+                                                                <?php echo date('h:i A', strtotime($hotel['check_in_time'])); ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endif; ?>
+
+                                                    <?php if (!empty($hotel['check_out_time'])): ?>
+                                                        <div>
+                                                            <span style="color:#6b7280;font-size:0.9rem">Check-out</span>
+                                                            <div style="font-weight:600;color:#16034f">
+                                                                <?php echo date('h:i A', strtotime($hotel['check_out_time'])); ?>
+                                                            </div>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+
+                                                <!-- Additional Features -->
+                                                <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:15px">
+                                                    <?php if ($hotel['breakfast_included']): ?>
+                                                        <span style="background:#d1fae5;color:#065f46;padding:5px 10px;border-radius:20px;font-size:0.9rem">
+                                                            <i class="fas fa-utensils"></i> Breakfast Included
+                                                        </span>
+                                                    <?php endif; ?>
+
+                                                    <?php if ($hotel['free_cancellation']): ?>
+                                                        <span style="background:#dbeafe;color:#1e40af;padding:5px 10px;border-radius:20px;font-size:0.9rem">
+                                                            <i class="fas fa-calendar-times"></i> Free Cancellation
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+
+                                                <!-- Action Buttons -->
+                                                <div style="display:flex;gap:10px;margin-top:20px">
+                                                    <a href="book_hotel.php?hotel_id=<?php echo $hotel['id']; ?>&destination_id=<?php echo $destination_id; ?>"
+                                                        class="btn-small btn-book"
+                                                        style="background:#ff6600;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                                                        <i class="fas fa-hotel"></i> Book This Hotel
+                                                    </a>
+
+                                                    <?php if (!empty($hotel['address'])): ?>
+                                                        <a href="https://www.google.com/maps/search/?api=1&query=<?php echo urlencode($hotel['address']); ?>"
+                                                            target="_blank"
+                                                            class="btn-small"
+                                                            style="border:1px solid #ff6600;color:#ff6600;padding:10px 20px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:8px">
+                                                            <i class="fas fa-directions"></i> Directions
+                                                        </a>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        <?php endforeach;
-                    else: ?>
-                        <div class="muted">No reviews yet. Be the first to review!</div>
-                    <?php endif; ?>
-
-                    <?php if (isset($_SESSION['user_id'])): ?>
-                        <form id="reviewForm" method="post" action="actions/add_review.php" enctype="multipart/form-data" style="margin-top:12px">
-                            <input type="hidden" name="destination_id" value="<?php echo $destination_id; ?>">
-                            <div style="display:flex;gap:8px;flex-wrap:wrap">
-                                <select name="rating" required>
-                                    <option value="">Rating</option>
-                                    <option value="5">5 - Excellent</option>
-                                    <option value="4">4 - Very good</option>
-                                    <option value="3">3 - Good</option>
-                                    <option value="2">2 - Fair</option>
-                                    <option value="1">1 - Poor</option>
-                                </select>
-                                <input type="file" name="images[]" accept="image/*" multiple>
-                            </div>
-                            <div style="margin-top:8px">
-                                <textarea name="comment" rows="3" style="width:100%" placeholder="Share your experience..."></textarea>
-                            </div>
-                            <div style="margin-top:8px">
-                                <button class="btn-small btn-book" type="submit">Submit Review</button>
-                            </div>
-                        </form>
+                            <?php endforeach; ?>
+                        </div>
                     <?php else: ?>
-                        <div style="margin-top:8px" class="muted">Sign in to add a review.</div>
+                        <div class="muted">No hotels available for this destination yet.</div>
                     <?php endif; ?>
                 </div>
 
@@ -1038,48 +1700,159 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             <!-- Sidebar: TOC, map, weather, currency -->
             <aside>
                 <div class="toc card" role="navigation" aria-label="On-page navigation">
-                    <div style="font-weight:800;margin-bottom:8px">Jump to</div>
-                    <a href="#details">Details</a>
-                    <a href="#cuisines">Cuisines</a>
-                    <a href="#gallery">Gallery</a>
-                    <a href="#attractions">Attractions</a>
-                    <a href="#reviews">Reviews</a>
-                    <a href="#map-section">Map</a>
+                    <div style="font-weight:800;margin-bottom:12px;font-size:1.1rem;color:#16034f;border-bottom:2px solid #ff6600;padding-bottom:10px">Jump to</div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <a href="#details" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-info-circle" style="color:#ff6600;margin-right:8px"></i>Details
+                        </a>
+                        <a href="#cuisines" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-utensils" style="color:#ff6600;margin-right:8px"></i>Cuisines
+                        </a>
+                        <a href="#gallery" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-images" style="color:#ff6600;margin-right:8px"></i>Gallery
+                        </a>
+                        <a href="#attractions" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-map-pin" style="color:#ff6600;margin-right:8px"></i>Attractions
+                        </a>
+                        <a href="#hotels" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-hotel" style="color:#ff6600;margin-right:8px"></i>Hotels
+                        </a>
+                        <a href="#map-section" style="color:#16034f;text-decoration:none;padding:8px 12px;border-radius:6px;transition:all 0.2s ease;border-left:3px solid transparent;display:block" onmouseover="this.style.backgroundColor='#f0f4ff';this.style.borderLeftColor='#ff6600';this.style.paddingLeft='16px'" onmouseout="this.style.backgroundColor='transparent';this.style.borderLeftColor='transparent';this.style.paddingLeft='12px'">
+                            <i class="fas fa-map" style="color:#ff6600;margin-right:8px"></i>Map
+                        </a>
+                    </div>
                 </div>
 
-                <div class="card" id="map-section" style="margin-top:16px">
+                <div class="card" id="map-section">
                     <div class="section-title">Location</div>
-                    <?php if (!empty($destination['latitude']) && !empty($destination['longitude'])): ?>
-                        <div id="map"></div>
+                    <?php if (!empty($destination['map_link'])): ?>
+                        <div class="map-container">
+                            <iframe
+                                class="google-map-frame"
+                                src="<?php echo htmlspecialchars($destination['map_link']); ?>&output=embed"
+                                allowfullscreen
+                                loading="lazy">
+                            </iframe>
+                        </div>
                         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-                            <a id="directionsBtn" class="btn-small" href="https://www.google.com/maps/dir/?api=1&destination=<?php echo urlencode($destination['latitude'] . ',' . $destination['longitude']); ?>" target="_blank">Open Directions</a>
-                            <button id="routeFromBtn" class="btn-small">Route from my location</button>
+                            <a id="directionsBtn" class="btn-small" href="<?php echo htmlspecialchars($destination['map_link']); ?>" target="_blank">Open in Google Maps</a>
                         </div>
                     <?php else: ?>
-                        <div class="muted">No coordinates available. <a href="<?php echo htmlspecialchars($destination['map_link']); ?>" target="_blank">Open map link</a></div>
+                        <div class="muted">No map available for this location.</div>
                     <?php endif; ?>
                 </div>
 
                 <!-- Weather widget (OpenWeatherMap) -->
-                <div class="card" style="margin-top:16px" id="weatherWidget">
+                <div class="card" id="weatherWidget">
                     <div class="section-title">Weather</div>
-                    <div id="weatherContent" class="muted">Loading weather...</div>
+                    <div id="weatherContent">
+                        <div class="weather-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Loading weather data...
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Currency & local time -->
-                <div class="card" style="margin-top:16px">
+                <div class="card">
                     <div class="section-title">Local Info</div>
                     <div><strong>Local Time:</strong> <span id="localTime">--:--</span></div>
                     <div style="margin-top:8px"><strong>Currency:</strong> <span id="currencyVal">Loading...</span></div>
                 </div>
             </aside>
 
+        </div> <!-- This closes the grid div -->
+
+        <!-- Budget Selection Section - Moved to bottom -->
+        <div class="budget-section-wrapper" id="budgetSection">
+            <div class="budget-container">
+                <h2 class="budget-section-title">
+                    <i class="fas fa-wallet budget-section-icon"></i>
+                    Plan Your Budget Package
+                </h2>
+
+                <!-- Budget Type Buttons -->
+                <div class="budget-buttons">
+                    <button onclick="selectBudget('low')" id="budgetLowBtn" class="budget-btn budget-btn-low">
+                        <i class="fas fa-coins"></i>
+                        Low Budget
+                        <span class="budget-btn-price">₹<?php echo number_format($destination['budget'] * 0.7); ?>/day est.</span>
+                    </button>
+                    <button onclick="selectBudget('medium')" id="budgetMediumBtn" class="budget-btn budget-btn-medium">
+                        <i class="fas fa-wallet"></i>
+                        Medium Budget
+                        <span class="budget-btn-price">₹<?php echo number_format($destination['budget']); ?>/day est.</span>
+                    </button>
+                    <button onclick="selectBudget('high')" id="budgetHighBtn" class="budget-btn budget-btn-high">
+                        <i class="fas fa-crown"></i>
+                        High Budget
+                        <span class="budget-btn-price">₹<?php echo number_format($destination['budget'] * 1.5); ?>/day est.</span>
+                    </button>
+                </div>
+
+                <!-- Trip Details Form (Hidden initially) -->
+                <div id="tripDetailsForm" class="trip-details-form hidden">
+                    <h3 class="trip-details-title">Tell us about your trip</h3>
+                    <div class="trip-details-grid">
+                        <div class="trip-detail-field">
+                            <label class="trip-detail-label">Number of Travelers</label>
+                            <input type="number" id="travelers" min="1" value="2" class="trip-detail-input">
+                        </div>
+                        <div class="trip-detail-field">
+                            <label class="trip-detail-label">Number of Days</label>
+                            <input type="number" id="days" min="1" value="5" class="trip-detail-input">
+                        </div>
+                        <div class="trip-detail-field">
+                            <label class="trip-detail-label">Departure City</label>
+                            <select id="departureCity" class="trip-detail-input">
+                                <option value="">Select City</option>
+                                <?php foreach ($departure_cities as $city): ?>
+                                    <option value="<?php echo htmlspecialchars($city); ?>"><?php echo htmlspecialchars($city); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="calculateTotal()" class="calculate-btn">
+                        <i class="fas fa-calculator"></i>
+                        Calculate Total
+                    </button>
+                </div>
+
+                <!-- Package Details Container (Hidden initially) -->
+                <div id="packageDetails" class="package-details hidden">
+                    <!-- Selected Budget Indicator -->
+                    <div id="selectedBudgetBadge" class="budget-badge"></div>
+
+                    <!-- Hotels Section -->
+                    <div class="package-section">
+                        <div class="package-section-header package-section-header-blue">
+                            <i class="fas fa-hotel"></i> Recommended Hotels
+                        </div>
+                        <div id="hotelsContainer" class="package-grid"></div>
+                    </div>
+
+                    <!-- Flights Section -->
+                    <div class="package-section">
+                        <div class="package-section-header package-section-header-purple">
+                            <i class="fas fa-plane"></i> Available Flights
+                        </div>
+                        <div id="flightsContainer" class="package-grid"></div>
+                    </div>
+
+                    <!-- Total Cost Summary -->
+                    <div class="total-cost-section">
+                        <h3 class="total-cost-title">Total Package Cost</h3>
+                        <div id="costBreakdown" class="cost-breakdown"></div>
+                        <div id="totalCost" class="total-cost-amount"></div>
+                        <button onclick="bookPackage()" class="book-package-btn">
+                            <i class="fas fa-ticket-alt"></i>
+                            Book This Package
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- <div style="text-align: center; margin-top: 16px; color: #6b7280; font-size: 14px;">
-                    Photos provided by <a href="https://unsplash.com?utm_source=TripMate&utm_medium=referral" target="_blank" style="color: #16034f; font-weight: 600;">Unsplash</a>
-                </div> -->
-    </main>
+    </main> <!-- This closes the main container -->
 
     <!-- PhotoSwipe root element (v5) -->
     <div class="pswp" id="pswp" role="dialog" aria-hidden="true"></div>
@@ -1088,6 +1861,11 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/swiper@9/swiper-bundle.min.js"></script>
     <script src="https://unpkg.com/photoswipe@5/dist/photoswipe.min.js"></script>
+
+    <!-- User Session Scripts -->
+    <script src="../user/session-sync.js"></script>
+    <script src="../user/user-profile.js"></script>
+    <script src="../user/auto-logout.js"></script>
 
     <script>
         // ---------- Helper data from PHP ----------
@@ -1098,6 +1876,8 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
         const DEST_LNG = <?php echo (!empty($destination['longitude']) ? (float)$destination['longitude'] : 'null'); ?>;
         const IS_LOGGED_IN = <?php echo isset($_SESSION['user_id']) ? 'true' : 'false'; ?>;
         const SERVER_BASE = "<?php echo $base_url; ?>";
+        const GOOGLE_API_KEY = "<?php echo $google_api_key; ?>";
+        const DEST_MAP_LINK = "<?php echo addslashes($destination['map_link']); ?>";
 
         // ---------- Ken Burns images already animated via CSS (class .kenburns) ----------
 
@@ -1256,72 +2036,192 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         });
 
-        // ---------- Leaflet map with marker(s) and directions ----------
-        if (DEST_LAT !== null && DEST_LNG !== null) {
-            try {
-                const map = L.map('map', {
-                    scrollWheelZoom: false
-                }).setView([DEST_LAT, DEST_LNG], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap'
-                }).addTo(map);
-                const mainMarker = L.marker([DEST_LAT, DEST_LNG]).addTo(map).bindPopup(DEST_NAME);
-                // Optionally: show nearby sample POIs (mocked or fetched from server)
-                // Example: fetch('actions/nearby_pois.php?lat=...&lng=...').then...
-                // For demo we add placeholder markers
-                <?php
-                // If you have attractions with coordinates saved in DB, you can embed them here.
-                // We'll attempt to use a hypothetical JSON field 'poi_points' (array of {name,lat,lng,type})
-                if (!empty($destination['poi_points'])) {
-                    $poi_points = json_decode($destination['poi_points'], true);
-                    if ($poi_points && is_array($poi_points)) {
-                        echo "const pois = " . json_encode($poi_points) . ";\n";
-                        echo "pois.forEach(p => { L.marker([p.lat, p.lng]).addTo(map).bindPopup('<strong>'+p.name+'</strong><br/>'+p.type); });\n";
-                    }
-                }
-                ?>
-                // Route from current location (simple)
-                document.getElementById('routeFromBtn')?.addEventListener('click', () => {
-                    if (!navigator.geolocation) {
-                        alert('Geolocation not supported');
-                        return;
-                    }
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        const fromLat = pos.coords.latitude;
-                        const fromLng = pos.coords.longitude;
-                        // Open Google Maps directions
-                        window.open(`https://www.google.com/maps/dir/?api=1&origin=${fromLat},${fromLng}&destination=${DEST_LAT},${DEST_LNG}`);
-                    }, () => alert('Permission denied or error getting location'));
-                });
-            } catch (e) {
-                document.getElementById('map').innerHTML = '<div class="muted">Map could not be loaded.</div>';
-                console.warn('Map init', e);
-            }
-        }
-
-        // ---------- Weather widget (OpenWeatherMap) ----------
+        // ---------- Weather widget (OpenWeatherMap) with 7-day forecast ----------
         (function loadWeather() {
             const weatherEl = document.getElementById('weatherContent');
-            const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY'; // <<<< Replace with server-side stored key or proxy action for security
-            if (!apiKey || DEST_LAT === null || DEST_LNG === null) {
-                weatherEl.textContent = 'Weather not available';
+
+            // Using OpenWeatherMap API (free tier)
+            const API_KEY = '2c5b9d6d17097085842456fbd26ac081'; // Replace with your actual API key
+
+            if (!API_KEY || DEST_LAT === null || DEST_LNG === null) {
+                weatherEl.innerHTML = '<div class="weather-error">Weather data not available</div>';
                 return;
             }
-            fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${DEST_LAT}&lon=${DEST_LNG}&units=metric&exclude=minutely,hourly,alerts&appid=${apiKey}`)
+
+            // Fetch current weather and 7-day forecast
+            fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${DEST_LAT}&lon=${DEST_LNG}&units=metric&exclude=minutely,alerts&appid=${API_KEY}`)
                 .then(r => r.json())
-                .then(d => {
-                    if (d && d.current) {
-                        weatherEl.innerHTML = `<div><strong>${Math.round(d.current.temp)}°C</strong> • ${d.current.weather[0].description}</div>
-                <div style="margin-top:8px;color:var(--muted)">3-day: ${Math.round(d.daily[1].temp.day)}°/${Math.round(d.daily[1].temp.night)}° • ${Math.round(d.daily[2].temp.day)}°/${Math.round(d.daily[2].temp.night)}°</div>`;
+                .then(data => {
+                    if (data && data.current) {
+                        const current = data.current;
+                        const daily = data.daily;
+
+                        // Get weather icon
+                        const iconCode = current.weather[0].icon;
+                        const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+
+                        // Build weather HTML
+                        let weatherHTML = `
+                            <div class="weather-widget">
+                                <div class="weather-current">
+                                    <div>
+                                        <div class="weather-temp">${Math.round(current.temp)}°C</div>
+                                        <div style="font-size:1rem;text-transform:capitalize">${current.weather[0].description}</div>
+                                    </div>
+                                    <img class="weather-icon" src="${iconUrl}" alt="${current.weather[0].description}">
+                                </div>
+                                
+                                <div class="weather-details">
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-temperature-high"></i>
+                                        <span>Feels Like</span>
+                                        <strong>${Math.round(current.feels_like)}°C</strong>
+                                    </div>
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-tint"></i>
+                                        <span>Humidity</span>
+                                        <strong>${current.humidity}%</strong>
+                                    </div>
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-wind"></i>
+                                        <span>Wind</span>
+                                        <strong>${Math.round(current.wind_speed * 3.6)} km/h</strong>
+                                    </div>
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-cloud"></i>
+                                        <span>Clouds</span>
+                                        <strong>${current.clouds}%</strong>
+                                    </div>
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-sun"></i>
+                                        <span>UV Index</span>
+                                        <strong>${Math.round(current.uvi)}</strong>
+                                    </div>
+                                    <div class="weather-detail-item">
+                                        <i class="fas fa-eye"></i>
+                                        <span>Visibility</span>
+                                        <strong>${(current.visibility / 1000).toFixed(1)} km</strong>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-top:15px">
+                                    <div style="font-weight:600;margin-bottom:10px">7-Day Forecast</div>
+                                    <div class="weather-forecast">
+                        `;
+
+                        // Add 7-day forecast
+                        daily.slice(1, 8).forEach(day => {
+                            const date = new Date(day.dt * 1000);
+                            const dayName = date.toLocaleDateString('en-US', {
+                                weekday: 'short'
+                            });
+                            const icon = day.weather[0].icon;
+
+                            weatherHTML += `
+                                <div class="forecast-day">
+                                    <div class="day">${dayName}</div>
+                                    <img src="https://openweathermap.org/img/wn/${icon}.png" alt="${day.weather[0].description}" style="width:40px;height:40px">
+                                    <div class="temp">${Math.round(day.temp.day)}°C</div>
+                                    <div class="condition">${day.weather[0].description}</div>
+                                    <div style="font-size:0.8rem;opacity:0.8">${Math.round(day.pop * 100)}% rain</div>
+                                </div>
+                            `;
+                        });
+
+                        weatherHTML += `
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        weatherEl.innerHTML = weatherHTML;
                     } else {
-                        weatherEl.textContent = 'No weather data';
+                        weatherEl.innerHTML = '<div class="weather-error">Unable to load weather data</div>';
                     }
-                }).catch(err => {
-                    weatherEl.textContent = 'Weather load error';
-                    console.warn(err);
+                })
+                .catch(err => {
+                    console.warn('Weather API error:', err);
+                    weatherEl.innerHTML = '<div class="weather-error">Weather service temporarily unavailable</div>';
                 });
         })();
+
+        // ---------- Google Images Gallery ----------
+        function loadGoogleImages() {
+            const container = document.getElementById('googleImagesContainer');
+
+            if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'YOUR_GOOGLE_API_KEY') {
+                container.innerHTML = '<div class="weather-error">Google Images API key not configured</div>';
+                return;
+            }
+
+            // Using Google Custom Search JSON API
+            const searchEngineId = '55d60d886e17d46b2'; // You need to create a Custom Search Engine
+            const query = encodeURIComponent(`${DEST_NAME} ${DEST_LOCATION} travel destination`);
+
+            fetch(`https://www.googleapis.com/customsearch/v1?q=${query}&cx=${searchEngineId}&key=${GOOGLE_API_KEY}&searchType=image&num=10`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.items && data.items.length > 0) {
+                        let imagesHTML = '';
+                        data.items.forEach(item => {
+                            imagesHTML += `
+                                <div style="position:relative">
+                                    <img src="${item.link}" 
+                                         alt="${item.title}" 
+                                         onclick="openGoogleImage('${item.link}', '${item.title.replace(/'/g, "\\'")}')"
+                                         loading="lazy"
+                                         onerror="this.parentElement.style.display='none'">
+                                    <span class="image-source-badge">Google</span>
+                                </div>
+                            `;
+                        });
+                        container.innerHTML = imagesHTML;
+                    } else {
+                        container.innerHTML = '<div class="weather-error">No Google images found</div>';
+                    }
+                })
+                .catch(err => {
+                    console.warn('Google Images API error:', err);
+                    container.innerHTML = '<div class="weather-error">Unable to load Google images</div>';
+                });
+        }
+
+        function openGoogleImage(src, title) {
+            const items = [{
+                src: src,
+                w: 1200,
+                h: 800,
+                title: title || DEST_NAME
+            }];
+            const options = {
+                index: 0
+            };
+            const gallery = pswp.create({
+                dataSource: items
+            }, options);
+            gallery.init();
+        }
+
+        // ---------- Gallery Tab Switching ----------
+        window.switchGalleryTab = function(tab) {
+            const tabs = document.querySelectorAll('.gallery-tab');
+            const sections = document.querySelectorAll('.gallery-section');
+
+            tabs.forEach(t => t.classList.remove('active'));
+            sections.forEach(s => s.classList.remove('active'));
+
+            if (tab === 'local') {
+                tabs[0].classList.add('active');
+                document.getElementById('localGallerySection').classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('googleGallerySection').classList.add('active');
+                if (!document.getElementById('googleImagesContainer').children.length ||
+                    document.getElementById('googleImagesContainer').children[0].classList.contains('weather-loading')) {
+                    loadGoogleImages();
+                }
+            }
+        };
 
         // ---------- Currency converter (public API example) ----------
         (function loadCurrency() {
@@ -1399,245 +2299,251 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         });
 
-        // ---------- Dynamic Unsplash Gallery Integration ----------
-const FETCH_DYNAMIC_IMAGES = true; // Set to false to use database images only
+        // ---------- Hotel Details Toggle Function ----------
+        function toggleHotelDetails(hotelId) {
+            const detailsDiv = document.getElementById(hotelId + '_details');
+            const icon = document.getElementById(hotelId + '_icon');
 
-async function loadDynamicGallery() {
-    if (!FETCH_DYNAMIC_IMAGES) return;
+            if (detailsDiv.style.display === 'none' || detailsDiv.style.display === '') {
+                // Close any other open hotel details first
+                document.querySelectorAll('.hotel-details').forEach(div => {
+                    div.style.display = 'none';
+                });
+                document.querySelectorAll('[id$="_icon"]').forEach(ic => {
+                    ic.style.transform = 'rotate(0deg)';
+                });
 
-    const galleryGrid = document.getElementById('thumbGrid');
-    const mainSwiper = document.getElementById('mainSwiper');
+                // Open this one
+                detailsDiv.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
 
-    if (!galleryGrid || !mainSwiper) {
-        console.warn('Gallery elements not found');
-        return;
-    }
-
-    try {
-        // Show loading state
-        const originalContent = galleryGrid.innerHTML; // Save original for fallback
-        galleryGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--muted)"><i class="fas fa-spinner fa-spin"></i><p style="margin-top:8px">Loading gallery...</p></div>';
-
-        // Build search query from destination name and location
-        const searchQuery = `${DEST_NAME} ${DEST_LOCATION} tourism landmarks`;
-
-        // Fetch images from Unsplash via our proxy
-        const response = await fetch(`actions/fetch_images.php?query=${encodeURIComponent(searchQuery)}&count=12`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-
-        if (data.error) {
-            console.error('Image fetch error:', data.error);
-            // Fallback to database images
-            restoreOriginalGallery(originalContent);
-            return;
-        }
-
-        if (data.success && data.images && data.images.length > 0) {
-            // Update main swiper
-            updateMainSwiper(data.images);
-            
-            // Update thumbnail grid
-            updateThumbnailGrid(data.images);
-            
-            console.log(`Loaded ${data.images.length} images from Unsplash`);
-        } else {
-            // No images returned, fallback
-            restoreOriginalGallery(originalContent);
-        }
-
-    } catch (error) {
-        console.error('Failed to load dynamic gallery:', error);
-        // Fallback to database images - restore original content
-        restoreOriginalGallery();
-    }
-}
-
-function updateMainSwiper(images) {
-    const mainSwiper = document.getElementById('mainSwiper');
-    if (!mainSwiper) return;
-
-    const swiperWrapper = mainSwiper.querySelector('.swiper-wrapper');
-    if (!swiperWrapper) return;
-
-    swiperWrapper.innerHTML = '';
-
-    images.forEach((img, index) => {
-        const slide = document.createElement('div');
-        slide.className = 'swiper-slide';
-        slide.innerHTML = `<img src="${img.urls.regular}" alt="${img.description || DEST_NAME}" loading="${index === 0 ? 'eager' : 'lazy'}">`;
-        swiperWrapper.appendChild(slide);
-    });
-
-    // Reinitialize swiper if it exists
-    if (typeof swiper !== 'undefined') {
-        swiper.update();
-    }
-}
-
-function updateThumbnailGrid(images) {
-    const galleryGrid = document.getElementById('thumbGrid');
-    if (!galleryGrid) return;
-
-    galleryGrid.innerHTML = '';
-
-    images.forEach(img => {
-        const thumb = document.createElement('img');
-        thumb.src = img.urls.small;
-        thumb.setAttribute('data-full', img.urls.regular);
-        thumb.setAttribute('data-download', img.download_location);
-        thumb.alt = img.description || DEST_NAME;
-        thumb.loading = 'lazy';
-        thumb.setAttribute('data-ready', '0');
-        thumb.title = `Photo by ${img.photographer.name} on Unsplash`;
-
-        // Lazy load high-res version
-        const fullImg = new Image();
-        fullImg.src = img.urls.regular;
-        fullImg.onload = () => {
-            thumb.setAttribute('data-ready', '1');
-            
-            // Trigger download tracking (required by Unsplash API)
-            trackDownload(img.download_location);
-        };
-
-        // Add click handler for lightbox
-        thumb.addEventListener('click', () => {
-            openPhotoSwipe(img);
-        });
-
-        galleryGrid.appendChild(thumb);
-    });
-}
-
-function restoreOriginalGallery(originalContent = null) {
-    const galleryGrid = document.getElementById('thumbGrid');
-    if (!galleryGrid) return;
-
-    if (originalContent) {
-        galleryGrid.innerHTML = originalContent;
-    } else {
-        // If no original content, ensure database images are properly initialized
-        document.querySelectorAll('#thumbGrid img').forEach(img => {
-            const full = img.dataset.full || img.src;
-            const loadImg = new Image();
-            loadImg.src = full;
-            loadImg.onload = function() {
-                img.src = full;
-                img.dataset.ready = '1';
-            };
-        });
-    }
-    console.log('Fell back to database images');
-}
-
-async function trackDownload(downloadLocation) {
-    try {
-        await fetch('actions/fetch_images.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `trigger_download=1&download_location=${encodeURIComponent(downloadLocation)}`
-        });
-    } catch (error) {
-        console.warn('Download tracking failed:', error);
-    }
-}
-
-function openPhotoSwipe(img) {
-    const items = [{
-        src: img.urls.full,
-        w: img.dimensions.width,
-        h: img.dimensions.height,
-        title: `${img.description || DEST_NAME}<br><small>Photo by <a href="${img.photographer.url}?utm_source=TripMate&utm_medium=referral" target="_blank">${img.photographer.name}</a> on <a href="https://unsplash.com?utm_source=TripMate&utm_medium=referral" target="_blank">Unsplash</a></small>`
-    }];
-    
-    const options = {
-        index: 0
-    };
-    
-    const gallery = window.PhotoSwipe.create({
-        dataSource: items
-    }, options);
-    gallery.init();
-}
-
-// Load dynamic gallery after page loads
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadDynamicGallery);
-} else {
-    loadDynamicGallery();
-}
-
-        // Utility: get active user from storage (localStorage preferred for device-wide)
-        function getActiveUser() {
-            const localId = localStorage.getItem('tripmate_active_user_id');
-            const localName = localStorage.getItem('tripmate_active_user_name');
-            if (localId) return { id: localId, name: localName || '' };
-            const sessId = sessionStorage.getItem('user_id');
-            const sessName = sessionStorage.getItem('user_name');
-            if (sessId) return { id: sessId, name: sessName || '' };
-            return null;
-        }
-
-        // Check if user is logged in on page load
-        function checkLoginStatus() {
-            const active = getActiveUser();
-            if (active) {
-                showUserProfile(active.name || 'User', active.id);
+                // Smooth scroll to this hotel
+                setTimeout(() => {
+                    detailsDiv.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
+                }, 100);
+            } else {
+                // Close this one
+                detailsDiv.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
             }
         }
 
-        // Show user profile after successful login
-        function showUserProfile(username, userId) {
-            const profileEl = document.getElementById('userProfile');
-            if (!profileEl) return;
+        // ---------- Budget Package Section ----------
+        // Budget selection data from PHP
+        const hotelsByType = <?php echo json_encode($hotels_by_type); ?>;
+        const flightsByType = <?php echo json_encode($flights_by_type); ?>;
+        const destinationBudget = <?php echo $destination['budget']; ?>;
+        const destinationName = "<?php echo addslashes($destination['name']); ?>";
 
-            const nameToShow = username || sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
-            profileEl.querySelector('#profileUserName').textContent = nameToShow;
-            profileEl.querySelector('#dropdownUserName').textContent = nameToShow;
-            profileEl.classList.add('visible');
+        let selectedBudget = null;
+        let selectedHotel = null;
+        let selectedFlight = null;
 
-            // Add event listeners for profile dropdown
-            const profileBtn = profileEl.querySelector('.profile-btn');
-            const dropdown = profileEl.querySelector('.profile-dropdown');
+        function selectBudget(budget) {
+            selectedBudget = budget;
 
-            // ensure we don't attach multiple listeners
-            profileBtn.onclick = function(e) {
-                e.stopPropagation();
-                dropdown.classList.toggle('active');
-            };
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function() {
-                if (dropdown) dropdown.classList.remove('active');
+            // Update button styles
+            document.querySelectorAll('.budget-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-[#ff6600]', 'scale-105');
             });
+            document.getElementById(`budget${budget.charAt(0).toUpperCase() + budget.slice(1)}Btn`).classList.add('ring-4', 'ring-[#ff6600]', 'scale-105');
 
-            // Handle logout - clear both storages and navigate to server logout
-            const logoutBtn = profileEl.querySelector('#logoutBtn');
-            logoutBtn.onclick = function(e) {
-                e.preventDefault();
-                if (confirm('Are you sure you want to logout?')) {
-                    // Clear client storage for the active user
-                    sessionStorage.removeItem('user_id');
-                    sessionStorage.removeItem('user_name');
-                    localStorage.removeItem('tripmate_active_user_id');
-                    localStorage.removeItem('tripmate_active_user_name');
+            // Show trip details form
+            document.getElementById('tripDetailsForm').classList.remove('hidden');
+            document.getElementById('packageDetails').classList.add('hidden');
 
-                    // Navigate to server logout endpoint to fully clear server session
-                    window.location.href = '../auth/logout.php';
-                }
-            };
+            // Reset selections
+            selectedHotel = null;
+            selectedFlight = null;
         }
 
-        // Initialize user profile on page load
+        function calculateTotal() {
+            const travelers = parseInt(document.getElementById('travelers').value) || 1;
+            const days = parseInt(document.getElementById('days').value) || 1;
+            const departureCity = document.getElementById('departureCity').value;
+
+            if (!selectedBudget) {
+                alert('Please select a budget type first');
+                return;
+            }
+
+            if (!departureCity) {
+                alert('Please select your departure city');
+                return;
+            }
+
+            // Get first available hotel and flight of selected type
+            const availableHotels = hotelsByType[selectedBudget] || [];
+            const availableFlights = flightsByType[selectedBudget]?.filter(f => f.departure_city === departureCity) || [];
+
+            if (availableHotels.length === 0) {
+                alert('No hotels available for this budget category');
+                return;
+            }
+
+            if (availableFlights.length === 0) {
+                alert('No flights available from your selected city for this budget category');
+                return;
+            }
+
+            selectedHotel = availableHotels[0];
+            selectedFlight = availableFlights[0];
+
+            displayPackageDetails(travelers, days);
+        }
+
+        function displayPackageDetails(travelers, days) {
+            // Update badge
+            const badge = document.getElementById('selectedBudgetBadge');
+            badge.className = `inline-block px-4 py-2 rounded-full text-white font-bold mb-4 ${
+        selectedBudget === 'low' ? 'bg-green-600' : 
+        selectedBudget === 'medium' ? 'bg-yellow-600' : 'bg-red-600'
+    }`;
+            badge.innerHTML = `<i class="fas fa-${
+        selectedBudget === 'low' ? 'coins' : 
+        selectedBudget === 'medium' ? 'wallet' : 'crown'
+    } mr-2"></i>${
+        selectedBudget.charAt(0).toUpperCase() + selectedBudget.slice(1)
+    } Budget Package`;
+
+            // Display hotels
+            const hotelsContainer = document.getElementById('hotelsContainer');
+            hotelsContainer.innerHTML = hotelsByType[selectedBudget].map(hotel => `
+        <div class="border rounded-lg p-4 ${selectedHotel && selectedHotel.id === hotel.id ? 'border-4 border-[#ff6600] bg-orange-50' : 'hover:shadow-lg'} transition cursor-pointer" 
+             onclick="selectHotel(${hotel.id})">
+            <div class="flex gap-4">
+                <div class="w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                    <img src="${hotel.image_url || '/images/hotel-placeholder.jpg'}" alt="${hotel.hotel_name}" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-[#16034f]">${hotel.hotel_name}</h4>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-yellow-400">${'★'.repeat(Math.round(hotel.hotel_rating))}</span>
+                        <span class="text-sm text-gray-600">${hotel.hotel_rating}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">₹${hotel.price_per_night}/night</p>
+                    ${hotel.breakfast_included ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded mt-2 inline-block">Breakfast Included</span>' : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+            // Display flights
+            const flightsContainer = document.getElementById('flightsContainer');
+            flightsContainer.innerHTML = flightsByType[selectedBudget]
+                .filter(f => f.departure_city === document.getElementById('departureCity').value)
+                .map(flight => `
+            <div class="border rounded-lg p-4 ${selectedFlight && selectedFlight.id === flight.id ? 'border-4 border-[#ff6600] bg-orange-50' : 'hover:shadow-lg'} transition cursor-pointer"
+                 onclick="selectFlight(${flight.id})">
+                <div class="flex flex-wrap items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                            <i class="fas fa-plane text-2xl text-[#ff6600]"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold">${flight.airline}</h4>
+                            <p class="text-sm text-gray-600">${flight.departure_city} → ${destinationName}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-[#ff6600]">₹${flight.price_per_person}</p>
+                        <p class="text-sm text-gray-600">${flight.duration_hours}h • ${flight.stops === 0 ? 'Non-stop' : flight.stops + ' stop(s)'}</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-3 text-sm">
+                    <span class="bg-gray-100 px-2 py-1 rounded">${flight.departure_time} - ${flight.arrival_time}</span>
+                    <span class="bg-gray-100 px-2 py-1 rounded">${flight.flight_class}</span>
+                    <span class="bg-gray-100 px-2 py-1 rounded">${flight.baggage_allowance}</span>
+                    ${flight.refundable ? '<span class="bg-green-100 text-green-600 px-2 py-1 rounded">Refundable</span>' : ''}
+                </div>
+            </div>
+        `).join('');
+
+            // Calculate and display total cost
+            calculateAndDisplayTotal(travelers, days);
+
+            // Show package details
+            document.getElementById('packageDetails').classList.remove('hidden');
+        }
+
+        function selectHotel(hotelId) {
+            selectedHotel = hotelsByType[selectedBudget].find(h => h.id === hotelId);
+            const travelers = parseInt(document.getElementById('travelers').value) || 1;
+            const days = parseInt(document.getElementById('days').value) || 1;
+            calculateAndDisplayTotal(travelers, days);
+            displayPackageDetails(travelers, days); // Re-render to update selection highlight
+        }
+
+        function selectFlight(flightId) {
+            selectedFlight = flightsByType[selectedBudget].find(f => f.id === flightId);
+            const travelers = parseInt(document.getElementById('travelers').value) || 1;
+            const days = parseInt(document.getElementById('days').value) || 1;
+            calculateAndDisplayTotal(travelers, days);
+            displayPackageDetails(travelers, days); // Re-render to update selection highlight
+        }
+
+        function calculateAndDisplayTotal(travelers, days) {
+            if (!selectedHotel || !selectedFlight) return;
+
+            const hotelCost = selectedHotel.price_per_night * days;
+            const flightCost = selectedFlight.price_per_person * travelers;
+            const total = (hotelCost * travelers) + flightCost;
+            const perPersonPerDay = (selectedHotel.price_per_night + (selectedFlight.price_per_person / days));
+
+            document.getElementById('costBreakdown').innerHTML = `
+        <div class="flex justify-between">
+            <span style="color: #1f2937;">Hotel (${days} nights × ${travelers} travelers):</span>
+            <span class="font-bold" style="color: #111827;">₹${(hotelCost * travelers).toLocaleString()}</span>
+        </div>
+        <div class="flex justify-between">
+            <span style="color: #1f2937;">Flights (${travelers} travelers):</span>
+            <span class="font-bold" style="color: #111827;">₹${flightCost.toLocaleString()}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+            <span style="color: #1f2937;">Per person per day estimate in accomodation:</span>
+            <span style="color: #111827;">₹${Math.round(perPersonPerDay).toLocaleString()}</span>
+        </div>
+    `;
+
+            document.getElementById('totalCost').innerHTML = `
+        <span style="color: #1b50cb;">Total: ₹${total.toLocaleString()}</span>
+        <span class="text-sm block font-normal mt-1" style="color: #951313;">Includes accommodation & flights only</span>
+    `;
+        }
+
+        function bookPackage() {
+            if (!selectedHotel || !selectedFlight) {
+                alert('Please select a hotel and flight first');
+                return;
+            }
+
+            const travelers = parseInt(document.getElementById('travelers').value) || 1;
+            const days = parseInt(document.getElementById('days').value) || 1;
+
+            // Check if user is logged in
+            <?php if (!isset($_SESSION['user_id'])): ?>
+                alert('Please sign in to book a package');
+                return;
+            <?php endif; ?>
+
+            // Redirect to booking page with parameters
+            const bookingUrl = `../booking/package_booking.php?destination_id=<?php echo $destination_id; ?>&hotel_id=${selectedHotel.id}&flight_id=${selectedFlight.id}&travelers=${travelers}&days=${days}&budget_type=${selectedBudget}`;
+            window.location.href = bookingUrl;
+        }
+
+        // Initialize with default values if needed
         document.addEventListener('DOMContentLoaded', function() {
-            checkLoginStatus();
+            // Add any initialization code here
+
+            // Pre-load Google Images when tab is clicked (handled in switchGalleryTab)
+
+            // Set up user session if logged in
+            if (IS_LOGGED_IN) {
+                document.body.classList.add('user-logged-in');
+            }
         });
     </script>
 
@@ -1646,12 +2552,8 @@ if (document.readyState === 'loading') {
         <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
     </script>
 
-    <!-- Session Synchronization -->
-    <script src="../user/session-sync.js"></script>
-
-    <!-- Auto-Logout System -->
-    <script src="../user/auto-logout.js"></script>
-
+    <!-- Page Time Tracker -->
+    <script src="../main/page_time_tracker.js"></script>
 </body>
 
 </html>

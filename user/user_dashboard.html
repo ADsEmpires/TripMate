@@ -1,212 +1,180 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Tripmate — User Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="user-profile.css">
-  <style>
-    /* (kept most of the original CSS for layout + a couple of small adjustments) */
-    .nav-blue-bg { background-color: #1e3a8a; }
-    .orange-button { background-color: #ea580c; }
-    .orange-button:hover { background-color: #c2410c; }
-    .floating-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .floating-sidebar { position: fixed; top: 64px; bottom: 0; left: 0; z-index: 900; overflow-y: auto; }
-    body { padding-top: 64px; padding-left: 256px; }
-    @media (max-width: 1024px) { body { padding-left: 0; } .floating-sidebar { transform: translateX(-100%); } .floating-sidebar.open { transform: translateX(0); } }
-    .leaflet-control-zoom { display: none !important; }
-  </style>
+  <!-- Google Fonts Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <!-- User Dashboard CSS -->
+  <link rel="stylesheet" href="user_dashboard.css">
 </head>
-<body class="bg-gray-50">
+<body>
+
+  <div class="scroll-progress-bar" id="scrollBar"></div>
 
   <!-- Floating Navigation Bar -->
-  <nav class="floating-nav nav-blue-bg text-white p-4 flex justify-between items-center">
-    <div class="flex items-center">
-      <i class="fas fa-compass text-2xl mr-2 text-orange-500"></i>
-      <h1 class="text-xl font-bold">Tripmate</h1>
-    </div>
-
-    <div class="hidden md:flex items-center space-x-6">
-      <a href="../main/index.html" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-home mr-1"></i> Home
-      </a>
-      <a href="../search/search.html" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-search mr-1"></i> Search
-      </a>
-      <a href="../user/my_trips.html" class="hover:text-orange-300 transition flex items-center">
-        <i class="fas fa-suitcase mr-1"></i> My Trips
-      </a>
-    </div>
-
-    <button class="md:hidden sidebar-toggle text-white" onclick="toggleSidebar()">
-      <i class="fas fa-bars text-xl"></i>
-    </button>
-
-    <div class="flex items-center space-x-4">
-      <div class="relative">
-        <button id="profileBtn" class="orange-button text-white rounded-full px-4 py-2 font-medium hover:bg-orange-700 transition flex items-center">
-          <i class="fas fa-user-circle mr-2"></i>
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <a href="../main/index.html" class="logo" style="text-decoration:none;">
+      <i class="fa-solid fa-paper-plane"></i>
+      <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
+    </a>
+    
+    <div class="nav-right">
+      <a href="../search/search.html" class="nav-link"><i class="fas fa-search"></i> Search</a>
+      <a href="my_trips.php" class="nav-link"><i class="fas fa-suitcase"></i> My Trips</a>
+      <button class="theme-toggle" id="themeToggle" aria-label="Switch dark/light mode"><i class="fas fa-moon"></i></button>
+      
+      <!-- Profile Menu -->
+      <div class="profile-menu">
+        <button class="profile-btn" id="profileBtn">
+          <i class="fas fa-user-circle"></i>
           <span id="username" class="hidden md:inline">Account</span>
+          <i class="fas fa-chevron-down text-xs"></i>
         </button>
 
-        <div id="profileMenu" class="hidden absolute right-0 mt-2 w-44 bg-white border rounded shadow-md z-10">
-          <a id="menuProfile" href="../user/user_profile.php" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">
-            <i class="fas fa-user mr-2"></i> My Profile
-          </a>
-          <a id="menuFavorites" href="../user/favourites.html" class="block px-4 py-2 text-gray-800 hover:bg-gray-100">
-            <i class="fas fa-heart mr-2"></i> Favorites
-          </a>
-          <button id="logoutBtn" class="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 border-t">
-            <i class="fas fa-sign-out-alt mr-2"></i> Logout
-          </button>
+        <div class="profile-dropdown" id="profileMenu">
+          <a href="user_profile.php"><i class="fas fa-user"></i> My Profile</a>
+          <a href="favourites.php"><i class="fas fa-heart"></i> Favorites</a>
+          <a href="my_trips.php"><i class="fas fa-suitcase"></i> My Trips</a>
+          <hr>
+          <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
       </div>
     </div>
   </nav>
 
   <!-- Sidebar -->
-  <aside class="floating-sidebar w-64 nav-blue-bg text-white shadow-md flex flex-col">
-    <div class="px-6 py-4 border-b border-blue-700">
-      <!-- sidebar header -->
-    </div>
-    <nav class="flex-1 px-4 py-6 space-y-4">
-      <button class="orange-button w-full text-left font-medium py-2 px-4 rounded-lg flex items-center">
-        <i class="fas fa-robot mr-2"></i> Travel Assistant
-      </button>
-      <ul class="space-y-3">
-        <li>
-          <a href="../user/my_trips.html" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-suitcase mr-3"></i> My Trips
-          </a>
-        </li>
-        <li>
-          <a href="../blog/blog.html" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-blog mr-3"></i> Blog
-          </a>
-        </li>
-        <li>
-          <a href="../user/favourites.html" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-heart mr-3"></i> Favourites
-          </a>
-        </li>
-        <li>
-          <a href="../tools/budget_planner.html" class="flex items-center hover:text-orange-300 transition">
-            <i class="fas fa-calculator mr-3"></i> Budget Planner
-          </a>
-        </li>
-      </ul>
+  <aside class="floating-sidebar">
+    <button class="quick-action w-full text-left font-medium py-3 px-4 rounded-lg flex items-center mb-4">
+      <i class="fas fa-robot mr-2"></i> Travel Assistant
+    </button>
+    
+    <nav class="sidebar-nav">
+      <a href="my_trips.php" class="sidebar-link">
+        <i class="fas fa-suitcase"></i> My Trips
+      </a>
+      <a href="../blog/blog.html" class="sidebar-link">
+        <i class="fas fa-blog"></i> Blog
+      </a>
+      <a href="favourites.php" class="sidebar-link">
+        <i class="fas fa-heart"></i> Favourites
+        <span class="sidebar-alert-badge" style="display: none;"></span>
+      </a>
+      <a href="../tools/budget_planner.html" class="sidebar-link">
+        <i class="fas fa-calculator"></i> Budget Planner
+      </a>
     </nav>
-    <div class="px-6 py-4 border-t border-blue-700">
+    
+    <div class="mt-6 pt-4 border-t">
       <p class="text-sm font-medium" id="sidebarName">Guest</p>
-      <span class="text-xs text-orange-300" id="sidebarLevel">Free Account</span>
+      <span class="text-xs" style="color: var(--secondary);" id="sidebarLevel">Free Account</span>
     </div>
   </aside>
 
   <!-- Main Content -->
-  <main class="main-content flex-1 p-8 space-y-10">
+  <main class="main-content">
 
-    <div class="bg-gradient-to-r from-blue-500 to-blue-700 text-white p-6 rounded-2xl shadow-lg">
+    <div class="welcome-card">
       <h2 class="text-2xl font-bold mb-2">Welcome back, <span id="welcomeUsername">Guest</span>!</h2>
-      <p class="text-blue-100">Your travel updates are shown below.</p>
+      <p class="text-white/80">Your travel updates are shown below.</p>
     </div>
 
-    <div class="flex justify-between items-center relative">
+    <div class="flex justify-between items-center mb-8">
       <div>
-        <h2 class="text-lg font-semibold">Your travel dashboard</h2>
-        <p class="text-2xl font-bold">Tell us your <span class="text-blue-600">Travel Plan</span> in one sentence</p>
+        <h2 class="text-lg font-semibold" style="color: var(--text-muted);">Your travel dashboard</h2>
+        <p class="text-2xl font-bold" style="color: var(--text-main);">Tell us your <span style="color: var(--secondary);">Travel Plan</span> in one sentence</p>
       </div>
-      <div class="flex items-center space-x-4 text-sm">
-        <select id="languageSelect" class="border rounded px-2 py-1">
+      <div class="flex items-center space-x-4">
+        <select class="dropdown-select" id="languageSelect">
           <option>English (US)</option>
           <option>English (IN)</option>
         </select>
 
-        <select id="currencySelect" class="border rounded px-2 py-1">
+        <select class="dropdown-select" id="currencySelect">
           <option>INR (₹)</option>
           <option>USD ($)</option>
           <option>EUR (€)</option>
         </select>
 
-        <button class="relative p-2 rounded-full hover:bg-gray-200 transition" id="notificationBtn">
+        <button class="notification-btn" id="notificationBtn">
           <i class="fas fa-bell"></i>
-          <span class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hidden" id="notificationCount">0</span>
+          <span class="notification-badge hidden" id="notificationCount">0</span>
         </button>
       </div>
     </div>
 
     <!-- Quick Search & Recent Searches -->
-    <div class="bg-white rounded-2xl shadow p-6">
-      <h3 class="text-lg font-semibold mb-4">Quick Search & Recent Searches</h3>
+    <div class="glass-card mb-8">
+      <h3 class="text-lg font-semibold mb-4" style="color: var(--text-main);">Quick Search & Recent Searches</h3>
 
       <div class="mb-6">
-        <h4 class="font-medium text-gray-700 mb-3">Quick Suggestions</h4>
+        <h4 class="font-medium mb-3" style="color: var(--text-muted);">Quick Suggestions</h4>
         <div class="flex flex-wrap gap-2" id="quickSuggestions">
-          <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">Romantic 3-day trip in Paris</span>
-          <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">I have 5 days in Japan</span>
-          <span class="px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100">7-day trip to New Zealand</span>
+          <span class="search-pill">Romantic 3-day trip in Paris</span>
+          <span class="search-pill">I have 5 days in Japan</span>
+          <span class="search-pill">7-day trip to New Zealand</span>
         </div>
       </div>
 
       <div>
-        <h4 class="font-medium text-gray-700 mb-3">Recent Searches</h4>
+        <h4 class="font-medium mb-3" style="color: var(--text-muted);">Recent Searches</h4>
         <div class="flex flex-wrap gap-2" id="recentSearches">
-          <div class="text-gray-500">Loading search history...</div>
+          <div style="color: var(--text-muted);">Loading search history...</div>
         </div>
       </div>
     </div>
 
     <!-- Personalized Recommendations -->
-    <div>
+    <div class="mb-8">
       <div class="flex justify-between items-center mb-6">
-        <h3 class="text-lg font-semibold">Personalized Recommendations</h3>
-        <button onclick="refreshRecommendations()" class="text-blue-600 hover:text-blue-800 text-sm flex items-center">
-          <i class="fas fa-sync-alt mr-1"></i> Refresh
+        <h3 class="text-lg font-semibold" style="color: var(--text-main);">Personalized Recommendations</h3>
+        <button onclick="refreshRecommendations()" class="flex items-center gap-2 px-4 py-2 rounded-full border hover:border-[var(--secondary)] transition-all" style="color: var(--text-main);">
+          <i class="fas fa-sync-alt" style="color: var(--secondary);"></i> Refresh
         </button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="recommendations-container">
         <div class="col-span-4 text-center py-8">
-          <i class="fas fa-spinner fa-spin text-2xl text-blue-500"></i>
-          <p class="mt-2 text-gray-600">Loading recommendations...</p>
+          <i class="fas fa-spinner fa-spin text-2xl" style="color: var(--secondary);"></i>
+          <p class="mt-2" style="color: var(--text-muted);">Loading recommendations...</p>
         </div>
       </div>
     </div>
 
     <!-- Travel Map -->
-    <div>
-      <h3 class="text-lg font-semibold mb-4">Your Travel Map</h3>
-      <div id="map" class="w-full" style="height:320px"></div>
+    <div class="mb-8">
+      <h3 class="text-lg font-semibold mb-4" style="color: var(--text-main);">Your Travel Map</h3>
+      <div id="map" class="w-full"></div>
     </div>
 
     <!-- Travel History -->
-    <div class="bg-white rounded-2xl shadow p-6">
-      <h3 class="text-lg font-semibold mb-6">Your Travel History</h3>
+    <div class="glass-card">
+      <h3 class="text-lg font-semibold mb-6" style="color: var(--text-main);">Your Travel History</h3>
       <div class="space-y-6" id="travel-history-container">
-        <div class="text-center py-8 text-gray-500">
-          <i class="fas fa-suitcase text-4xl mb-4"></i>
+        <div class="text-center py-8" style="color: var(--text-muted);">
+          <i class="fas fa-suitcase text-4xl mb-4" style="color: var(--secondary);"></i>
           <p>Loading travel history...</p>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- Review Modal (kept intact, posts to server-side handler) -->
-  <div id="reviewModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl p-6 shadow-lg w-96 max-w-full mx-4">
-      <h2 class="text-lg font-semibold mb-4" id="reviewDestinationName">Add Review</h2>
+  <!-- Review Modal -->
+  <div id="reviewModal" class="modal-overlay">
+    <div class="modal-content">
+      <span class="close-btn">&times;</span>
+      <h2 class="text-lg font-semibold mb-4" id="reviewDestinationName" style="color: var(--text-main);">Add Review</h2>
       <form id="reviewForm" method="POST" enctype="multipart/form-data" action="../actions/add_review.php">
         <input type="hidden" id="reviewDestinationId" name="destination_id">
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Your Rating</label>
+          <label class="block text-sm font-medium mb-2" style="color: var(--text-main);">Your Rating</label>
           <div class="review-stars">
             <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
             <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
@@ -217,60 +185,116 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
-          <textarea name="comment" rows="4" class="w-full border rounded-lg p-3" placeholder="Share your experience..."></textarea>
+          <label class="block text-sm font-medium mb-2" style="color: var(--text-main);">Your Review</label>
+          <textarea name="comment" rows="4" class="form-input" placeholder="Share your experience..."></textarea>
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-2">Add Photos (Optional)</label>
-          <input type="file" name="images[]" multiple accept="image/*" class="w-full border rounded-lg p-2">
+          <label class="block text-sm font-medium mb-2" style="color: var(--text-main);">Add Photos (Optional)</label>
+          <input type="file" name="images[]" multiple accept="image/*" class="form-input">
         </div>
 
         <div class="flex justify-end space-x-3">
-          <button type="button" onclick="closeReviewModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">Cancel</button>
-          <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Submit Review</button>
+          <button type="button" onclick="closeReviewModal()" class="px-4 py-2 rounded-lg border hover:border-[var(--danger)] transition-all" style="color: var(--text-main);">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg text-white" style="background: var(--secondary);">Submit Review</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script src="user-profile.js"></script>
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <script>
-    // Map init
-    var map = L.map('map', { zoomControl: false }).setView([20,0],2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    // Scroll Progress Bar
+    window.addEventListener('scroll', () => {
+      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+      
+      const topBar = document.getElementById("scrollBar");
+      if(topBar) topBar.style.width = scrolled + "%";
+    });
 
-    // Helper to render a destination card (recommendations)
-    function renderRecommendationCard(dest) {
-      // ensure image_urls may be JSON - try to parse
-      let img = '';
-      try {
-        const parsed = typeof dest.image_urls === 'string' ? JSON.parse(dest.image_urls) : dest.image_urls;
-        if (Array.isArray(parsed) && parsed.length) img = parsed[0];
-      } catch (e) {}
-      const el = document.createElement('div');
-      el.className = 'bg-white p-4 rounded-lg shadow trip-card';
-      el.innerHTML = `
-        <div class="h-40 bg-gray-100 rounded overflow-hidden flex items-center justify-center" style="background-image: url('${img || "../main/placeholder.png"}'); background-size:cover; background-position:center;">
-        </div>
-        <h4 class="mt-3 font-semibold">${escapeHtml(dest.name || 'Untitled')}</h4>
-        <p class="text-sm text-gray-500">${escapeHtml(dest.location || '')}</p>
-        <div class="mt-3 flex items-center justify-between">
-          <div class="text-orange-500 font-bold">${escapeHtml(dest.budget ? ('₹' + dest.budget) : '')}</div>
-          <div>
-            <button class="favorite-btn" data-destination-id="${dest.id}" title="Toggle favorite">
-              <i class="far fa-heart text-gray-400"></i>
-            </button>
-            <button class="ml-2 view-details-btn" data-trip="dest-${dest.id}">View Details</button>
-          </div>
-        </div>
-        <div id="dest-${dest.id}-details" class="details-panel mt-3 text-sm text-gray-700"></div>
-      `;
-      return el;
+    // Theme Toggle
+    const toggleBtn = document.getElementById('themeToggle');
+    const body = document.body;
+    const icon = toggleBtn.querySelector('i');
+    
+    if (localStorage.getItem('tripmate-theme') === 'dark') {
+      body.classList.add('dark-mode');
+      icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
     }
 
-    // Utility to escape HTML (small helper)
+    toggleBtn.addEventListener('click', () => {
+      body.classList.toggle('dark-mode');
+      if (body.classList.contains('dark-mode')) {
+        icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+        localStorage.setItem('tripmate-theme', 'dark');
+      } else {
+        icon.classList.remove('fa-sun'); icon.classList.add('fa-moon');
+        localStorage.setItem('tripmate-theme', 'light');
+      }
+    });
+
+    // Map initialization
+    var map = L.map('map', { zoomControl: false }).setView([20,0],2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+      attribution: '&copy; OpenStreetMap contributors' 
+    }).addTo(map);
+
+    // Profile dropdown toggle
+    const profileBtn = document.getElementById('profileBtn');
+    const profileMenu = document.getElementById('profileMenu');
+    
+    if (profileBtn && profileMenu) {
+      profileBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        profileMenu.classList.toggle('active');
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#profileBtn') && !e.target.closest('#profileMenu')) {
+          profileMenu.classList.remove('active');
+        }
+      });
+    }
+
+    // Sidebar toggle for mobile
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.floating-sidebar');
+      if (sidebar) {
+        sidebar.classList.toggle('open');
+      }
+    }
+
+    // Toast notification function
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      
+      const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+      toast.innerHTML = `
+        <i class="fas ${icon}" style="color: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#f59e0b'};"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      // Trigger animation
+      setTimeout(() => toast.classList.add('show'), 10);
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Escape HTML helper
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -278,24 +302,216 @@
         .replaceAll('"','&quot;').replaceAll("'",'&#039;');
     }
 
-    // Load recommendations
-    async function refreshRecommendations(){
-      const container = document.getElementById('recommendations-container');
-      container.innerHTML = '<div class="col-span-4 text-center py-8"><i class="fas fa-spinner fa-spin text-2xl text-blue-500"></i><p class="mt-2 text-gray-600">Loading recommendations...</p></div>';
+    // Check favorite status
+    async function checkFavoriteStatus(destinationId, heartIcon) {
       try {
-        const res = await fetch('../actions/get_recommendations.php');
-        const data = await res.json();
+        const response = await fetch(`../actions/check_favorite.php?destination_id=${encodeURIComponent(destinationId)}`);
+        const data = await response.json();
+        
+        if (data.is_favorite) {
+          heartIcon.className = 'fas fa-heart';
+          heartIcon.style.color = '#ef4444';
+        } else {
+          heartIcon.className = 'far fa-heart';
+          heartIcon.style.color = 'var(--text-muted)';
+        }
+      } catch (e) {
+        console.error('Error checking favorite status:', e);
+      }
+    }
+
+    // Favorite button click handler
+    async function onFavoriteClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const button = e.currentTarget;
+      const destinationId = button.getAttribute('data-destination-id');
+      const heartIcon = button.querySelector('i');
+      
+      if (!destinationId) return;
+      
+      const isActive = heartIcon.classList.contains('fas');
+      
+      // Optimistic UI update
+      if (isActive) {
+        heartIcon.className = 'far fa-heart';
+        heartIcon.style.color = 'var(--text-muted)';
+      } else {
+        heartIcon.className = 'fas fa-heart';
+        heartIcon.style.color = '#ef4444';
+      }
+      
+      button.disabled = true;
+      
+      try {
+        const formData = new FormData();
+        formData.append('destination_id', destinationId);
+        formData.append('action', isActive ? 'remove' : 'add');
+        
+        const response = await fetch('../actions/toggle_favorite.php', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.status !== 'success') {
+          // Revert on error
+          if (isActive) {
+            heartIcon.className = 'fas fa-heart';
+            heartIcon.style.color = '#ef4444';
+          } else {
+            heartIcon.className = 'far fa-heart';
+            heartIcon.style.color = 'var(--text-muted)';
+          }
+          showToast(data.message || 'Could not update favorite', 'error');
+        } else {
+          showToast(isActive ? 'Removed from favorites' : 'Added to favorites', 'success');
+          updateFavoritesCount();
+        }
+      } catch (err) {
+        // Revert on error
+        if (isActive) {
+          heartIcon.className = 'fas fa-heart';
+          heartIcon.style.color = '#ef4444';
+        } else {
+          heartIcon.className = 'far fa-heart';
+          heartIcon.style.color = 'var(--text-muted)';
+        }
+        console.error('Error:', err);
+        showToast('Network error. Please try again.', 'error');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    // Update favorites count
+    async function updateFavoritesCount() {
+      try {
+        const response = await fetch('../actions/get_favorites.php');
+        const data = await response.json();
+        
         if (data.status === 'success') {
+          const count = data.favorites.length;
+          const badge = document.querySelector('.sidebar-alert-badge');
+          if (badge) {
+            if (count > 0) {
+              badge.textContent = count;
+              badge.style.display = 'inline-flex';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error updating favorites count:', e);
+      }
+    }
+
+    // Refresh recommendations
+    async function refreshRecommendations() {
+      const container = document.getElementById('recommendations-container');
+      if (!container) return;
+      
+      container.innerHTML = '<div class="col-span-4 text-center py-8"><i class="fas fa-spinner fa-spin text-2xl" style="color: var(--secondary);"></i><p class="mt-2" style="color: var(--text-muted);">Loading recommendations...</p></div>';
+      
+      try {
+        const res = await fetch('../actions/get_recommendations.php', { cache: 'no-store' });
+        let recommendations = [];
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            recommendations = data;
+          } else if (data && Array.isArray(data.recommendations)) {
+            recommendations = data.recommendations;
+          }
+        }
+        
+        if (recommendations && recommendations.length) {
           container.innerHTML = '';
-          data.recommendations.forEach(dest => {
+          recommendations.forEach(dest => {
             container.appendChild(renderRecommendationCard(dest));
           });
           attachFavoriteListeners();
         } else {
-          container.innerHTML = '<div class="col-span-4 text-center py-8 text-red-500">Unable to load recommendations.</div>';
+          container.innerHTML = '<div class="col-span-4 text-center py-8" style="color: var(--text-muted);">No recommendations available.</div>';
         }
       } catch (e) {
-        container.innerHTML = '<div class="col-span-4 text-center py-8 text-red-500">Error loading recommendations.</div>';
+        console.error('Error loading recommendations:', e);
+        container.innerHTML = '<div class="col-span-4 text-center py-8" style="color: var(--danger);">Error loading recommendations.</div>';
+      }
+    }
+
+    // Render recommendation card
+    function renderRecommendationCard(dest) {
+      let img = '';
+      try {
+        if (dest.image_urls) {
+          const parsed = typeof dest.image_urls === 'string' ? JSON.parse(dest.image_urls) : dest.image_urls;
+          if (Array.isArray(parsed) && parsed.length) img = parsed[0];
+          else img = dest.image_urls;
+        }
+      } catch (e) {
+        img = dest.image_urls || '';
+      }
+      
+      const card = document.createElement('div');
+      card.className = 'destination-card';
+      card.innerHTML = `
+        <div class="destination-image" style="background-image: url('${img || '../image/placeholder.png'}');"></div>
+        <div class="destination-content">
+          <div class="destination-name">${escapeHtml(dest.name || 'Untitled')}</div>
+          <div class="destination-location"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(dest.location || '')}</div>
+          <div class="flex items-center justify-between mt-3">
+            <div class="destination-price">₹${escapeHtml(dest.budget || '0')}</div>
+            <button class="favorite-btn" data-destination-id="${dest.id}">
+              <i class="far fa-heart"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      
+      setTimeout(() => {
+        const btn = card.querySelector('.favorite-btn');
+        const icon = btn?.querySelector('i');
+        if (btn && icon) {
+          checkFavoriteStatus(dest.id, icon);
+        }
+      }, 100);
+      
+      return card;
+    }
+
+    // Attach favorite listeners
+    function attachFavoriteListeners() {
+      document.querySelectorAll('.favorite-btn').forEach(button => {
+        button.removeEventListener('click', onFavoriteClick);
+        button.addEventListener('click', onFavoriteClick);
+      });
+    }
+
+    // Load search history
+    async function loadSearchHistory() {
+      const el = document.getElementById('recentSearches');
+      el.innerHTML = '<div style="color: var(--text-muted);">Loading search history...</div>';
+      try {
+        const res = await fetch('../actions/get_search_history.php');
+        const data = await res.json();
+        if (data.status === 'success' && data.history.length) {
+          el.innerHTML = '';
+          data.history.forEach(h => {
+            const pill = document.createElement('span');
+            pill.className = 'search-pill';
+            pill.textContent = h.query || h.term || (h.search_text || 'Search');
+            el.appendChild(pill);
+          });
+        } else {
+          el.innerHTML = '<div style="color: var(--text-muted);">No recent searches.</div>';
+        }
+      } catch (e) {
+        el.innerHTML = '<div style="color: var(--danger);">Error loading searches.</div>';
       }
     }
 
@@ -309,150 +525,96 @@
           container.innerHTML = '';
           data.history.forEach(item => {
             const el = document.createElement('div');
-            el.className = 'p-4 border rounded';
-            el.innerHTML = `<div class="flex justify-between items-center"><div><div class="font-medium">${escapeHtml(item.activity_type)}</div><div class="text-xs text-gray-500">${escapeHtml(item.created_at)}</div></div></div>`;
+            el.className = 'glass-card p-4';
+            el.innerHTML = `
+              <div class="flex justify-between items-center">
+                <div>
+                  <div class="font-medium" style="color: var(--text-main);">${escapeHtml(item.activity_type)}</div>
+                  <div class="text-xs" style="color: var(--text-muted);">${escapeHtml(item.created_at)}</div>
+                </div>
+              </div>
+            `;
             container.appendChild(el);
           });
         } else {
-          container.innerHTML = '<div class="text-center text-gray-500 py-8">No recent history.</div>';
+          container.innerHTML = '<div class="text-center py-8" style="color: var(--text-muted);">No recent history.</div>';
         }
       } catch (e) {
-        container.innerHTML = '<div class="text-center text-red-500 py-8">Error loading history.</div>';
+        container.innerHTML = '<div class="text-center py-8" style="color: var(--danger);">Error loading history.</div>';
       }
     }
 
-    // Load recent searches
-    async function loadSearchHistory() {
-      const el = document.getElementById('recentSearches');
-      el.innerHTML = '<div class="text-gray-500">Loading search history...</div>';
-      try {
-        const res = await fetch('../actions/get_search_history.php');
-        const data = await res.json();
-        if (data.status === 'success' && data.history.length) {
-          el.innerHTML = '';
-          data.history.forEach(h => {
-            const pill = document.createElement('span');
-            pill.className = 'px-4 py-2 bg-gray-100 rounded-full cursor-pointer hover:bg-blue-100';
-            pill.textContent = h.query || h.term || (h.search_text || 'Search');
-            el.appendChild(pill);
+    // Modal functions
+    function openReviewModal(destinationId, destinationName) {
+      const modal = document.getElementById('reviewModal');
+      if (modal) {
+        document.getElementById('reviewDestinationId').value = destinationId;
+        document.getElementById('reviewDestinationName').textContent = 'Add Review — ' + destinationName;
+        modal.classList.add('active');
+      }
+    }
+
+    function closeReviewModal() {
+      const modal = document.getElementById('reviewModal');
+      if (modal) {
+        modal.classList.remove('active');
+      }
+    }
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+      const modal = document.getElementById('reviewModal');
+      if (event.target === modal) {
+        closeReviewModal();
+      }
+    });
+
+    // Close button for modal
+    document.querySelector('.close-btn')?.addEventListener('click', closeReviewModal);
+
+    // Logout function
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        fetch('../auth/logout.php')
+          .then(() => {
+            sessionStorage.clear();
+            localStorage.removeItem('tripmate_active_user_id');
+            localStorage.removeItem('tripmate_active_user_name');
+            window.location.href = '../main/index.html';
+          })
+          .catch(error => {
+            console.error('Logout error:', error);
+            window.location.href = '../main/index.html';
           });
-        } else {
-          el.innerHTML = '<div class="text-gray-500">No recent searches.</div>';
-        }
-      } catch (e) {
-        el.innerHTML = '<div class="text-red-500">Error loading searches.</div>';
       }
     }
 
-    // Favorites helpers
-    function attachFavoriteListeners() {
-      document.querySelectorAll('.favorite-btn').forEach(button => {
-        button.removeEventListener('click', onFavoriteClick);
-        button.addEventListener('click', onFavoriteClick);
-        // check favorite status
-        const id = button.getAttribute('data-destination-id');
-        updateFavoriteVisual(button, id);
-      });
-    }
-
-    async function onFavoriteClick(e) {
-      const button = e.currentTarget;
-      const destinationId = button.getAttribute('data-destination-id');
-      const heartIcon = button.querySelector('i');
-      const isActive = heartIcon.classList.contains('fas');
-      // optimistic UI:
-      if (isActive) { heartIcon.classList.replace('fas','far'); heartIcon.classList.replace('text-red-500','text-gray-400'); }
-      else { heartIcon.classList.replace('far','fas'); heartIcon.classList.replace('text-gray-400','text-red-500'); }
-
-      // call toggle endpoint
-      const fd = new FormData();
-      fd.append('destination_id', destinationId);
-      fd.append('action', isActive ? 'remove' : 'add');
-      try {
-        const res = await fetch('../actions/toggle_favorite.php', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data.status !== 'success') {
-          // revert
-          if (isActive) { heartIcon.classList.replace('far','fas'); heartIcon.classList.replace('text-gray-400','text-red-500'); }
-          else { heartIcon.classList.replace('fas','far'); heartIcon.classList.replace('text-red-500','text-gray-400'); }
-          alert(data.message || 'Could not update favorite');
-        }
-      } catch (err) {
-        // revert
-        if (isActive) { heartIcon.classList.replace('far','fas'); heartIcon.classList.replace('text-gray-400','text-red-500'); }
-        else { heartIcon.classList.replace('fas','far'); heartIcon.classList.replace('text-red-500','text-gray-400'); }
-        console.error(err);
-      }
-    }
-
-    // Query check_favorite endpoint to set initial visual state
-    async function updateFavoriteVisual(button, destinationId) {
-      try {
-        const res = await fetch('../actions/check_favorite.php?destination_id=' + encodeURIComponent(destinationId));
-        const data = await res.json();
-        const icon = button.querySelector('i');
-        if (data.is_favorite) {
-          icon.classList.replace('far','fas');
-          icon.classList.add('text-red-500');
-          icon.classList.remove('text-gray-400');
-        } else {
-          icon.classList.replace('fas','far');
-          icon.classList.add('text-gray-400');
-          icon.classList.remove('text-red-500');
-        }
-      } catch (e) {
-        // leave default
-      }
-    }
-
-    // Boot sequence
-    document.addEventListener('DOMContentLoaded', function(){
+    // Initialize on DOM load
+    document.addEventListener('DOMContentLoaded', function() {
       refreshRecommendations();
       loadHistory();
       loadSearchHistory();
-      // personalize UI from session/local storage (login sets these)
-      const userName = sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'Guest';
-      const userId = sessionStorage.getItem('user_id') || localStorage.getItem('tripmate_active_user_id') || null;
-      document.getElementById('welcomeUsername').textContent = userName;
-      document.getElementById('username').textContent = userName;
-      document.getElementById('sidebarName').textContent = userName;
-      if (userId) document.getElementById('sidebarLevel').textContent = 'Member';
-
-      // Profile dropdown toggle
-      const profileBtn = document.getElementById('profileBtn');
-      const profileMenu = document.getElementById('profileMenu');
-      profileBtn.addEventListener('click', (e) => { e.stopPropagation(); profileMenu.classList.toggle('hidden'); });
-      document.addEventListener('click', () => profileMenu.classList.add('hidden'));
-
-      // Logout button behavior
-      document.getElementById('logoutBtn').addEventListener('click', async (e) => {
-        e.preventDefault();
-        if (!confirm('Are you sure you want to logout?')) return;
-        try {
-          await fetch('../auth/logout.php');
-        } catch (err) { /* ignore */ }
-        sessionStorage.clear();
-        localStorage.removeItem('tripmate_active_user_id');
-        localStorage.removeItem('tripmate_active_user_name');
-        window.location.href = '../main/index.html';
-      });
+      updateFavoritesCount();
+      
+      // Set username from PHP
+      const userName = "<?php echo isset($userName) ? htmlspecialchars($userName) : 'Guest'; ?>";
+      const welcomeName = document.getElementById('welcomeUsername');
+      const profileName = document.getElementById('username');
+      const sidebarUserName = document.getElementById('sidebarName');
+      
+      if (welcomeName) welcomeName.textContent = userName;
+      if (profileName) profileName.textContent = userName;
+      if (sidebarUserName) sidebarUserName.textContent = userName;
+      
+      // Logout button
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          logout();
+        });
+      }
     });
-
-    // small helper to open review modal from other places if needed
-    function openReviewModal(destinationId, destinationName) {
-      document.getElementById('reviewDestinationId').value = destinationId;
-      document.getElementById('reviewDestinationName').textContent = 'Add Review — ' + destinationName;
-      document.getElementById('reviewModal').classList.remove('hidden');
-    }
-    function closeReviewModal() {
-      document.getElementById('reviewModal').classList.add('hidden');
-    }
-
-    function toggleSidebar() {
-      document.querySelector('.floating-sidebar').classList.toggle('open');
-    }
-
   </script>
 </body>
 </html>
-```
