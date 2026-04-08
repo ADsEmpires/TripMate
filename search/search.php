@@ -1,6 +1,44 @@
 <?php
 header('Content-Type: application/json');
-require_once '../database/dbconfig.php'; // Adjust path if needed
+require_once '../database/dbconfig.php';
+
+// Start measuring response time
+$startTime = microtime(true);
+
+// Function to fetch weather data from OpenWeatherMap API
+function fetchWeather($location) {
+    try {
+        $apiKey = 'b4fe517a83b0e5679af65062c7fd92cd';
+        $url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($location) . "&appid=" . $apiKey . "&units=metric";
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+        curl_setopt($ch, CURLOPT_FAILONERROR, false);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode === 200 && $response) {
+            $data = json_decode($response, true);
+            if ($data && isset($data['main']) && isset($data['weather']) && isset($data['wind'])) {
+                return [
+                    'temp' => round($data['main']['temp']),
+                    'condition' => $data['weather'][0]['main'],
+                    'humidity' => $data['main']['humidity'],
+                    'wind_speed' => round($data['wind']['speed'], 1),
+                    'icon' => $data['weather'][0]['icon']
+                ];
+            }
+        }
+    } catch (Exception $e) {
+        // Silently fail on weather fetch
+    }
+    return null;
+}
 
 function fetchDestinations($conn, $params) {
     $sql = "SELECT * FROM destinations WHERE 1";
@@ -31,8 +69,13 @@ function fetchDestinations($conn, $params) {
     }
 
     $stmt = $conn->prepare($sql);
+    
+    // SAFETY CHECK: Prevents the Javascript from crashing if DB has an error
+    if (!$stmt) {
+        return []; 
+    }
+
     if ($values) {
-        // All fields are bound as strings for simplicity
         $types = str_repeat('s', count($values));
         $stmt->bind_param($types, ...$values);
     }
@@ -52,7 +95,7 @@ function fetchDestinations($conn, $params) {
     return $destinations;
 }
 
-// Helper to read user id from GET/POST supporting both 'userid' and 'user_id'
+// Helper to read user id from GET/POST
 function readUserIdFromRequest() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($_POST['user_id'])) return $_POST['user_id'];
@@ -86,7 +129,6 @@ if (isset($_GET['favorites']) && $_GET['favorites'] == 1) {
 
 // Handle add/remove favorite
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_action'])) {
-    // accept either user_id or userid
     $userid = !empty($_POST['user_id']) ? $_POST['user_id'] : (isset($_POST['userid']) ? $_POST['userid'] : null);
     $destination_id = isset($_POST['destination_id']) ? $_POST['destination_id'] : null;
     $action = $_POST['favorite_action'];
@@ -97,7 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_action'])) {
     }
 
     if ($action === 'add') {
-        // Prevent duplicates
         $check = $conn->prepare("SELECT * FROM user_history WHERE user_id=? AND activity_type='favorite' AND activity_details=?");
         $check->bind_param("ss", $userid, $destination_id);
         $check->execute();
@@ -126,5 +167,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_action'])) {
 // Default: search
 $params = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
 $destinations = fetchDestinations($conn, $params);
-echo json_encode(['destinations' => $destinations]);
+
+// Calculate response time
+$endTime = microtime(true);
+$responseTime = round($endTime - $startTime, 4);
+
+// Return destinations with response time
+echo json_encode([
+    'destinations' => $destinations,
+    'response_time' => $responseTime,
+    'server_time' => date('Y-m-d H:i:s'),
+    'count' => count($destinations)
+]);
 ?>

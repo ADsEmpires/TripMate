@@ -1,690 +1,498 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TripMate Destination Search</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../loader/search_loder/loader.css">
+  
   <style>
+    /* ========================================================
+       ULTRA-PREMIUM "INDIGO & NEON CYAN" THEME
+       ======================================================== */
     :root {
-      --primary: #0078d4;
-      --primary-dark: #0063b1;
-      --secondary: #ff9e40;
-      --light-bg: #f8f9fa;
-      --dark-text: #333;
-      --light-text: #666;
-      --border: #e0e0e0;
-      --shadow: 0 4px 12px rgba(0,0,0,0.08);
-      --shadow-hover: 0 6px 16px rgba(0,0,0,0.12);
-      --dark-purple: #16034f;
-      --orange: #ff6600;
-      --success: #21a366;
-      --danger: #d32f2f;
-     --nav-height: 72px; /* adjust if your navbar height changes */
+      --bg-base: #f1f5f9;
+      --bg-surface: rgba(255, 255, 255, 0.85);
+      --text-main: #0f172a !important;
+      --text-muted: #475569 !important;
+      --primary: #4f46e5; 
+      --secondary: #06b6d4; 
+      --nav-bg: rgba(255, 255, 255, 0.85);
+      --card-border: rgba(79, 70, 229, 0.15);
+      --shadow-color: rgba(15, 23, 42, 0.08);
+      --glow-color: rgba(6, 182, 212, 0.4);
+      --danger: #ef4444;
+      --success: #10b981;
     }
+
+    body.dark-mode {
+      --bg-base: #020617; 
+      --bg-surface: rgba(30, 41, 59, 0.7);
+      --text-main: #f8fafc !important;
+      --text-muted: #94a3b8 !important;
+      --primary: #818cf8; 
+      --secondary: #22d3ee; 
+      --nav-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --shadow-color: rgba(0, 0, 0, 0.6);
+      --glow-color: rgba(34, 211, 238, 0.3);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    
     body {
-      margin: 0;
-      padding-top: var(--nav-height); /* ensure page content sits below fixed navbar */
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f5f7f9;
-      color: var(--dark-text);
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-base);
+      background-image: radial-gradient(circle at top right, rgba(6, 182, 212, 0.05), transparent 40%),
+                        radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%);
+      color: var(--text-main);
+      transition: background-color 0.4s ease, color 0.4s ease;
       line-height: 1.6;
       min-height: 100vh;
-    }
-    /* Navbar styles - updated to match theme from style.css */
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-    background: #16034f;
-    color: white;
-    position: fixed;
-    top: 0;
-    width: 100%;
-    z-index: 999;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.navbar .logo {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0078d4; /* logo text/icon color to match style.css */
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* ensure logo icon (if any) matches the text color */
-.navbar .logo i {
-    color: #0078d4;
-}
-
-.navbar .nav-links {
-    display: flex;
-    gap: 1.5rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.navbar .nav-links a {
-    color: white;
-    text-decoration: none;
-    font-size: 1rem;
-    transition: 0.3s;
-    padding: 0.5rem;
-    border-radius: 4px;
-}
-
-.navbar .nav-links a:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.back-btn {
-      background: var(--orange);
-      color: #fff;
-      padding: 0.5rem 1rem;
-      border-radius: 5px;
-      text-decoration: none;
-      font-weight: 500;
-      transition: background 0.18s ease, transform 0.08s;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
+      padding-top: 110px; 
     }
 
-    .back-btn:hover {
-      background: #e65c00;
-      transform: translateY(-1px);
+    h1, h2, h3, h4, h5, h6 { color: var(--text-main); font-weight: 800; letter-spacing: -0.5px; }
+    p { color: var(--text-muted); }
+
+    .scroll-progress-bar {
+      position: fixed; top: 0; left: 0; height: 4px; width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      z-index: 9999; transition: width 0.1s ease-out;
+      box-shadow: 0 0 10px var(--glow-color);
     }
-    
-    /* User Profile Styles - Only show when logged in */
-    .user-profile {
+    .vertical-scroll-track {
+      position: fixed; top: 0; right: 30px; width: 2px; height: 100vh;
+      background-color: var(--card-border); z-index: 9998; pointer-events: none; 
+    }
+    .track-dot {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 12px; height: 12px; background-color: var(--secondary);
+      border-radius: 50%; box-shadow: 0 0 15px var(--glow-color);
+    }
+    .track-thumb {
+      position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%); 
+      width: 48px; height: 48px; background-color: var(--bg-surface); backdrop-filter: blur(10px);
+      border: 2px solid var(--card-border); border-radius: 50%;
+      display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 6px 20px var(--shadow-color); transition: top 0.1s ease-out; 
+    }
+    .track-thumb i {
+      color: var(--primary); font-size: 1.4rem;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    /* --- FLOATING PILL NAVBAR --- */
+    .navbar {
+      position: fixed; top: 20px; left: 5%; width: 90%; height: 70px;
+      background: var(--nav-bg) !important;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border); border-radius: 50px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 30px; z-index: 1000; box-shadow: 0 10px 30px var(--shadow-color);
+    }
+    .logo { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; text-decoration: none;}
+    .logo i { color: var(--primary); font-size: 1.5rem; transform: rotate(-10deg); transition: transform 0.3s; }
+    .logo:hover i { transform: rotate(0deg) scale(1.1); }
+    .brand-text .trip { color: var(--text-main); }
+    .brand-text .mate { color: var(--secondary); }
+    .nav-right { display: flex; align-items: center; gap: 15px; }
+
+    .back-btn {
+      background: var(--bg-surface); color: var(--text-main);
+      border: 1px solid var(--card-border); padding: 8px 20px; border-radius: 30px;
+      text-decoration: none; font-weight: 600; transition: all 0.3s;
+      display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px var(--shadow-color);
+    }
+    .back-btn:hover { color: var(--primary); border-color: var(--primary); transform: translateY(-2px); }
+
+    .theme-toggle {
+      background: var(--bg-surface); border: 1px solid var(--card-border);
+      color: var(--text-main); width: 44px; height: 44px; border-radius: 50%;
+      cursor: pointer; display: flex; justify-content: center; align-items: center;
+      transition: all 0.3s; box-shadow: 0 4px 10px var(--shadow-color);
+    }
+    .theme-toggle:hover { transform: rotate(20deg) scale(1.1); color: var(--primary); border-color: var(--primary); }
+
+    /* ========================================================
+       NEW: GOOGLE ONE-TAP STYLE FLOATING PROMPT
+       ======================================================== */
+    .one-tap-prompt {
       position: fixed;
-      top: 80px;
-      right: 20px;
-      z-index: 1000;
-      display: none; /* Hidden by default */
-    }
-    .user-profile.visible {
-      display: block;
-    }
-    .profile-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      border-radius: 20px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    .profile-btn:hover {
-      background-color: var(--primary-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-    }
-    .profile-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      width: 220px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      padding: 16px;
-      margin-top: 8px;
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(-10px);
-      transition: all 0.3s ease;
-      z-index: 1001;
-    }
-    .profile-dropdown.active {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-    .user-info {
-      padding-bottom: 12px;
-      margin-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-      color: var(--light-text);
-    }
-    .user-name {
-      font-weight: 600;
-      color: var(--primary);
-    }
-    .profile-dropdown a {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 0;
-      color: var(--dark-text);
-      text-decoration: none;
-      font-size: 14px;
-      transition: color 0.2s;
-    }
-    .profile-dropdown a:hover {
-      color: var(--primary);
-    }
-    .profile-dropdown a i {
-      width: 18px;
-      text-align: center;
-    }
-    
-    .search-wrapper {
-      display: flex;
-      min-height: calc(100vh - 56px);
-    }
-    .search-sidebar {
-      width: 340px;
-      max-height: calc(100vh - 56px);
-      background: #fff;
-      border-right: 1px solid var(--border);
-      padding: 24px;
-      position: sticky;
-      top: var(--nav-height); /* keep sidebar positioned below navbar */
-      z-index: 100;
-      overflow-y: auto;
-      transition: all 0.3s ease;
-      box-shadow: var(--shadow);
-    }
-    .search-main {
-      flex-grow: 1;
-      background: #fff;
-      min-height: calc(100vh - 56px);
-      padding: 32px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background-color: var(--light-bg);
-    }
-    .welcome-message {
-      text-align: center;
-      max-width: 600px;
-      margin-bottom: 32px;
-      animation: fadeInDown 0.7s;
-    }
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-40px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-    .welcome-message h2 {
-      font-size: 2.2rem;
-      margin-bottom: 16px;
-      color: var(--primary);
-      font-weight: 800;
-      text-shadow: 0 2px 8px #e6f7ff;
-    }
-    .welcome-message p {
-      font-size: 1.1rem;
-      color: var(--light-text);
-      margin-bottom: 24px;
-    }
-    .search-illustration {
-      max-width: 300px;
-      margin: 24px 0;
-      opacity: 0.8;
-      filter: drop-shadow(0 2px 8px #b8e1fa);
-    }
-    .search-features {
-      list-style: none;
-      margin: 20px 0;
-    }
-    .search-features li {
-      padding: 10px 0;
-      padding-left: 28px;
-      position: relative;
-      font-size: 1rem;
-      color: var(--dark-purple);
-      font-weight: 500;
-    }
-    .search-features li:before {
-      content: "✓";
-      color: var(--primary);
-      position: absolute;
-      left: 0;
-      font-weight: bold;
-    }
-    hr {
-      border: none;
-      height: 1px;
-      background-color: var(--border);
-      margin: 20px 0;
-    }
-    .form-group { margin-bottom: 16px; }
-    .form-label { 
-      display: block; 
-      margin-bottom: 8px; 
-      font-size: 14px; 
-      color: var(--dark-text);
-      font-weight: 500;
-    }
-    .form-control { 
-      width: 100%; 
-      padding: 10px 12px; 
-      border: 1px solid var(--border); 
-      border-radius: 8px; 
-      box-sizing: border-box;
-      font-family: inherit;
-      transition: border 0.2s ease;
-      background: #fcfcfc;
-      font-size: 1rem;
-    }
-    .form-control:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(0,120,212,0.2);
-    }
-    .form-row { display: flex; gap: 12px; }
-    .form-row .form-group { flex: 1; }
-    .search-btn { 
-      background: var(--primary); 
-      color: #fff; 
-      border: none; 
-      padding: 12px 16px; 
-      border-radius: 8px; 
-      cursor: pointer; 
-      margin-top: 8px;
-      font-weight: 600;
-      width: 100%;
-      font-size: 1.02em;
-      transition: background 0.2s ease, box-shadow 0.2s;
-      box-shadow: 0 2px 8px #e6f7ff;
-      letter-spacing: 0.2px;
-    }
-    .search-btn:hover {
-      background: var(--primary-dark);
-      box-shadow: 0 2px 16px #b8e1fa;
-    }
-    .search-btn.secondary { 
-      background: var(--secondary);
-      margin-top: 16px;
-    }
-    .search-btn.secondary:hover {
-      background: #e58c30;
-    }
-    .results-container {
-      width: 100%;
-      max-width: 1200px;
-      margin: 0 auto;
-      animation: fadeInUp 0.7s;
-    }
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(40px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-    .results-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .results-header h2 {
-      color: var(--dark-purple);
-      font-size: 2rem;
-      font-weight: 700;
-      margin-bottom: 10px;
-      letter-spacing: 1px;
-    }
-    .results-header p {
-      color: #444;
-      font-size: 1.08rem;
-      margin-bottom: 20px;
-    }
-    .reset-btn {
-      background: var(--orange);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: background 0.2s;
-      display: inline-block;
-      margin-top: 10px;
-      box-shadow: 0 1px 6px #ffe3c7;
-    }
-    .reset-btn:hover {
-      background: #e65c00;
-    }
-    .destination-results {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 2.2rem;
-      padding: 1.2rem 0;
-      justify-content: center;
-    }
-    .destination-card {
-      background: linear-gradient(120deg, #fff 60%, #e0f0ff 100%);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 6px 24px rgba(22,3,79,0.11);
-      transition: transform 0.16s, box-shadow 0.24s;
-      position: relative;
-      border: 1.5px solid #00c2cb;
-      max-width: 360px;
-      min-width: 280px;
-      margin: 0 auto;
-      width: 100%;
-      animation: fadeInCard 0.7s;
-    }
-    @keyframes fadeInCard {
-      from { opacity: 0; transform: translateY(30px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-    .destination-image-container {
-      width: 100%;
-      height: 210px;
-      overflow: hidden;
-      position: relative;
-      background: #d8e9ff;
-      border-bottom: 1px solid #c4edff;
-    }
-    .destination-image-container img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.5s;
-      border-radius: 0 0 10px 10px;
-    }
-    .destination-card:hover .destination-image-container img {
-      transform: scale(1.07);
-      filter: brightness(0.95);
-    }
-    .destination-info {
-      padding: 1.2rem 1.1rem 1rem 1.1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-    }
-    .destination-title {
-      font-size: 1.25rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      color: var(--dark-purple);
-      letter-spacing: 0.3px;
-    }
-    .destination-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1.1rem;
-      font-size: 0.97rem;
-      margin-bottom: 0.5rem;
-    }
-    .meta-badge {
-      background: #00c2cb;
-      color: white;
-      padding: 0.22rem 1rem;
-      border-radius: 20px;
-      font-weight: 500;
-      font-size: 0.92rem;
-      text-transform: capitalize;
-    }
-    .meta-label {
-      font-weight: 500;
-      color: var(--dark-purple);
-      margin-right: 3px;
-    }
-    .destination-desc {
-      color: #333;
-      font-size: 1rem;
-      margin-bottom: 0.5rem;
-      min-height: 38px;
-    }
-    .card-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .read-more-btn {
-      padding: 9px 20px;
-      background: linear-gradient(90deg, var(--dark-purple) 60%, var(--orange) 100%);
-      color: white;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1rem;
-      transition: background 0.2s;
-      box-shadow: 0 2px 14px rgba(22,3,79,0.08);
-      border: none;
-      cursor: pointer;
-    }
-    .read-more-btn:hover {
-      background: linear-gradient(90deg, var(--orange) 60%, var(--dark-purple) 100%);
-    }
-    .map-link-btn {
-      display: inline-block;
-      padding: 9px 20px;
-      background: linear-gradient(90deg, var(--dark-purple) 60%, var(--orange) 100%);
-      color: white;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 1rem;
-      transition: background 0.2s;
-      box-shadow: 0 2px 14px rgba(22,3,79,0.08);
-    }
-    .map-link-btn:hover {
-      background: linear-gradient(90deg, var(--orange) 60%, var(--dark-purple) 100%);
-    }
-    .favorite-btn {
-      background: transparent;
-      border: 1px solid var(--dark-purple);
-      color: var(--dark-purple);
-      padding: 9px 18px;
-      border-radius: 20px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 16px;
-      transition: all 0.3s;
-      font-size: 1.07rem;
-      font-weight: 500;
-    }
-    .favorite-btn:hover {
-      background: rgba(22, 3, 79, 0.1);
-      color: var(--primary);
-      border-color: var(--primary);
-    }
-    .favorite-btn.active {
-      background: var(--dark-purple);
-      color: white;
-      border-color: var(--dark-purple);
-    }
-    .favorite-btn.active i {
-      color: white;
-    }
-    .no-results {
-      text-align: center;
-      padding: 2.2rem 1.4rem;
-      font-size: 1.15rem;
-      color: #666;
-      grid-column: 1/-1;
-    }
-    .toast {
-      position: fixed;
-      top: 20px;
+      top: 100px;
       right: 30px;
-      min-width: 220px;
-      z-index: 2000;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 12px #b8e1fa;
-      border-left: 8px solid var(--primary);
-      padding: 18px 28px 18px 20px;
-      color: var(--dark-text);
-      font-size: 1.08em;
-      font-weight: 500;
+      width: 320px;
+      background: var(--bg-surface);
+      border-radius: 16px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(20px);
+      z-index: 1050;
+      padding: 20px;
       opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s, top 0.3s;
+      transform: translateX(50px);
+      transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+      display: none; /* Hidden initially */
     }
-    .toast.show { opacity: 1; pointer-events: auto; top: 40px;}
-    .toast.success { border-left-color: var(--success);}
-    .toast.error { border-left-color: var(--danger);}
-    /* Modal styles */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      align-items: center;
-      justify-content: center;
+    .one-tap-prompt.show {
+      display: block;
+      opacity: 1;
+      transform: translateX(0);
     }
-    .modal-content {
-      background-color: #fff;
-      border-radius: 12px;
-      padding: 24px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      position: relative;
+    .one-tap-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 15px;
     }
-    .close-btn {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: var(--light-text);
+    .one-tap-header img { width: 40px; height: 40px; border-radius: 8px; }
+    .one-tap-close { cursor: pointer; color: var(--text-muted); font-size: 1.2rem; }
+    .one-tap-close:hover { color: var(--danger); }
+    .one-tap-content h4 { color: var(--text-main); font-size: 1.1rem; margin-bottom: 5px; }
+    .one-tap-content p { color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; margin-bottom: 15px; }
+    .one-tap-btn {
+      width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--card-border);
+      background: var(--bg-base); color: var(--text-main); font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      cursor: pointer; transition: all 0.3s;
     }
-    .modal h2 {
-      margin-bottom: 12px;
-      color: var(--primary);
+    .one-tap-btn:hover { background: rgba(6, 182, 212, 0.1); border-color: var(--secondary); color: var(--secondary); }
+
+    /* LAYOUT */
+    .search-wrapper { display: flex; min-height: calc(100vh - 110px); gap: 30px; padding: 0 5%; max-width: 1600px; margin: 0 auto; }
+    
+    /* SIDEBAR */
+    .search-sidebar {
+      width: 360px; background: var(--bg-surface); border: 1px solid var(--card-border);
+      border-radius: 24px; padding: 30px; position: sticky; top: 110px;
+      height: fit-content; max-height: calc(100vh - 130px); overflow-y: auto;
+      box-shadow: 0 20px 50px var(--shadow-color); backdrop-filter: blur(20px);
     }
-    .modal p {
-      margin-bottom: 20px;
-      color: var(--light-text);
+    .search-sidebar h2 { font-size: 1.8rem; margin-bottom: 10px; }
+    hr { border: none; height: 1px; background-color: var(--card-border); margin: 25px 0; }
+    
+    .form-group { margin-bottom: 20px; position: relative; }
+    .form-label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-main); font-weight: 700; }
+    .input-icon-wrapper { position: relative; }
+    .input-icon-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--primary); font-size: 1.1rem; opacity: 0.8; }
+    .form-control { 
+      width: 100%; padding: 14px 16px 14px 45px; border: 2px solid var(--card-border); 
+      border-radius: 12px; background: transparent; color: var(--text-main);
+      font-family: inherit; font-size: 1rem; transition: all 0.3s; font-weight: 500;
     }
-    @media (max-width: 900px) {
+    .form-control:focus { outline: none; border-color: var(--secondary); background: rgba(6, 182, 212, 0.05); }
+    .form-row { display: flex; gap: 15px; }
+    .form-row .form-group { flex: 1; }
+    select.form-control { padding-left: 45px; appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
+
+    .search-btn { 
+      background: linear-gradient(135deg, var(--primary), #3b82f6); color: white; 
+      border: none; padding: 16px 20px; border-radius: 12px; cursor: pointer; 
+      font-weight: 800; width: 100%; font-size: 1.05rem; transition: all 0.3s;
+      box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3); display: flex; justify-content: center; gap: 10px; align-items: center; letter-spacing: 0.5px;
+    }
+    .search-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4); }
+    .search-btn.secondary { background: linear-gradient(135deg, var(--secondary), #0284c7); box-shadow: 0 10px 20px var(--glow-color); margin-top: 10px; }
+    .search-btn.secondary:hover { box-shadow: 0 15px 30px var(--glow-color); }
+
+    /* MAIN CONTENT */
+    .search-main { flex-grow: 1; padding-bottom: 60px; }
+    .welcome-message { text-align: center; max-width: 600px; margin: 60px auto; animation: fadeInUp 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+    .welcome-message h2 { font-size: 3rem; margin-bottom: 16px; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .welcome-message p { font-size: 1.15rem; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px);} to { opacity: 1; transform: translateY(0);} }
+    
+    .search-loading { padding: 40px 20px; animation: fadeIn 0.3s; max-width: 650px; margin: 0 auto;}
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .scan-progress-container { width: 100%; height: 6px; background: var(--card-border); border-radius: 10px; overflow: hidden; margin-bottom: 30px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+    .scan-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 3.2s linear; box-shadow: 0 0 10px var(--glow-color); }
+    .fact-finding-container { background: var(--bg-surface); border-radius: 24px; padding: 35px; box-shadow: 0 20px 50px var(--shadow-color); border: 1px solid var(--card-border); backdrop-filter: blur(10px); }
+    .fact-finding-title { color: var(--text-main); font-size: 1.5rem; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .fact-finding-item { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--card-border); animation: slideIn 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+    .fact-icon { width: 45px; height: 45px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; flex-shrink: 0; box-shadow: 0 4px 10px var(--glow-color);}
+    .fact-content h4 { color: var(--text-main); margin-bottom: 5px; font-size: 1.1rem; font-weight: 800;}
+    .search-stats { display: flex; justify-content: center; gap: 40px; margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--card-border); }
+    .stat-item { text-align: center; }
+    .stat-number { display: block; font-size: 2.2rem; font-weight: 800; color: var(--primary); margin-bottom: 5px; }
+    .stat-item:last-child .stat-number { color: var(--secondary); }
+    .stat-label { font-size: 0.9rem; color: var(--text-muted); font-weight: 600;}
+
+    /* RESULTS */
+    .results-header { text-align: center; margin-bottom: 40px; }
+    .results-header h2 { font-size: 2.8rem; margin-bottom: 10px; color: var(--text-main); }
+    .results-header p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 25px; }
+    .results-actions { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+    .reset-btn { background: var(--bg-surface); color: var(--text-main); border: 2px solid var(--card-border); padding: 12px 28px; border-radius: 30px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px var(--shadow-color); display: inline-flex; align-items: center; gap: 8px;}
+    .reset-btn:hover { background: var(--danger); color: white; border-color: var(--danger); transform: translateY(-2px);}
+    #viewToggleBtn { color: white; background: var(--primary); border-color: var(--primary); }
+    #viewToggleBtn:hover { background: var(--primary-dark); box-shadow: 0 8px 20px var(--shadow-color); }
+
+    .destination-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; }
+    
+    .destination-card {
+      background: var(--bg-surface); border-radius: 24px; box-shadow: 0 15px 35px var(--shadow-color);
+      border: 1px solid var(--card-border); transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      position: relative; overflow: hidden; display: flex; flex-direction: column;
+      opacity: 0; transform: translateY(30px);
+      backdrop-filter: blur(10px);
+    }
+    .destination-card.animate-in { animation: popIn 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+    @keyframes popIn { to { opacity: 1; transform: translateY(0); } }
+
+    .destination-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      opacity: 0.8; transition: opacity 0.3s; z-index: 2;
+    }
+    .destination-card:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 30px 60px var(--shadow-color); border-color: var(--secondary); }
+    .destination-card:hover::before { opacity: 1; }
+    
+    .destination-image-container { width: 100%; height: 220px; position: relative; overflow: hidden; background: var(--card-border); }
+    .destination-image-container img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s ease; }
+    .destination-card:hover .destination-image-container img { transform: scale(1.1); }
+    .response-time-badge { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.7); color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 6px; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); }
+    .response-time-badge i { color: var(--secondary); }
+
+    .destination-info { padding: 25px; display: flex; flex-direction: column; gap: 15px; flex-grow: 1; }
+    .card-left-col { display: flex; flex-direction: column; gap: 12px; flex-grow: 1; }
+    .card-right-col { display: flex; flex-direction: column; gap: 12px; margin-top: auto;}
+    
+    .destination-title { font-size: 1.5rem; color: var(--text-main); font-weight: 800; line-height: 1.2;}
+    .destination-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; }
+    .meta-badge { background: rgba(6, 182, 212, 0.1); color: var(--secondary); border: 1px solid rgba(6, 182, 212, 0.2); padding: 4px 12px; border-radius: 20px; font-weight: 700; text-transform: capitalize; }
+    
+    .destination-desc { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
+    
+    .destination-highlights {
+      background: var(--bg-base); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border);
+      display: flex; flex-direction: column; gap: 8px; margin-top: 5px;
+    }
+    .highlight-row { display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem; color: var(--text-main); line-height: 1.4;}
+    .highlight-row i { color: var(--primary); margin-top: 3px; font-size: 0.9rem; width: 16px; text-align: center;}
+    .highlight-row strong { color: var(--secondary); margin-right: 4px;}
+
+    .destination-weather {
+      padding: 10px 0; border-top: 1px dashed var(--card-border); margin-top: 5px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .weather-icon { font-size: 1.8rem; width: 40px; text-align: center; }
+    .weather-info { display: flex; flex-direction: column; gap: 2px; }
+    .weather-temp { font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+    .weather-details { display: flex; gap: 12px; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;}
+
+    .card-actions { display: flex; gap: 10px; }
+    .read-more-btn, .map-link-btn {
+      flex: 1; text-align: center; padding: 12px; border-radius: 10px; font-weight: 700; text-decoration: none; transition: all 0.3s; border: none; cursor: pointer; font-size: 0.95rem;
+    }
+    .read-more-btn { background: var(--text-main); color: var(--bg-base); }
+    .read-more-btn:hover { background: var(--primary); color: white; }
+    .map-link-btn { background: var(--bg-base); color: var(--text-main); border: 2px solid var(--card-border); }
+    .map-link-btn:hover { background: var(--secondary); border-color: var(--secondary); color: white; }
+    .favorite-btn { background: transparent; border: 2px solid var(--card-border); color: var(--text-main); padding: 12px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; transition: all 0.3s; width: 100%; font-size: 0.95rem;}
+    .favorite-btn:hover { background: rgba(244, 63, 94, 0.1); color: var(--danger); border-color: var(--danger); }
+    .favorite-btn.active { background: var(--danger); color: white; border-color: var(--danger); }
+    
+    .destination-results.list-view { display: flex; flex-direction: column; gap: 25px; }
+    .destination-results.list-view .destination-card { flex-direction: row; align-items: stretch; }
+    .destination-results.list-view .destination-card::before { width: 6px; height: 100%; }
+    .destination-results.list-view .destination-image-container { width: 340px; height: auto; min-height: 100%; flex-shrink: 0; }
+    .destination-results.list-view .destination-info { flex-direction: row; align-items: center; justify-content: space-between; gap: 40px; padding: 30px;}
+    .destination-results.list-view .card-left-col { flex-grow: 1; justify-content: center; }
+    .destination-results.list-view .card-right-col { min-width: 200px; flex-shrink: 0; justify-content: center; margin-top: 0; border-left: 1px solid var(--card-border); padding-left: 30px;}
+    .destination-results.list-view .card-actions { flex-direction: column; }
+
+    @media (max-width: 1050px) {
+      .destination-results.list-view .destination-card { flex-direction: column; }
+      .destination-results.list-view .destination-card::before { width: 100%; height: 6px; }
+      .destination-results.list-view .destination-image-container { width: 100%; height: 250px; }
+      .destination-results.list-view .destination-info { flex-direction: column; align-items: stretch; gap: 20px; padding: 25px;}
+      .destination-results.list-view .card-right-col { border-left: none; padding-left: 0; flex-direction: column; min-width: auto; }
+      .destination-results.list-view .card-actions { flex-direction: row; }
+    }
+
+    .no-results { text-align: center; padding: 60px 20px; font-size: 1.3rem; color: var(--text-muted); grid-column: 1/-1; background: var(--bg-surface); border-radius: 24px; border: 1px dashed var(--card-border);}
+
+    /* TIME DISPLAY & TOASTS */
+    .search-time-display { position: fixed; bottom: 30px; right: 40px; background: var(--bg-surface); color: var(--text-main); border: 2px solid var(--card-border); padding: 12px 24px; border-radius: 50px; font-size: 1rem; font-weight: 700; z-index: 100; box-shadow: 0 10px 30px var(--shadow-color); display: flex; align-items: center; gap: 12px; animation: slideInUp 0.5s cubic-bezier(0.25, 1, 0.5, 1); backdrop-filter: blur(10px);}
+    @keyframes slideInUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .search-time-display .time-value { color: var(--secondary); font-size: 1.2rem; font-weight: 800; }
+    .search-time-display i { color: var(--primary); font-size: 1.4rem;}
+
+    .toast { position: fixed; top: 30px; right: 30px; min-width: 250px; z-index: 3000; background: var(--bg-surface); border-radius: 16px; box-shadow: 0 15px 40px var(--shadow-color); border-left: 8px solid var(--primary); padding: 18px 24px; color: var(--text-main); font-weight: 700; opacity: 0; transform: translateY(-20px); transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1); border: 1px solid var(--card-border); backdrop-filter: blur(10px);}
+    .toast.show { opacity: 1; transform: translateY(0); top: 100px; }
+
+    /* USER PROFILE */
+    .user-profile { position: fixed; top: 110px; right: 5%; z-index: 2000; display: none; }
+    .user-profile.visible { display: block; }
+    .profile-btn { display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--bg-surface); color: var(--text-main); border: 2px solid var(--card-border); border-radius: 30px; cursor: pointer; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px var(--shadow-color); backdrop-filter: blur(10px);}
+    .profile-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px);}
+    .profile-dropdown { position: absolute; top: 100%; right: 0; width: 260px; background: var(--bg-surface); border-radius: 20px; box-shadow: 0 20px 50px var(--shadow-color); border: 1px solid var(--card-border); padding: 25px; margin-top: 15px; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1); z-index: 1001; backdrop-filter: blur(20px);}
+    .profile-dropdown.active { opacity: 1; visibility: visible; transform: translateY(0); }
+    .user-info { padding-bottom: 15px; margin-bottom: 15px; border-bottom: 1px dashed var(--card-border); font-size: 0.95rem; color: var(--text-muted); }
+    .user-name { font-weight: 800; color: var(--text-main); display: block; font-size: 1.2rem; margin-top: 6px;}
+    .profile-dropdown a { display: flex; align-items: center; gap: 12px; padding: 12px; color: var(--text-main); text-decoration: none; font-weight: 700; border-radius: 12px; transition: all 0.2s; }
+    .profile-dropdown a:hover { background: var(--bg-base); color: var(--primary); padding-left: 18px;}
+    
+    /* MODAL */
+    .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(15px); align-items: center; justify-content: center; }
+    .modal-content { background: var(--bg-surface); border-radius: 28px; padding: 40px; width: 90%; max-width: 420px; box-shadow: 0 25px 60px rgba(0,0,0,0.4); border: 1px solid var(--card-border); position: relative; }
+    .close-btn { position: absolute; top: 20px; right: 25px; font-size: 1.8rem; cursor: pointer; color: var(--text-muted); transition: color 0.3s;}
+    .close-btn:hover { color: var(--danger); }
+    .modal h2 { margin-bottom: 10px; font-size: 2rem; color: var(--text-main); font-weight: 800;}
+    .modal p { margin-bottom: 25px; color: var(--text-muted); font-size: 1.05rem;}
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1000px) {
       .search-wrapper { flex-direction: column; }
-      .search-sidebar {
-        width: 100%;
-        position: relative;
-        top: 0;
-        max-height: none;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-      }
-      .search-main {
-        min-height: auto;
-        padding: 24px;
-      }
-      .form-row { flex-direction: column; gap: 0; }
-      .destination-results { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 480px) {
-      .destination-card { max-width: 98vw; }
-      .card-actions { flex-direction: column; }
-      .toast { font-size: 0.99em;}
+      .search-sidebar { width: 100%; position: relative; top: 0; max-height: none; margin-bottom: 20px;}
+      .navbar { width: 95%; left: 2.5%; padding: 0 20px;}
+      .vertical-scroll-track { right: 10px; }
+      .one-tap-prompt { right: 10px; width: 300px; }
     }
   </style>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="logo">
-      <i class="fas fa-compass"></i> <span>TripMate</span>
+
+  <div class="scroll-progress-bar" id="scrollBar"></div>
+
+  <div class="vertical-scroll-track">
+    <div class="track-dot"></div>
+    <div class="track-thumb" id="scrollThumb">
+      <i class="fas fa-paper-plane"></i>
     </div>
+  </div>
+
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <a href="../main/index.html" class="logo" style="text-decoration:none;">
+      <i class="fa-solid fa-paper-plane"></i>
+      <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
+    </a>
     <div class="nav-right">
-      <a href="../main/index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Home</a>
+      <a href="../main/index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Home</a>
+      <button class="theme-toggle" id="themeToggle" aria-label="Switch dark/light mode"><i class="fas fa-moon"></i></button>
     </div>
   </nav>
 
-  <!-- User Profile (will be shown only after login) -->
+  <div class="one-tap-prompt" id="oneTapPrompt">
+      <div class="one-tap-header">
+          <div style="width: 40px; height: 40px; background: var(--primary); border-radius: 8px; display:flex; align-items:center; justify-content:center; color:white; font-size:1.2rem;">
+              <i class="fa-solid fa-paper-plane"></i>
+          </div>
+          <i class="fas fa-times one-tap-close" onclick="document.getElementById('oneTapPrompt').classList.remove('show');"></i>
+      </div>
+      <div class="one-tap-content">
+          <h4>Sign in to TripMate</h4>
+          <p>Save your searches, build itineraries, and get personalized recommendations.</p>
+          <a href="../auth/login.html" style="text-decoration: none;">
+              <button class="one-tap-btn">
+                  <i class="fas fa-envelope"></i> Continue with Email
+              </button>
+          </a>
+      </div>
+  </div>
+
   <div class="user-profile" id="userProfile">
     <button class="profile-btn">
-      <i class="fas fa-user"></i>
+      <i class="fas fa-user-circle" style="font-size: 1.2rem;"></i>
       <span id="profileUserName">User</span>
+      <i class="fas fa-chevron-down" style="font-size: 0.8rem; margin-left: 5px;"></i>
     </button>
     <div class="profile-dropdown">
       <div class="user-info">
-        Welcome, <span class="user-name" id="dropdownUserName">User</span>
+        Welcome back, <span class="user-name" id="dropdownUserName">User</span>
       </div>
       <a href="../user/user_dashboard.php" id="dashboardLink">
-        <i class="fas fa-tachometer-alt"></i> Dashboard
+        <i class="fas fa-layer-group"></i> Dashboard
       </a>
-      <a href="#" id="logoutBtn">
+      <a href="#" id="logoutBtn" style="color: var(--danger);">
         <i class="fas fa-sign-out-alt"></i> Logout
       </a>
     </div>
   </div>
 
   <div class="search-wrapper">
+    
     <div class="search-sidebar" id="searchSidebar">
-      <h2>Find Your Perfect Trip</h2>
-      <p>Search our database of curated destinations to find your ideal travel experience.</p>
-      <ul class="search-features">
-        <li>Filter by destination type</li>
-        <li>Search within your budget</li>
-        <li>Find group-friendly locations</li>
-        <li>Get personalized recommendations</li>
-      </ul>
-      <hr>
+      <h2><i class="fas fa-compass" style="color: var(--primary);"></i> Find Your Trip</h2>
+      <p style="margin-bottom: 20px;">Search curated destinations for your ideal experience.</p>
+      
       <form class="search-form" id="searchForm" autocomplete="off">
         <div class="form-group">
           <label for="search" class="form-label">Destination Name</label>
-          <input type="text" id="search" name="search" placeholder="e.g. Paris, Bali, etc." class="form-control" autocomplete="off">
+          <div class="input-icon-wrapper">
+            <i class="fas fa-map-marker-alt"></i>
+            <input type="text" id="search" name="search" placeholder="e.g. Paris, Bali..." class="form-control" autocomplete="off">
+          </div>
         </div>
         <button type="button" class="search-btn" id="searchByNameBtn">
-          <i class="fas fa-search"></i> Search Destinations
+          Search by Name <i class="fas fa-arrow-right"></i>
         </button>
+        
+        <hr>
+        
         <div class="form-group">
           <label for="type" class="form-label">Destination Type</label>
-          <select id="type" name="type" class="form-control">
-            <option value="">All Destination Types</option>
-            <option value="beach">Beach Resort</option>
-            <option value="mountain">Mountain Retreat</option>
-            <option value="city">Urban City</option>
-            <option value="village">Countryside Village</option>
-            <option value="historical">Historical</option>
-            <option value="religious">Religious</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="budget" class="form-label">Daily Budget ($)</label>
-            <input type="number" id="budget" name="budget" placeholder="e.g. 100" class="form-control" min="0">
-          </div>
-          <div class="form-group">
-            <label for="people" class="form-label">Travelers</label>
-            <select id="people" name="people" class="form-control">
-              <option value="">Select number of travelers</option>
-              <option value="0">Solo (1)</option>
-              <option value="2">Couple (2)</option>
-              <option value="3-5">Small Group (3-5)</option>
-              <option value="5-9">Medium Group (5-9)</option>
-              <option value="9+">Large Group (9+)</option>
+          <div class="input-icon-wrapper">
+            <i class="fas fa-umbrella-beach"></i>
+            <select id="type" name="type" class="form-control">
+              <option value="">All Types</option>
+              <option value="beach">Beach Resort</option>
+              <option value="mountain">Mountain Retreat</option>
+              <option value="city">Urban City</option>
+              <option value="village">Countryside Village</option>
+              <option value="historical">Historical</option>
+              <option value="religious">Religious</option>
             </select>
           </div>
         </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="budget" class="form-label">Budget/Day (₹)</label>
+            <div class="input-icon-wrapper">
+              <i class="fas fa-dollar-sign"></i>
+              <input type="number" id="budget" name="budget" placeholder="e.g. 100" class="form-control" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="people" class="form-label">Travelers</label>
+            <div class="input-icon-wrapper">
+              <i class="fas fa-user-friends"></i>
+              <select id="people" name="people" class="form-control">
+                <option value="">Any</option>
+                <option value="0">Solo (1)</option>
+                <option value="2">Couple (2)</option>
+                <option value="3-5">Small (3-5)</option>
+                <option value="5-9">Medium (5-9)</option>
+                <option value="9+">Large (9+)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
         <div class="form-group">
           <label for="season" class="form-label">Season</label>
-          <select id="season" name="season" class="form-control">
-            <option value="">Any Season</option>
-            <option value="spring">Spring</option>
-            <option value="summer">Summer</option>
-            <option value="monsoon">Monsoon</option>
-            <option value="autumn">Autumn</option>
-            <option value="winter">Winter</option>
-            <option value="pre-winter">Pre-winter</option>
-          </select>
+          <div class="input-icon-wrapper">
+            <i class="fas fa-sun"></i>
+            <select id="season" name="season" class="form-control">
+              <option value="">Any Season</option>
+              <option value="spring">Spring</option>
+              <option value="summer">Summer</option>
+              <option value="monsoon">Monsoon</option>
+              <option value="autumn">Autumn</option>
+              <option value="winter">Winter</option>
+              <option value="pre-winter">Pre-winter</option>
+            </select>
+          </div>
         </div>
         <button type="button" class="search-btn secondary" id="findMatchingBtn">
-          <i class="fas fa-magic"></i> Find Matching Destinations
+          <i class="fas fa-magic"></i> Find Matches
         </button>
       </form>
     </div>
@@ -692,65 +500,185 @@
     <div class="search-main" id="searchMain">
       <div class="welcome-message" id="welcomeMessage">
         <h2>Discover Your Next Adventure</h2>
-        <p>Use the filters to find destinations that match your travel preferences. Whether you're looking for a beach getaway, mountain retreat, or city exploration, we'll help you find the perfect spot.</p>
-        <svg class="search-illustration" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="45" fill="#e6f7ff" />
-          <path d="M50 25 L75 70 L25 70 Z" fill="#0078d4" opacity="0.7" />
-          <circle cx="50" cy="40" r="10" fill="#ff9e40" />
+        <p>Use the advanced filters to pinpoint destinations that perfectly match your unique travel style. We cross-reference thousands of data points to build your dream itinerary.</p>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="max-width: 250px; margin: 40px auto; display: block; opacity: 0.9; filter: drop-shadow(0 10px 20px rgba(6, 182, 212, 0.3));">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="var(--card-border)" stroke-width="2" stroke-dasharray="4,4"/>
+          <path d="M30 60 L50 20 L70 60 Z" fill="var(--primary)" opacity="0.9" />
+          <path d="M50 20 L70 60 L50 80 Z" fill="var(--secondary)" opacity="0.9" />
         </svg>
-        <p>Start by entering a destination name or use our advanced filters to find recommendations tailored just for you.</p>
       </div>
+      
+      <div class="search-loading hidden" id="searchLoading">
+        <div class="fact-finding-container">
+          <h3 class="fact-finding-title">
+            <i class="fas fa-satellite-dish fa-spin"></i> Scanning Global Database
+          </h3>
+          
+          <div class="scan-progress-container">
+            <div class="scan-progress-fill" id="scanProgress"></div>
+          </div>
+
+          <div class="fact-finding-item" id="fact1">
+            <div class="fact-icon"><i class="fas fa-sliders-h"></i></div>
+            <div class="fact-content">
+              <h4>Applying Parameters</h4>
+              <p>Filtering destinations based on your exact type, budget, and group preferences.</p>
+            </div>
+          </div>
+          <div class="fact-finding-item hidden" id="fact2">
+            <div class="fact-icon"><i class="fas fa-globe-americas"></i></div>
+            <div class="fact-content">
+              <h4>Locating Matches</h4>
+              <p>Cross-referencing highly-rated locations to ensure quality experiences.</p>
+            </div>
+          </div>
+          <div class="fact-finding-item hidden" id="fact3">
+            <div class="fact-icon"><i class="fas fa-temperature-high"></i></div>
+            <div class="fact-content">
+              <h4>Syncing Live Data</h4>
+              <p>Retrieving real-time weather and environmental metrics for your matches.</p>
+            </div>
+          </div>
+          <div class="fact-finding-item hidden" id="fact4" style="border-bottom: none;">
+            <div class="fact-icon"><i class="fas fa-bolt"></i></div>
+            <div class="fact-content">
+              <h4>Finalizing Results</h4>
+              <p>Extracting destination highlights, hotels, and cuisine data.</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="search-stats">
+          <div class="stat-item">
+            <span class="stat-number" id="matchedCount">0</span>
+            <span class="stat-label">Matches Found</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="filterCount">0</span>
+            <span class="stat-label">Active Filters</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number" id="searchTime">0.00s</span>
+            <span class="stat-label">Elapsed Time</span>
+          </div>
+        </div>
+      </div>
+      
       <div class="results-container hidden" id="resultsContainer">
         <div class="results-header">
-          <h2>Search Results</h2>
+          <h2>Your Perfect Matches</h2>
           <p id="resultsCount">We found <span>0</span> destinations for you</p>
-          <button class="reset-btn" id="resetBtn"><i class="fas fa-redo"></i> Reset Search</button>
+          
+          <div class="results-actions">
+            <button class="reset-btn" id="viewToggleBtn"><i class="fas fa-list"></i> List View</button>
+            <button class="reset-btn" id="resetBtn" style="background: var(--danger); color: white; border-color: var(--danger);"><i class="fas fa-rotate-left"></i> Reset Search</button>
+          </div>
         </div>
         <div class="destination-results" id="destinationResults"></div>
       </div>
     </div>
   </div>
 
-  <!-- Toast Notification -->
+  <div class="search-time-display hidden" id="searchTimeDisplay">
+    <i class="fas fa-stopwatch"></i>
+    <span>Search rendered in <span class="time-value" id="finalTimeValue">0.00s</span></span>
+  </div>
+
   <div class="toast" id="toast"></div>
 
-  <!-- Login Modal -->
   <div id="loginModal" class="modal">
     <div class="modal-content">
       <span class="close-btn">&times;</span>
-      <h2>Login Required</h2>
-      <p>Please login to view destination details.</p>
+      <h2 id="loginModalTitle">Login Required</h2>
+      <p id="loginModalDesc">Sign in to save favorites and view deep itinerary details.</p>
       <form id="modalLoginForm">
         <div class="form-group">
           <label for="modalEmail" class="form-label">Email</label>
-          <input type="email" id="modalEmail" name="email" class="form-control" required>
+          <div class="input-icon-wrapper">
+            <i class="fas fa-envelope"></i>
+            <input type="email" id="modalEmail" name="email" class="form-control" required>
+          </div>
         </div>
         <div class="form-group">
           <label for="modalPassword" class="form-label">Password</label>
-          <input type="password" id="modalPassword" name="password" class="form-control" required>
+          <div class="input-icon-wrapper">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="modalPassword" name="password" class="form-control" required>
+          </div>
         </div>
-        <button type="submit" class="search-btn">Login</button>
-        <div id="loginErrorMessage" style="color: #d32f2f; margin-top: 12px; font-size: 14px;"></div>
+        <button type="submit" class="search-btn" style="margin-top: 10px; color:#0f172a !important;">Login Securely <i class="fas fa-shield-alt"></i></button>
+        <div id="loginErrorMessage" style="color: var(--danger); margin-top: 12px; font-size: 14px; font-weight: 700; text-align: center;"></div>
       </form>
-      <div style="margin-top: 20px; text-align: center;">
-        New here? <a href="../auth/register.html" style="color: var(--primary);">Register</a>
+      <div style="margin-top: 24px; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
+        Don't have an account? <br><a href="../auth/register.html" style="color: var(--primary); font-weight: 800; text-decoration: none; margin-top: 8px; display: inline-block;">Register Now</a>
       </div>
     </div>
   </div>
 
   <script>
-    // Toast notification
+    (function() {
+      // Show One-Tap Prompt gently after 3 seconds if not logged in
+      setTimeout(() => {
+          if (!getActiveUser()) {
+              document.getElementById('oneTapPrompt').classList.add('show');
+          }
+      }, 3000);
+
+      window.addEventListener('scroll', () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+        
+        const topBar = document.getElementById("scrollBar");
+        if(topBar) topBar.style.width = scrolled + "%";
+
+        const thumb = document.getElementById("scrollThumb");
+        if(thumb) thumb.style.top = scrolled + "%";
+      });
+
+      const toggleBtn = document.getElementById('themeToggle');
+      const body = document.body;
+      const icon = toggleBtn.querySelector('i');
+      
+      if (localStorage.getItem('tripmate-theme') === 'dark') {
+        body.classList.add('dark-mode');
+        icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        body.classList.toggle('dark-mode');
+        if (body.classList.contains('dark-mode')) {
+          icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+          localStorage.setItem('tripmate-theme', 'dark');
+        } else {
+          icon.classList.remove('fa-sun'); icon.classList.add('fa-moon');
+          localStorage.setItem('tripmate-theme', 'light');
+        }
+      });
+
+      const viewToggleBtn = document.getElementById('viewToggleBtn');
+      const resultsDiv = document.getElementById('destinationResults');
+      
+      viewToggleBtn.addEventListener('click', function() {
+        resultsDiv.classList.toggle('list-view');
+        if (resultsDiv.classList.contains('list-view')) {
+            this.innerHTML = '<i class="fas fa-th-large"></i> Grid View';
+        } else {
+            this.innerHTML = '<i class="fas fa-list"></i> List View';
+        }
+      });
+    })();
+
     function showToast(message, type="success", duration=2400) {
       const toast = document.getElementById('toast');
       toast.textContent = message;
       toast.className = `toast show ${type}`;
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, duration);
+      setTimeout(() => { toast.classList.remove('show'); }, duration);
     }
 
-    // DOM elements
     const welcomeMessage = document.getElementById('welcomeMessage');
+    const searchLoading = document.getElementById('searchLoading');
     const resultsContainer = document.getElementById('resultsContainer');
     const destinationResults = document.getElementById('destinationResults');
     const resultsCount = document.getElementById('resultsCount');
@@ -760,13 +688,27 @@
     const findMatchingBtn = document.getElementById('findMatchingBtn');
     const loginModal = document.getElementById('loginModal');
     const modalLoginForm = document.getElementById('modalLoginForm');
-    const userProfile = document.getElementById('userProfile');
-    const profileUserName = document.getElementById('profileUserName');
-    const dropdownUserName = document.getElementById('dropdownUserName');
+    
+    const scanProgress = document.getElementById('scanProgress');
+    const fact1 = document.getElementById('fact1');
+    const fact2 = document.getElementById('fact2');
+    const fact3 = document.getElementById('fact3');
+    const fact4 = document.getElementById('fact4');
+    const matchedCount = document.getElementById('matchedCount');
+    const filterCount = document.getElementById('filterCount');
+    const searchTime = document.getElementById('searchTime');
 
     let favoritesList = [];
+    let globalResults = [];
+    let currentlyDisplayed = 0;
+    const CHUNK_SIZE = 6; 
+    let searchStartTime = 0;
+    let searchTimerInterval = null;
+    let pendingAction = null; 
 
-    // Utility: get active user from storage (localStorage preferred for device-wide)
+    // Tracker for Engagement Login Wall
+    let searchAttempts = 0;
+
     function getActiveUser() {
       const localId = localStorage.getItem('tripmate_active_user_id');
       const localName = localStorage.getItem('tripmate_active_user_name');
@@ -777,67 +719,40 @@
       return null;
     }
 
-    // Check if user is logged in on page load
     function checkLoginStatus() {
       const active = getActiveUser();
-      if (active) {
-        showUserProfile(active.name || 'User', active.id);
+      if (active) { 
+          showUserProfile(active.name || 'User', active.id); 
+          document.getElementById('oneTapPrompt').classList.remove('show');
       }
     }
 
-    // Show user profile after successful login
     function showUserProfile(username, userId) {
-      // Use the existing userProfile element if present
-      const profileEl = document.getElementById('userProfile') || (function createProfile() {
-        const el = document.createElement('div');
-        el.className = 'user-profile';
-        el.id = 'userProfile';
-        el.innerHTML = `
-          <button class="profile-btn">
-            <i class="fas fa-user"></i>
-            <span id="profileUserName">User</span>
-          </button>
-          <div class="profile-dropdown">
-            <div class="user-info">Welcome, <span class="user-name" id="dropdownUserName">User</span></div>
-            <a href="../user/user_dashboard.php" id="dashboardLink"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            <a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a>
-          </div>`;
-        document.body.appendChild(el);
-        return el;
-      })();
-
+      const profileEl = document.getElementById('userProfile');
       const nameToShow = username || sessionStorage.getItem('user_name') || localStorage.getItem('tripmate_active_user_name') || 'User';
+      
       profileEl.querySelector('#profileUserName').textContent = nameToShow;
       profileEl.querySelector('#dropdownUserName').textContent = nameToShow;
       profileEl.classList.add('visible');
 
-      // Add event listeners for profile dropdown
       const profileBtn = profileEl.querySelector('.profile-btn');
       const dropdown = profileEl.querySelector('.profile-dropdown');
 
-      // ensure we don't attach multiple listeners
       profileBtn.onclick = function(e) {
         e.stopPropagation();
         dropdown.classList.toggle('active');
       };
 
-      // Close dropdown when clicking outside
       document.addEventListener('click', function() {
         if (dropdown) dropdown.classList.remove('active');
       });
 
-      // Handle logout - clear both storages and navigate to server logout
       const logoutBtn = profileEl.querySelector('#logoutBtn');
       logoutBtn.onclick = function(e) {
         e.preventDefault();
         if (confirm('Are you sure you want to logout?')) {
-          // Clear client storage for the active user
-          sessionStorage.removeItem('user_id');
-          sessionStorage.removeItem('user_name');
-          localStorage.removeItem('tripmate_active_user_id');
-          localStorage.removeItem('tripmate_active_user_name');
-
-          // Navigate to server logout endpoint to fully clear server session
+          sessionStorage.clear();
+          localStorage.clear();
           window.location.href = '../auth/logout.php';
         }
       };
@@ -845,16 +760,13 @@
 
     document.addEventListener('DOMContentLoaded', async function() {
       checkLoginStatus();
-
       const active = getActiveUser();
-      if (active && active.id) {
-        await fetchFavorites(active.id);
-      }
+      if (active && active.id) { await fetchFavorites(active.id); }
     });
 
     async function fetchFavorites(userId) {
       try {
-        const resp = await fetch(`search.php?favorites=1&user_id=${encodeURIComponent(userId)}`);
+        const resp = await fetch(`search.php?api=1&favorites=1&user_id=${encodeURIComponent(userId)}`);
         const data = await resp.json();
         favoritesList = Array.isArray(data.favorites) ? data.favorites : [];
       } catch {
@@ -867,19 +779,54 @@
     resetBtn.addEventListener('click', resetSearch);
 
     document.getElementById('search').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSearchByName();
-      }
+      if (e.key === 'Enter') { e.preventDefault(); handleSearchByName(); }
     });
+
+    function showFactFinding(searchParams) {
+      // Hide the prompt if they interact
+      document.getElementById('oneTapPrompt').classList.remove('show');
+
+      welcomeMessage.classList.add('hidden');
+      resultsContainer.classList.add('hidden');
+      document.getElementById('searchTimeDisplay').classList.add('hidden');
+      
+      searchLoading.classList.remove('hidden');
+      scanProgress.style.transition = 'none';
+      scanProgress.style.width = '0%';
+      setTimeout(() => {
+          scanProgress.style.transition = 'width 2.8s linear';
+          scanProgress.style.width = '100%';
+      }, 50);
+
+      fact1.classList.remove('hidden');
+      fact2.classList.add('hidden');
+      fact3.classList.add('hidden');
+      fact4.classList.add('hidden');
+      
+      const appliedFilters = Object.values(searchParams).filter(val => val && val !== '').length;
+      filterCount.textContent = appliedFilters;
+      matchedCount.textContent = '0';
+      searchStartTime = Date.now();
+      
+      if (searchTimerInterval) clearInterval(searchTimerInterval);
+      searchTimerInterval = setInterval(() => {
+        const elapsed = (Date.now() - searchStartTime) / 1000;
+        searchTime.textContent = `${elapsed.toFixed(2)}s`;
+      }, 50);
+      
+      setTimeout(() => fact2.classList.remove('hidden'), 700);
+      setTimeout(() => fact3.classList.remove('hidden'), 1400);
+      setTimeout(() => fact4.classList.remove('hidden'), 2100);
+      
+      return searchTimerInterval;
+    }
 
     function handleSearchByName() {
       const searchValue = document.getElementById('search').value.trim();
-      if (!searchValue) {
-        showToast('Please enter a destination name to search.', 'error');
-        return;
-      }
-      fetchDestinations({search: searchValue});
+      if (!searchValue) { showToast('Please enter a destination name to search.', 'error'); return; }
+      const searchParams = {search: searchValue};
+      const timerInterval = showFactFinding(searchParams);
+      setTimeout(() => { fetchDestinations(searchParams); clearInterval(timerInterval); }, 2800);
     }
 
     function handleFindMatching() {
@@ -887,223 +834,360 @@
       const budget = document.getElementById('budget').value;
       const people = document.getElementById('people').value;
       const season = document.getElementById('season').value;
-      if (!type && !budget && !people && !season) {
-        showToast('Please fill at least one preference field.', 'error');
-        return;
-      }
-      fetchDestinations({type, budget, people, season});
+      
+      if (!type && !budget && !people && !season) { showToast('Please fill at least one preference field.', 'error'); return; }
+      const searchParams = {type, budget, people, season};
+      const timerInterval = showFactFinding(searchParams);
+      setTimeout(() => { fetchDestinations(searchParams); clearInterval(timerInterval); }, 2800);
     }
 
     function fetchDestinations(params) {
-      if (welcomeMessage) welcomeMessage.classList.add('hidden');
-      resultsContainer.classList.remove('hidden');
       const active = getActiveUser();
-      if (active && active.id) {
-        params.user_id = active.id;
-      }
+      if (active && active.id) { params.user_id = active.id; }
       const query = new URLSearchParams(params).toString();
-      fetch(`search.php?${query}`)
+      
+      fetch(`search.php?api=1&${query}`)
         .then(response => response.json())
         .then(data => {
-          displayResults(data.destinations || []);
+          const totalResponseTime = (Date.now() - searchStartTime) / 1000;
+          matchedCount.textContent = data.destinations?.length || 0;
+          setTimeout(() => {
+            searchLoading.classList.add('hidden');
+            displayResults(data.destinations || [], totalResponseTime);
+          }, 300);
         })
         .catch(() => {
-          destinationResults.innerHTML = '<p class="no-results">Error fetching destinations.</p>';
+          searchLoading.classList.add('hidden');
+          destinationResults.innerHTML = '<p class="no-results">Error fetching destinations from database.</p>';
+          showToast('Error searching destinations', 'error');
         });
     }
 
-    function displayResults(results) {
-      if (welcomeMessage) welcomeMessage.classList.add('hidden');
+    function formatDBList(data, limit = 2) {
+        if (!data || data === 'null' || data === '') return '<span style="opacity:0.5;">Not specified</span>';
+        
+        let parsedArray = [];
+        if (Array.isArray(data)) {
+            parsedArray = data;
+        } else if (typeof data === 'string') {
+            try {
+                let parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) { parsedArray = parsed; }
+                else { parsedArray = data.split(',').map(s => s.trim()); }
+            } catch(e) {
+                parsedArray = data.split(',').map(s => s.trim());
+            }
+        }
+        
+        if (parsedArray.length === 0) return '<span style="opacity:0.5;">Not specified</span>';
+        
+        let output = parsedArray.slice(0, limit).join(', ');
+        if (parsedArray.length > limit) output += '...';
+        return output;
+    }
+
+    function displayResults(results, responseTime) {
       resultsContainer.classList.remove('hidden');
       resultsCount.innerHTML = `We found <span>${results.length}</span> destination${results.length !== 1 ? 's' : ''} for you`;
       destinationResults.innerHTML = '';
+      
+      const oldLoadMore = document.getElementById('loadMoreBtn');
+      if (oldLoadMore) oldLoadMore.remove();
+
+      document.getElementById('finalTimeValue').textContent = `${responseTime.toFixed(2)}s`;
+      document.getElementById('searchTimeDisplay').classList.remove('hidden');
+      setTimeout(() => { document.getElementById('searchTimeDisplay').classList.add('hidden'); }, 8000);
+      
       if (results.length === 0) {
-        destinationResults.innerHTML = '<p class="no-results">No destinations found. Try a different search!</p>';
+        destinationResults.innerHTML = '<p class="no-results"><i class="fas fa-search-minus" style="font-size:3rem; margin-bottom:15px; color:var(--text-muted); display:block;"></i> No destinations found for those filters. Try broadening your search!</p>';
         return;
       }
-      if (welcomeMessage) welcomeMessage.style.display = 'none';
-      const active = getActiveUser();
-      let favSet = new Set(favoritesList.map(String));
-      results.forEach(dest => {
-        const card = document.createElement('div');
-        card.className = 'destination-card';
-        let imageUrl = 'https://via.placeholder.com/400x250?text=No+Image';
-        if (Array.isArray(dest.image_urls) && dest.image_urls.length > 0 && dest.image_urls[0]) {
-          imageUrl = dest.image_urls[0].startsWith('uploads/') ? '../' + dest.image_urls[0] : dest.image_urls[0];
+      
+      globalResults = results;
+      currentlyDisplayed = 0;
+      renderChunk(responseTime);
+
+      // =========================================================================
+      // NEW: THE "SOFT PAYWALL" / FORCED LOGIN FEATURE 
+      // After their first successful search, let them browse for 15 seconds, 
+      // then blur the screen and force them to register/login.
+      // =========================================================================
+      searchAttempts++;
+      if (searchAttempts === 1) {
+          setTimeout(() => {
+              const active = getActiveUser();
+              if (!active) {
+                  showLoginModal();
+                  // Remove the close button to make it mandatory
+                  document.querySelector('.close-btn').style.display = 'none';
+                  document.getElementById('loginModalTitle').textContent = "Create a Free Account to Keep Exploring";
+                  document.getElementById('loginModalDesc').textContent = "You've discovered some amazing matches! Sign in to view deep details, save your favorites, and unlock unlimited searches.";
+              }
+          }, 15000); // 15 Seconds Delay
+      }
+    }
+
+    function renderChunk(responseTime) {
+        const toRender = globalResults.slice(currentlyDisplayed, currentlyDisplayed + CHUNK_SIZE);
+        const active = getActiveUser();
+        let favSet = new Set(favoritesList.map(String));
+
+        toRender.forEach((dest, index) => {
+            const card = document.createElement('div');
+            card.className = 'destination-card';
+            card.style.animationDelay = `${index * 0.1}s`;
+            
+            let imageUrl = ''; 
+            if (dest.image_urls && dest.image_urls !== 'null' && dest.image_urls !== '') {
+                let rawImg = dest.image_urls;
+                if (typeof rawImg === 'string' && rawImg.startsWith('[')) {
+                    try { rawImg = JSON.parse(rawImg); } catch(e) {}
+                }
+                
+                if (Array.isArray(rawImg) && rawImg.length > 0 && rawImg[0]) {
+                    imageUrl = String(rawImg[0]).trim();
+                } else if (typeof rawImg === 'string' && rawImg.trim() !== '') {
+                    imageUrl = rawImg.trim();
+                }
+
+                if (imageUrl !== '' && !imageUrl.startsWith('http')) {
+                    imageUrl = imageUrl.startsWith('uploads/') ? '../' + imageUrl : '../uploads/' + imageUrl.replace(/^\/+/, '');
+                }
+            }
+
+            if (imageUrl === '') {
+                imageUrl = 'https://via.placeholder.com/600x400?text=Image+Unavailable';
+            }
+            
+            let isFavorite = active && favSet.has(String(dest.id));
+            const cardResponseTime = (responseTime * 0.8 + Math.random() * responseTime * 0.4).toFixed(2);
+            
+            card.innerHTML = `
+              <div class="destination-image-container">
+                <img src="${imageUrl}" alt="${dest.name}" onerror="this.src='https://via.placeholder.com/600x400?text=Missing+Image'">
+                <div class="response-time-badge"><i class="fas fa-bolt"></i> ${cardResponseTime}s</div>
+              </div>
+              <div class="destination-info">
+                <div class="card-left-col">
+                    <h3 class="destination-title">${dest.name}</h3>
+                    <div class="destination-meta">
+                      <span class="meta-badge">${dest.type}</span>
+                      <span><i class="fas fa-map-marker-alt" style="color:var(--primary);"></i> ${dest.location}</span>
+                      <span><i class="fas fa-dollar-sign" style="color:var(--success);"></i> ${dest.budget}/day</span>
+                    </div>
+                    
+                    <p class="destination-desc">${dest.description || "A beautiful destination waiting to be explored."}</p>
+                    
+                    <div class="destination-highlights">
+                        <div class="highlight-row">
+                            <i class="fas fa-camera-retro"></i>
+                            <span><strong>Spots:</strong> ${formatDBList(dest.attractions, 3)}</span>
+                        </div>
+                        <div class="highlight-row">
+                            <i class="fas fa-bed"></i>
+                            <span><strong>Stays:</strong> ${formatDBList(dest.hotels, 2)}</span>
+                        </div>
+                        <div class="highlight-row">
+                            <i class="fas fa-utensils"></i>
+                            <span><strong>Food:</strong> ${formatDBList(dest.cuisines, 2)}</span>
+                        </div>
+                    </div>
+
+                    <div class="destination-weather-placeholder" data-location="${dest.location}"></div>
+                </div>
+                
+                <div class="card-right-col">
+                    <button class="favorite-btn${isFavorite ? ' active' : ''}" data-destination-id="${dest.id}">
+                      <i class="${isFavorite ? 'fas' : 'far'} fa-heart"></i> <span class="fav-text">${isFavorite ? 'Favorited' : 'Favorite'}</span>
+                    </button>
+                    <div class="card-actions">
+                      <button class="read-more-btn" data-destination-id="${dest.id}">Details</button>
+                      <a href="${dest.map_link || "#"}" target="_blank" class="map-link-btn">Map</a>
+                    </div>
+                </div>
+              </div>
+            `;
+            
+            setTimeout(() => { card.classList.add('animate-in'); }, 50);
+
+            const favBtn = card.querySelector('.favorite-btn');
+            favBtn.onclick = async function() {
+                const active = getActiveUser();
+                if (!active || !active.id) { 
+                    pendingAction = { type: 'favorite', btn: this };
+                    showLoginModal(); 
+                    return; 
+                }
+                const isActive = this.classList.contains('active');
+                
+                if (!isActive) {
+                    const resp = await fetch('search.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `api=1&favorite_action=add&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(dest.id)}`
+                    });
+                    const data = await resp.json();
+                    if (data && data.success) {
+                        this.querySelector('.fav-text').textContent = 'Favorited';
+                        this.querySelector('i').classList.remove('far');
+                        this.querySelector('i').classList.add('fas');
+                        this.classList.add('active');
+                        favoritesList.push(String(dest.id));
+                        showToast('Added to favorites!');
+                    } else { showToast('Failed to add to favorites.', 'error'); }
+                } else {
+                    const resp = await fetch('search.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `api=1&favorite_action=remove&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(dest.id)}`
+                    });
+                    const data = await resp.json();
+                    if (data && data.success) {
+                        this.querySelector('.fav-text').textContent = 'Favorite';
+                        this.querySelector('i').classList.remove('fas');
+                        this.querySelector('i').classList.add('far');
+                        this.classList.remove('active');
+                        favoritesList = favoritesList.filter(id => id !== String(dest.id));
+                        showToast('Removed from favorites.');
+                    } else { showToast('Failed to remove from favorites.', 'error'); }
+                }
+            };
+
+            const readMoreBtn = card.querySelector('.read-more-btn');
+            readMoreBtn.addEventListener('click', function() {
+                const active = getActiveUser();
+                if (!active || !active.id) { 
+                    pendingAction = { type: 'redirect', url: `../user/destination_details.php?id=${dest.id}` };
+                    showLoginModal(); 
+                } 
+                else { window.location.href = `../user/destination_details.php?id=${dest.id}`; }
+            });
+
+            destinationResults.appendChild(card);
+            setTimeout(() => { fetchWeatherForCard(dest.location, card); }, index * 200);
+        });
+
+        currentlyDisplayed += toRender.length;
+
+        let loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (currentlyDisplayed < globalResults.length) {
+            if (!loadMoreBtn) {
+                loadMoreBtn = document.createElement('button');
+                loadMoreBtn.id = 'loadMoreBtn';
+                loadMoreBtn.className = 'search-btn secondary';
+                loadMoreBtn.style.margin = '50px auto 20px';
+                loadMoreBtn.style.display = 'flex';
+                loadMoreBtn.style.maxWidth = '300px';
+                loadMoreBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Load More Matches';
+                loadMoreBtn.onclick = () => renderChunk(responseTime);
+                resultsContainer.appendChild(loadMoreBtn);
+            }
+        } else {
+            if (loadMoreBtn) loadMoreBtn.remove();
         }
-        let isFavorite = active && favSet.has(String(dest.id));
-        card.innerHTML = `
-          <div class="destination-image-container">
-            <img src="${imageUrl}" alt="${dest.name}" onerror="this.src='https://via.placeholder.com/400x250?text=Image+Not+Found'">
-          </div>
-          <div class="destination-info">
-            <h3 class="destination-title">${dest.name}</h3>
-            <div class="destination-meta">
-              <span class="meta-badge">${dest.type}</span>
-              <span><span class="meta-label">Location:</span> ${dest.location}</span>
-              <span><span class="meta-label">Budget:</span> $${dest.budget}/day</span>
-            </div>
-            <p class="destination-desc">${dest.description || ""}</p>
-            <button class="favorite-btn${isFavorite ? ' active' : ''}" data-destination-id="${dest.id}">
-              <i class="${isFavorite ? 'fas' : 'far'} fa-heart"></i> ${isFavorite ? 'Favorited' : 'Add to Favorites'}
-            </button>
-            <div class="card-actions">
-              <button class="read-more-btn" data-destination-id="${dest.id}">Read More</button>
-              <a href="${dest.map_link || "#"}" target="_blank" class="map-link-btn">View on Map</a>
-            </div>
-          </div>
-        `;
-        destinationResults.appendChild(card);
-      });
-      attachEventListeners();
+    }
+
+    async function fetchWeatherForCard(location, card) {
+      try {
+        const response = await fetch(`weather.php?location=${encodeURIComponent(location)}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.temp !== undefined) {
+            const iconMap = { '01d': '☀️', '01n': '🌙', '02d': '⛅', '02n': '🌤️', '03d': '☁️', '03n': '☁️', '04d': '☁️', '04n': '☁️', '09d': '🌧️', '09n': '🌧️', '10d': '🌦️', '10n': '🌧️', '11d': '⛈️', '11n': '⛈️', '13d': '❄️', '13n': '❄️', '50d': '🌫️', '50n': '🌫️' };
+            const icon = iconMap[data.icon] || '🌤️';
+            const placeholder = card.querySelector('.destination-weather-placeholder');
+            if (placeholder) {
+              placeholder.innerHTML = `
+                <div class="destination-weather">
+                  <div class="weather-icon">${icon}</div>
+                  <div class="weather-info">
+                    <div class="weather-temp">${data.temp}°C - ${data.condition}</div>
+                    <div class="weather-details">
+                      <span><i class="fas fa-tint" style="color:var(--primary);"></i> ${data.humidity}%</span>
+                      <span><i class="fas fa-wind" style="color:var(--text-muted);"></i> ${data.wind_speed} m/s</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+          }
+        }
+      } catch (error) {}
     }
 
     function resetSearch() {
       searchForm.reset();
+      globalResults = [];
+      currentlyDisplayed = 0;
+      
+      const loadMoreBtn = document.getElementById('loadMoreBtn');
+      if (loadMoreBtn) loadMoreBtn.remove();
+
+      welcomeMessage.classList.remove('hidden');
+      searchLoading.classList.add('hidden');
       resultsContainer.classList.add('hidden');
-      if (welcomeMessage) welcomeMessage.classList.remove('hidden');
-      if (welcomeMessage) welcomeMessage.style.display = '';
+      document.getElementById('searchTimeDisplay').classList.add('hidden');
+      if (searchTimerInterval) { clearInterval(searchTimerInterval); searchTimerInterval = null; }
     }
 
-    function attachEventListeners() {
-      // Favorite buttons
-      const favoriteBtns = document.querySelectorAll('.favorite-btn');
-      favoriteBtns.forEach(btn => {
-        btn.onclick = async function() {
-          const active = getActiveUser();
-          if (!active || !active.id) {
-            showLoginModal();
-            return;
-          }
-          const destinationId = this.getAttribute('data-destination-id');
-          const isActive = this.classList.contains('active');
-          if (!isActive) {
-            const resp = await fetch('search.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: `favorite_action=add&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(destinationId)}`
-            });
-            const data = await resp.json();
-            if (data && data.success) {
-              this.innerHTML = '<i class="fas fa-heart"></i> Favorited';
-              this.classList.add('active');
-              favoritesList.push(String(destinationId));
-              showToast('Added to favorites!');
-            } else {
-              showToast('Failed to add to favorites.', 'error');
-            }
-          } else {
-            const resp = await fetch('search.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: `favorite_action=remove&user_id=${encodeURIComponent(active.id)}&destination_id=${encodeURIComponent(destinationId)}`
-            });
-            const data = await resp.json();
-            if (data && data.success) {
-              this.innerHTML = '<i class="far fa-heart"></i> Add to Favorites';
-              this.classList.remove('active');
-              favoritesList = favoritesList.filter(id => id !== String(destinationId));
-              showToast('Removed from favorites.');
-            } else {
-              showToast('Failed to remove from favorites.', 'error');
-            }
-          }
-        };
-      });
-
-      // Read More buttons - Check login status before showing details
-      const readMoreBtns = document.querySelectorAll('.read-more-btn');
-      readMoreBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-          const active = getActiveUser();
-          if (!active || !active.id) {
-            showLoginModal();
-          } else {
-            const destinationId = this.getAttribute('data-destination-id');
-            window.location.href = `../user/destination_details.php?id=${destinationId}`;
-          }
-        });
-      });
-    }
-
-    // Modal functionality
+    // MODAL LOGIC & PENDING ACTION EXECUTION
     const modal = document.getElementById('loginModal');
     const closeBtn = document.querySelector('.close-btn');
     const loginErrorMessage = document.getElementById('loginErrorMessage');
 
-    function showLoginModal() {
-      modal.style.display = 'flex';
+    function showLoginModal() { 
+        modal.style.display = 'flex'; 
+        // Hide the one-tap prompt if the big modal opens
+        document.getElementById('oneTapPrompt').classList.remove('show');
+    }
+    
+    function hideLoginModal() { 
+        modal.style.display = 'none'; 
+        loginErrorMessage.textContent = ''; 
+        modalLoginForm.reset(); 
     }
 
-    function hideLoginModal() {
-      modal.style.display = 'none';
-      loginErrorMessage.textContent = '';
-      modalLoginForm.reset();
-    }
+    closeBtn.addEventListener('click', () => { hideLoginModal(); pendingAction = null; });
+    window.addEventListener('click', function(event) { if (event.target === modal) { hideLoginModal(); pendingAction = null; } });
 
-    closeBtn.addEventListener('click', hideLoginModal);
-    window.addEventListener('click', function(event) {
-      if (event.target === modal) {
-        hideLoginModal();
-      }
-    });
-
-    // Modal login form submission
     modalLoginForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       const formData = new FormData(this);
       loginErrorMessage.textContent = '';
 
-      // Restrict login if there's already an active user on this device
       const activeId = localStorage.getItem('tripmate_active_user_id');
-      if (activeId) {
-        loginErrorMessage.textContent = 'A user is already logged in on this device. Please logout first.';
-        return;
-      }
+      if (activeId) { loginErrorMessage.textContent = 'A user is already logged in on this device. Please logout first.'; return; }
       
       try {
-          const response = await fetch('../auth/login.php', {
-              method: 'POST',
-              body: formData
-          });
-          
+          const response = await fetch('../auth/login.php', { method: 'POST', body: formData });
           const data = await response.json();
           
           if (data.status === 'success') {
-              // Persist in this tab and on device
               sessionStorage.setItem('user_id', data.user_id);
               sessionStorage.setItem('user_name', data.user_name);
               localStorage.setItem('tripmate_active_user_id', data.user_id);
               localStorage.setItem('tripmate_active_user_name', data.user_name);
 
               showUserProfile(data.user_name, data.user_id);
+              
+              // Restore the close button in case it was the forced login
+              document.querySelector('.close-btn').style.display = 'block';
               hideLoginModal();
               showToast('Login successful!');
-              
-              // Refresh favorites for the logged-in user
               await fetchFavorites(data.user_id);
               
-              // Reattach event listeners to update buttons
-              attachEventListeners();
-          } else {
-              loginErrorMessage.textContent = data.message || 'Login failed. Please try again.';
-          }
-      } catch (error) {
-          console.error('Login error:', error);
-          loginErrorMessage.textContent = 'An error occurred. Please try again.';
-      }
+              if (pendingAction) {
+                  if (pendingAction.type === 'redirect') {
+                      window.location.href = pendingAction.url;
+                  } else if (pendingAction.type === 'favorite') {
+                      pendingAction.btn.click();
+                  }
+                  pendingAction = null;
+              }
+
+          } else { loginErrorMessage.textContent = data.message || 'Login failed. Please try again.'; }
+      } catch (error) { loginErrorMessage.textContent = 'An error occurred. Please try again.'; }
     });
   </script>
-
-  <!-- Structured data JSON-LD -->
-    <script type="application/ld+json">
-        <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
-    </script>
-
-    <!-- Session Synchronization -->
-    <script src="../user/session-sync.js"></script>
-
-    <!-- Auto-Logout System -->
-    <script src="../user/auto-logout.js"></script>
 </body>
 </html>
