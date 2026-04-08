@@ -28,37 +28,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Handle multiple select for season and people
     $season = isset($_POST['season']) ? implode(',', array_map([$conn, 'real_escape_string'], $_POST['season'])) : '';
-    $people = isset($_POST['people']) ? implode(',', array_map([$conn, 'real_escape_string'], $_POST['people'])) : '';
+    $people_json = isset($_POST['people']) ? json_encode($_POST['people']) : '[]';
     
-    // Handle image upload
+    // Handle tips and language if provided
+    $tips = isset($_POST['tips']) ? json_encode($_POST['tips']) : '[]';
+    $language = isset($_POST['language']) ? json_encode($_POST['language']) : '[]';
+    
+    // Handle attractions if provided
+    $attractions_json = '[]';
+    if (!empty($_POST['attractions'])) {
+        $attractions_array = array_filter(array_map('trim', explode("\n", $_POST['attractions'])));
+        if (!empty($attractions_array)) {
+            $attractions_json = json_encode(array_values($attractions_array));
+        }
+    }
+
+    // Handle destination image upload
     $image_urls = [];
     if (!empty($_FILES['images']['name'][0])) {
-        $upload_dir = 'uploads/';
+        $upload_dir = '../uploads/destinations/';
+        // Create upload directory if it doesn't exist
         if (!file_exists($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
+        
         foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
-            $file_name = basename($_FILES['images']['name'][$key]);
-            $file_path = $upload_dir . uniqid() . '_' . $file_name;
-            if (move_uploaded_file($tmp_name, $file_path)) {
-                $image_urls[] = $file_path;
+            if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
+                $file_name = basename($_FILES['images']['name'][$key]);
+                // Sanitize filename
+                $safe_filename = preg_replace("/[^a-zA-Z0-9.-]/", "_", $file_name);
+                $unique_file_name = uniqid() . '_' . $safe_filename;
+                $file_path = $upload_dir . $unique_file_name;
+                
+                if (move_uploaded_file($tmp_name, $file_path)) {
+                    // Store relative path from uploads folder (e.g., "destinations/unique_filename.jpg")
+                    $image_urls[] = 'destinations/' . $unique_file_name;
+                }
             }
         }
     }
     $image_urls_json = json_encode($image_urls);
 
-    // Insert new destination
-    $stmt = $conn->prepare("INSERT INTO destinations (name, type, description, location, budget, image_urls, map_link, season, people) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssdssss", $name, $type, $description, $location, $budget, $image_urls_json, $map_link, $season, $people);
+    // Handle cuisine images upload
+    $cuisine_images = [];
+    $cuisines = isset($_POST['cuisines']) ? $_POST['cuisines'] : [];
     
+    if (isset($_FILES['cuisine_images']) && is_array($_FILES['cuisine_images']['name'])) {
+        $upload_dir_cuisine = '../uploads/cuisines/';
+        if (!file_exists($upload_dir_cuisine)) {
+            mkdir($upload_dir_cuisine, 0777, true);
+        }
+        
+        foreach ($_FILES['cuisine_images']['tmp_name'] as $cuisine => $tmp_name) {
+            if (!empty($tmp_name) && $_FILES['cuisine_images']['error'][$cuisine] === UPLOAD_ERR_OK) {
+                $file_name = $_FILES['cuisine_images']['name'][$cuisine];
+                // Sanitize filename
+                $safe_filename = preg_replace("/[^a-zA-Z0-9.-]/", "_", $file_name);
+                $unique_file_name = uniqid() . '_' . $safe_filename;
+                $file_path = $upload_dir_cuisine . $unique_file_name;
+                
+                if (move_uploaded_file($tmp_name, $file_path)) {
+                    // Map cuisine name to relative path from uploads folder
+                    if (isset($cuisines[$cuisine])) {
+                        $cuisine_name = $cuisines[$cuisine];
+                        $cuisine_images[$cuisine_name] = 'cuisines/' . $unique_file_name;
+                    }
+                }
+            }
+        }
+    }
+    $cuisines_json = json_encode($cuisines);
+    $cuisine_images_json = json_encode($cuisine_images);
+
+    // Prepare and execute SQL to insert new destination
+    $stmt = $conn->prepare("INSERT INTO destinations (name, type, description, location, budget, image_urls, map_link, season, people, tips, cuisines, language, cuisine_images, attractions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    if ($stmt === false) {
+        die('Prepare failed: ' . htmlspecialchars($conn->error));
+    }
+    
+    $stmt->bind_param("ssssdsssssssss", $name, $type, $description, $location, $budget, $image_urls_json, $map_link, $season, $people_json, $tips, $cuisines_json, $language, $cuisine_images_json, $attractions_json);
+
     if ($stmt->execute()) {
         $_SESSION['message'] = "Destination added successfully!";
+        header("Location: add_destination_on_admin.php");
+        exit();
     } else {
         $_SESSION['message'] = "Error adding destination: " . $conn->error;
     }
-    
-    header("Location: add_destanition_on_admin.php");
-    exit();
 }
 
 // Get admin info with profile picture
@@ -108,6 +164,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     <label for="name">Destination Name</label>
                     <input type="text" id="name" name="name" class="form-control" required>
                 </div>
+                
                 <div class="form-group">
                     <label for="type">Destination Type</label>
                     <select id="type" name="type" class="form-control" required>
@@ -118,6 +175,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                         <option value="historical">Historical</option>
                     </select>
                 </div>
+                
                 <div class="form-group">
                     <label for="season">Best Season to Visit</label>
                     <select id="season" name="season[]" class="form-control" multiple required style="height: auto; min-height: 120px;">
@@ -129,6 +187,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     </select>
                     <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple options</small>
                 </div>
+                
                 <div class="form-group">
                     <label for="people">Recommended For</label>
                     <select id="people" name="people[]" class="form-control" multiple required style="height: auto; min-height: 120px;">
@@ -140,23 +199,49 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     </select>
                     <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple options</small>
                 </div>
+                
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" class="form-control" required></textarea>
                 </div>
+                
                 <div class="form-group">
                     <label for="location">Location</label>
                     <input type="text" id="location" name="location" class="form-control" required>
                 </div>
+                
                 <div class="form-group">
                     <label for="budget">Budget (₹ per day)</label>
                     <input type="number" id="budget" name="budget" step="0.01" class="form-control" required>
                 </div>
+                
                 <div class="form-group">
-                    <label for="images">Upload Images</label>
+                    <label for="images">Upload Destination Images</label>
                     <input type="file" id="images" name="images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;">
-                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-image"></i> Select Your images</small>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-image"></i> Select your destination images</small>
                 </div>
+                
+                <div class="form-group">
+                    <label for="cuisines">Local Cuisines</label>
+                    <select id="cuisines" name="cuisines[]" class="form-control" multiple style="height: auto; min-height: 120px;">
+                        <option value="Biryani">Biryani</option>
+                        <option value="Butter Chicken">Butter Chicken</option>
+                        <option value="Paneer Tikka">Paneer Tikka</option>
+                        <option value="Masala Dosa">Masala Dosa</option>
+                        <option value="Chole Bhature">Chole Bhature</option>
+                        <option value="Rogan Josh">Rogan Josh</option>
+                        <option value="Dal Makhani">Dal Makhani</option>
+                        <option value="Tandoori Chicken">Tandoori Chicken</option>
+                    </select>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple cuisines</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cuisine_images">Cuisine Images</label>
+                    <small style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;"><i class="fas fa-image"></i> Upload images for each selected cuisine in the same order</small>
+                    <input type="file" id="cuisine_images" name="cuisine_images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;">
+                </div>
+                
                 <div class="form-group">
                     <label for="map_link">Google Map Link</label>
                     <input type="url" id="map_link" name="map_link" class="form-control" required>
@@ -180,52 +265,22 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
             <span class="status-badge status-active">Active: <?= $result->num_rows ?></span>
         </div>
         <div class="card-body">
-            <div class="search-sort-container" style="margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; background: var(--bg-base); padding: 1.5rem; border-radius: 16px; border: 1px solid var(--card-border);">
-                <div class="search-box" style="flex-grow: 1;">
-                    <input type="text" id="destinationSearch" placeholder="Search destinations by name, type, or location..." 
-                           class="form-control" style="padding: 0.8rem 1.2rem; border-radius: 50px; background: var(--bg-surface);">
-                </div>
-                <div class="sort-controls" style="display: flex; gap: 1rem; align-items: center;">
-                    <label for="sortOrder" style="font-weight: 600; color: var(--text-main); margin: 0;">Sort by:</label>
-                    <select id="sortOrder" class="form-control" style="width: auto; padding: 0.8rem 1.2rem; border-radius: 50px; background: var(--bg-surface);">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                        <option value="name-asc">Name (A-Z)</option>
-                        <option value="name-desc">Name (Z-A)</option>
-                        <option value="budget-low">Budget (Low to High)</option>
-                        <option value="budget-high">Budget (High to Low)</option>
-                    </select>
-                </div>
-                <button id="clearSearch" class="btn btn-outline" style="border-radius: 50px;">
-                    <i class="fas fa-times"></i> Clear
-                </button>
-            </div>
-            
-            <div id="resultsCount" style="margin-bottom: 1.5rem; color: var(--text-muted); font-weight: 600; font-size: 1.1rem;">
-                Showing all <?= $result->num_rows ?> destinations
-            </div>
-            
             <div class="destination-grid" id="destinationsContainer">
                 <?php while ($row = $result->fetch_assoc()): ?>
-                    <div class="destination-card widget-card" style="padding: 0; overflow: hidden;" data-destination='<?= htmlspecialchars(json_encode([
-                        'id' => $row['id'],
-                        'name' => $row['name'],
-                        'type' => $row['type'],
-                        'location' => $row['location'],
-                        'budget' => $row['budget'],
-                        'created' => $row['created_at'] ?? ''
-                    ]), ENT_QUOTES, 'UTF-8') ?>'>
+                    <div class="destination-card widget-card" style="padding: 0; overflow: hidden;">
                         <div class="destination-images">
                             <?php 
                             if (!empty($row['image_urls'])): 
                                 $images = json_decode($row['image_urls'], true);
-                                if (is_array($images) && !empty($images[0])): ?>
-                                    <img src="<?= htmlspecialchars($images[0]) ?>" alt="<?= htmlspecialchars($row['name']) ?>">
+                                if (is_array($images) && !empty($images[0])): 
+                                    $image_path = '../uploads/' . $images[0];
+                                ?>
+                                    <img src="<?= htmlspecialchars($image_path) ?>" alt="<?= htmlspecialchars($row['name']) ?>">
                                 <?php else: ?>
-                                    <img src="Uploads/default.jpg" alt="Default destination image">
+                                    <img src="../image/placeholder.png" alt="Default destination image">
                                 <?php endif; ?>
                             <?php else: ?>
-                                <img src="Uploads/default.jpg" alt="Default destination image">
+                                <img src="../image/placeholder.png" alt="Default destination image">
                             <?php endif; ?>
                             <div class="destination-type-badge">
                                 <i class="fas fa-tag"></i> <?= ucfirst($row['type']) ?>
@@ -241,7 +296,10 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                                 </span>
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
                                     <i class="fas fa-user-friends" style="color: var(--secondary); width: 16px; text-align: center;"></i> 
-                                    <?= str_replace(',', ', ', $row['people'] ?? '') ?>
+                                    <?php 
+                                    $people = json_decode($row['people'] ?? '[]', true);
+                                    echo is_array($people) ? htmlspecialchars(implode(', ', $people)) : htmlspecialchars($row['people'] ?? '');
+                                    ?>
                                 </span>
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
                                     <i class="fas fa-rupee-sign" style="color: var(--primary); width: 16px; text-align: center;"></i> 
@@ -267,22 +325,10 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </form>
-                                <a href="manage_hotels.php?destination_id=<?= $row['id'] ?>" class="btn btn-primary" style="flex: 1; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem; background: linear-gradient(135deg, #f59e0b, #d97706);">
-                                    <i class="fas fa-hotel"></i> Hotels
-                                </a>
-                                <a href="manage_flights.php?destination_id=<?= $row['id'] ?>" class="btn btn-primary" style="flex: 1; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem; background: linear-gradient(135deg, #3b82f6, #2563eb);">
-                                    <i class="fas fa-plane"></i> Flights
-                                </a>
                             </div>
                         </div>
                     </div>
                 <?php endwhile; ?>
-            </div>
-            
-            <div id="noResults" style="display: none; text-align: center; padding: 4rem 2rem; background: var(--bg-base); border-radius: 24px; border: 1px dashed var(--card-border); margin-top: 2rem;">
-                <i class="fas fa-search" style="font-size: 4rem; margin-bottom: 1.5rem; color: var(--text-muted); opacity: 0.5;"></i>
-                <h3 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 0.5rem;">No destinations found</h3>
-                <p style="color: var(--text-muted);">Try adjusting your search or filter terms</p>
             </div>
         </div>
     </div>
@@ -291,27 +337,15 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-
     const showBtn       = document.getElementById('showAddFormBtn');
     const container     = document.getElementById('addFormContainer');
     const closeBtn      = document.getElementById('closeFormBtn');
     const cancelBtn     = document.getElementById('cancelFormBtn');
-    const searchInput   = document.getElementById('destinationSearch');
-    const sortSelect    = document.getElementById('sortOrder');
-    const clearBtn      = document.getElementById('clearSearch');
-    const destContainer = document.getElementById('destinationsContainer');
-    const noResultsMsg  = document.getElementById('noResults');
-    const resultsCount  = document.getElementById('resultsCount');
-
-    // Store original destination cards
-    const originalDestinations = Array.from(destContainer.children);
-    let currentDestinations = [...originalDestinations];
 
     function openForm() {
         container.style.display = 'block';
-        // Small delay to trigger transition
         setTimeout(() => {
-            container.style.maxHeight = container.scrollHeight + 500 + 'px'; // Add extra space for dropdowns
+            container.style.maxHeight = container.scrollHeight + 500 + 'px';
             container.style.opacity = '1';
         }, 10);
         showBtn.style.display = 'none';
@@ -323,107 +357,17 @@ document.addEventListener('DOMContentLoaded', function() {
         container.style.opacity = '0';
         setTimeout(() => {
             container.style.display = 'none';
-        }, 500); // match transition duration
+        }, 500);
         showBtn.style.display = 'inline-flex';
     }
 
-    // Search function
-    function performSearch() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        
-        if (searchTerm === '') {
-            currentDestinations = [...originalDestinations];
-        } else {
-            currentDestinations = originalDestinations.filter(card => {
-                const data = JSON.parse(card.getAttribute('data-destination'));
-                const name = data.name.toLowerCase();
-                const type = data.type.toLowerCase();
-                const location = data.location.toLowerCase();
-                
-                return name.includes(searchTerm) || 
-                       type.includes(searchTerm) || 
-                       location.includes(searchTerm);
-            });
-        }
-        
-        sortDestinations(currentDestinations);
-        updateDestinationDisplay();
-    }
-
-    // Sort function
-    function sortDestinations(destinations) {
-        const sortValue = sortSelect.value;
-        
-        destinations.sort((a, b) => {
-            const dataA = JSON.parse(a.getAttribute('data-destination'));
-            const dataB = JSON.parse(b.getAttribute('data-destination'));
-            
-            switch(sortValue) {
-                case 'newest':
-                    return new Date(dataB.created) - new Date(dataA.created);
-                case 'oldest':
-                    return new Date(dataA.created) - new Date(dataB.created);
-                case 'name-asc':
-                    return dataA.name.localeCompare(dataB.name);
-                case 'name-desc':
-                    return dataB.name.localeCompare(dataA.name);
-                case 'budget-low':
-                    return parseFloat(dataA.budget) - parseFloat(dataB.budget);
-                case 'budget-high':
-                    return parseFloat(dataB.budget) - parseFloat(dataA.budget);
-                default:
-                    return 0;
-            }
-        });
-    }
-
-    // Update display of destinations
-    function updateDestinationDisplay() {
-        destContainer.innerHTML = '';
-        
-        if (currentDestinations.length === 0) {
-            noResultsMsg.style.display = 'block';
-            destContainer.style.display = 'none';
-            resultsCount.textContent = 'No destinations found';
-        } else {
-            noResultsMsg.style.display = 'none';
-            destContainer.style.display = 'grid';
-            currentDestinations.forEach(card => {
-                destContainer.appendChild(card.cloneNode(true));
-            });
-            resultsCount.textContent = `Showing ${currentDestinations.length} of ${originalDestinations.length} destinations`;
-        }
-    }
-
-    // Clear search
-    function clearSearch() {
-        searchInput.value = '';
-        currentDestinations = [...originalDestinations];
-        sortSelect.value = 'newest';
-        updateDestinationDisplay();
-    }
-
-    // Event listeners
     showBtn.addEventListener('click', openForm);
     closeBtn.addEventListener('click', closeForm);
     cancelBtn.addEventListener('click', closeForm);
-    
-    searchInput.addEventListener('input', performSearch);
-    sortSelect.addEventListener('change', () => {
-        sortDestinations(currentDestinations);
-        updateDestinationDisplay();
-    });
-    clearBtn.addEventListener('click', clearSearch);
-
-    // Initialize display
-    updateDestinationDisplay();
-
 });
 </script>
 
 <style>
-    /* Styles aligned with index.html theme */
-    
     .form-group {
         margin-bottom: 1.8rem;
     }
@@ -619,19 +563,6 @@ document.addEventListener('DOMContentLoaded', function() {
         margin: 0;
         padding: 0.6rem;
         font-size: 0.85rem;
-    }
-
-    .destination-actions .btn-primary:first-of-type {
-        grid-column: span 2;
-        margin-bottom: 0.25rem;
-    }
-
-    .destination-actions .btn-primary {
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-    }
-
-    .destination-actions .btn-primary:hover {
-        transform: translateY(-2px);
     }
 </style>
 
