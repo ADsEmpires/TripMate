@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 12, 2026 at 06:58 PM
+-- Generation Time: Apr 07, 2026 at 08:01 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -66,6 +66,48 @@ INSERT INTO `admin` (`id`, `name`, `email`, `password`, `created_at`, `profile_p
 (1, 'admin@123', 'admin@gmail.com', '$2y$10$AlP0uyFkcON5ui8rCxzsLeaIrg.KCOjsZ8rB2sAnNayZg5QeehSIG', '2025-08-05 19:01:34', NULL),
 (4, 'adm', 'adm@gmail.com', '$2y$10$zg7TP2EARQ4FjemjJLYbye8HitGUxfR6.rp0Pab4sQTH.jiVMsZG2', '2025-08-08 17:57:22', NULL),
 (5, 'Arnab', 'adn@gmail.com', '$2y$10$rGcnFJVjy9LlCKcnbpt7FuEyvZSzqx0.eEZFhBLhV6Z1lGjzLD1aO', '2025-08-09 15:15:42', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `blog_comments`
+--
+
+CREATE TABLE `blog_comments` (
+  `id` int(11) NOT NULL,
+  `blog_post_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `comment` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `blog_posts`
+--
+
+CREATE TABLE `blog_posts` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `content` text NOT NULL,
+  `category` varchar(100) DEFAULT 'travel',
+  `images` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`images`)),
+  `tags` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`tags`)),
+  `likes_count` int(11) DEFAULT 0,
+  `comments_count` int(11) DEFAULT 0,
+  `status` enum('published','draft','archived') DEFAULT 'published',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `blog_posts`
+--
+
+INSERT INTO `blog_posts` (`id`, `user_id`, `title`, `content`, `category`, `images`, `tags`, `likes_count`, `comments_count`, `status`, `created_at`, `updated_at`) VALUES
+(1, 5, 'Nice trip', 'Very good', 'food', NULL, '[\"#tasty\",\"#yummy\"]', 0, 0, 'published', '2026-04-07 16:06:16', '2026-04-07 16:06:16');
 
 -- --------------------------------------------------------
 
@@ -171,7 +213,8 @@ CREATE TABLE `favorites` (
 --
 
 INSERT INTO `favorites` (`id`, `user_id`, `destination_id`, `created_at`) VALUES
-(1, 5, 7, '2026-02-22 10:02:10');
+(1, 5, 7, '2026-02-22 10:02:10'),
+(2, 5, 2, '2026-04-05 13:41:39');
 
 -- --------------------------------------------------------
 
@@ -383,18 +426,11 @@ CREATE TABLE `reviews` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `destination_id` int(11) NOT NULL,
-  `rating` int(11) NOT NULL COMMENT '1-5 stars',
+  `rating` int(11) NOT NULL CHECK (`rating` between 1 and 5),
   `title` varchar(255) DEFAULT NULL,
-  `content` text DEFAULT NULL,
-  `comment` text DEFAULT NULL,
-  `images` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Review images/photos' CHECK (json_valid(`images`)),
-  `images_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`images_json`)),
-  `review_type` enum('accommodation','restaurant','attraction','general') DEFAULT 'general',
-  `is_verified` tinyint(1) DEFAULT 0,
-  `verification_hash` varchar(255) DEFAULT NULL COMMENT 'Blockchain hash',
-  `blockchain_transaction_id` varchar(255) DEFAULT NULL,
+  `comment` text NOT NULL,
+  `images` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`images`)),
   `helpful_count` int(11) DEFAULT 0,
-  `unhelpful_count` int(11) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -509,6 +545,35 @@ INSERT INTO `travel_packages` (`id`, `destination_id`, `hotel_id`, `flight_id`, 
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `upcoming_trips`
+--
+
+CREATE TABLE `upcoming_trips` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `destination_id` int(11) DEFAULT NULL,
+  `destination_name` varchar(255) NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `travelers` int(11) DEFAULT 1,
+  `budget` decimal(10,2) DEFAULT NULL,
+  `status` enum('upcoming','ongoing','completed','cancelled') DEFAULT 'upcoming',
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `upcoming_trips`
+--
+
+INSERT INTO `upcoming_trips` (`id`, `user_id`, `destination_id`, `destination_name`, `start_date`, `end_date`, `travelers`, `budget`, `status`, `notes`, `created_at`, `updated_at`) VALUES
+(1, 5, 7, 'Agra', '2026-04-06', '0000-00-00', 2, 0.00, 'upcoming', '', '2026-04-05 10:10:07', '2026-04-05 10:10:07'),
+(2, 5, 3, 'Kyoto', '2026-04-07', '0000-00-00', 2, 0.00, 'upcoming', '', '2026-04-07 16:05:17', '2026-04-07 16:05:17');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -544,7 +609,7 @@ INSERT INTO `users` (`id`, `name`, `email`, `password`, `auth_provider`, `provid
 CREATE TABLE `user_history` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
-  `activity_type` enum('search','destination_view','favorite','login','booking') NOT NULL,
+  `activity_type` enum('search','destination_view','favorite','login','booking','trip_plan') NOT NULL,
   `activity_details` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -613,7 +678,11 @@ INSERT INTO `user_history` (`id`, `user_id`, `activity_type`, `activity_details`
 (66, 5, '', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"departure_city\":\"Bangalore\",\"start_date\":\"2026-09-06\",\"end_date\":\"2026-09-13\",\"travelers\":2,\"nights\":7,\"hotel_budget\":5000,\"flight_budget\":25000,\"months_covered\":[9],\"user_name\":\"Arnab\"}', '2026-03-06 17:34:45'),
 (67, 5, '', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"departure_city\":\"Bangalore\",\"start_date\":\"2026-03-12\",\"end_date\":\"2026-03-19\",\"travelers\":2,\"nights\":7,\"hotel_budget\":5000,\"flight_budget\":25000,\"months_covered\":[3],\"user_name\":\"Arnab\"}', '2026-03-08 04:17:20'),
 (68, 5, '', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"departure_city\":\"Bangalore\",\"start_date\":\"2026-03-12\",\"end_date\":\"2026-03-19\",\"travelers\":2,\"nights\":7,\"hotel_budget\":5000,\"flight_budget\":25000,\"months_covered\":[3],\"user_name\":\"Arnab\"}', '2026-03-08 04:20:54'),
-(69, 5, '', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"departure_city\":\"Bangalore\",\"start_date\":\"2026-03-10\",\"end_date\":\"2026-03-13\",\"travelers\":2,\"nights\":3,\"hotel_budget\":5000,\"flight_budget\":25000,\"months_covered\":[3],\"user_name\":\"Arnab\"}', '2026-03-10 15:47:57');
+(69, 5, '', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"departure_city\":\"Bangalore\",\"start_date\":\"2026-03-10\",\"end_date\":\"2026-03-13\",\"travelers\":2,\"nights\":3,\"hotel_budget\":5000,\"flight_budget\":25000,\"months_covered\":[3],\"user_name\":\"Arnab\"}', '2026-03-10 15:47:57'),
+(70, 5, 'favorite', '2', '2026-04-05 08:11:39'),
+(71, 5, 'trip_plan', '{\"destination_id\":7,\"destination_name\":\"Agra\",\"start_date\":\"2026-04-06\"}', '2026-04-05 10:10:07'),
+(72, 5, 'trip_plan', '{\"destination_id\":3,\"destination_name\":\"Kyoto\",\"start_date\":\"2026-04-07\"}', '2026-04-07 16:05:17'),
+(73, 5, 'search', 'agra', '2026-04-07 16:06:36');
 
 --
 -- Triggers `user_history`
@@ -686,6 +755,28 @@ CREATE TABLE `user_levels` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `user_search_history`
+--
+
+CREATE TABLE `user_search_history` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `search_query` varchar(255) NOT NULL,
+  `search_type` varchar(50) DEFAULT NULL,
+  `results_count` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user_search_history`
+--
+
+INSERT INTO `user_search_history` (`id`, `user_id`, `search_query`, `search_type`, `results_count`, `created_at`) VALUES
+(1, 5, 'agra', 'destination', 0, '2026-04-07 16:06:36');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `views`
 --
 
@@ -740,6 +831,24 @@ ALTER TABLE `activity_suggestions`
 ALTER TABLE `admin`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `idx_blog_post_id` (`blog_post_id`),
+  ADD KEY `idx_created_at` (`created_at`);
+
+--
+-- Indexes for table `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_id` (`user_id`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `idx_created_at` (`created_at`);
 
 --
 -- Indexes for table `calendar_events`
@@ -829,9 +938,8 @@ ALTER TABLE `price_trends`
 --
 ALTER TABLE `reviews`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_destination_rating` (`destination_id`,`rating`),
   ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_verified` (`is_verified`),
+  ADD KEY `idx_destination_id` (`destination_id`),
   ADD KEY `idx_created_at` (`created_at`);
 
 --
@@ -863,6 +971,16 @@ ALTER TABLE `travel_packages`
   ADD KEY `idx_availability` (`available_from`,`available_to`);
 
 --
+-- Indexes for table `upcoming_trips`
+--
+ALTER TABLE `upcoming_trips`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_id` (`user_id`),
+  ADD KEY `idx_start_date` (`start_date`),
+  ADD KEY `idx_status` (`status`),
+  ADD KEY `fk_upcoming_trips_destination` (`destination_id`);
+
+--
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
@@ -873,7 +991,7 @@ ALTER TABLE `users`
 --
 ALTER TABLE `user_history`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD KEY `idx_user_activity` (`user_id`,`activity_type`,`created_at`);
 
 --
 -- Indexes for table `user_ips`
@@ -888,6 +1006,15 @@ ALTER TABLE `user_ips`
 ALTER TABLE `user_levels`
   ADD PRIMARY KEY (`id`),
   ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `user_search_history`
+--
+ALTER TABLE `user_search_history`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_id` (`user_id`),
+  ADD KEY `idx_created_at` (`created_at`),
+  ADD KEY `idx_search_query` (`search_query`);
 
 --
 -- Indexes for table `views`
@@ -920,6 +1047,18 @@ ALTER TABLE `admin`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
+-- AUTO_INCREMENT for table `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `calendar_events`
 --
 ALTER TABLE `calendar_events`
@@ -941,7 +1080,7 @@ ALTER TABLE `errors`
 -- AUTO_INCREMENT for table `favorites`
 --
 ALTER TABLE `favorites`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `flights`
@@ -1010,6 +1149,12 @@ ALTER TABLE `travel_packages`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
+-- AUTO_INCREMENT for table `upcoming_trips`
+--
+ALTER TABLE `upcoming_trips`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
@@ -1019,7 +1164,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `user_history`
 --
 ALTER TABLE `user_history`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
 
 --
 -- AUTO_INCREMENT for table `user_ips`
@@ -1032,6 +1177,12 @@ ALTER TABLE `user_ips`
 --
 ALTER TABLE `user_levels`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user_search_history`
+--
+ALTER TABLE `user_search_history`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `views`
@@ -1054,6 +1205,19 @@ ALTER TABLE `website_analytics`
 --
 ALTER TABLE `activity_suggestions`
   ADD CONSTRAINT `activity_suggestions_ibfk_1` FOREIGN KEY (`itinerary_day_id`) REFERENCES `itinerary_days` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `blog_comments`
+--
+ALTER TABLE `blog_comments`
+  ADD CONSTRAINT `blog_comments_ibfk_1` FOREIGN KEY (`blog_post_id`) REFERENCES `blog_posts` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `blog_comments_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `blog_posts`
+--
+ALTER TABLE `blog_posts`
+  ADD CONSTRAINT `blog_posts_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `errors`
@@ -1134,6 +1298,13 @@ ALTER TABLE `travel_packages`
   ADD CONSTRAINT `travel_packages_ibfk_3` FOREIGN KEY (`flight_id`) REFERENCES `flights` (`id`) ON DELETE SET NULL;
 
 --
+-- Constraints for table `upcoming_trips`
+--
+ALTER TABLE `upcoming_trips`
+  ADD CONSTRAINT `fk_upcoming_trips_destination` FOREIGN KEY (`destination_id`) REFERENCES `destinations` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_upcoming_trips_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `user_history`
 --
 ALTER TABLE `user_history`
@@ -1144,6 +1315,12 @@ ALTER TABLE `user_history`
 --
 ALTER TABLE `user_levels`
   ADD CONSTRAINT `user_levels_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `user_search_history`
+--
+ALTER TABLE `user_search_history`
+  ADD CONSTRAINT `user_search_history_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `views`
