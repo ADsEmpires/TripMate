@@ -2,7 +2,27 @@
 
 // Database connection details
 $host = 'localhost';
-$dbname = 'tripmate';  // Changed from 'TripMate' to 'tripmate1'
+$dbname = 'tripmate';
+$username = 'root';
+$password = ''; // Use your actual MySQL password
+
+// Create connection
+$conn = new mysqli($host, $username, $password, $dbname);
+
+// Check connection
+if ($conn->connect_error) {
+    die(json_encode(['status' => 'error', 'message' => 'Database connection failed: ' . $conn->connect_error]));
+}
+
+// Set charset
+$conn->set_charset("utf8mb4");
+
+
+
+/*
+// Database connection details
+$host = 'localhost';
+$dbname = 'tripmate';  // Changed from 'TripMate' 
 $username = 'root';
 $password = ''; // use your actual MySQL password
 
@@ -13,7 +33,7 @@ $conn = new mysqli($host, $username, $password, $dbname);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
-
+*/
 
 /*
 
