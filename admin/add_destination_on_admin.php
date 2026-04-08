@@ -321,7 +321,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                                 </a>
                                 <form action="delete_destination.php" method="POST" style="flex: 1;">
                                     <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                    <button type="submit" class="btn btn-danger" style="width: 100%; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem;" onclick="return confirm('Are you sure you want to delete this destination?')">
+                                    <button type="submit" class="btn btn-danger" style="width: 100%; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem;" onclick="return confirm('Are you sure you want to delete this destination?');">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </form>
