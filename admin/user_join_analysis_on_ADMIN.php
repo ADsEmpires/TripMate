@@ -1,11 +1,12 @@
 <?php
+// Start session and check admin login
 session_start();
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
+if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_id'])) {
+    header('Location: admin_login.php');
     exit();
 }
 
-include '../database/dbconfig.php';
+require_once '../database/dbconfig.php';
 
 // Get today's date
 $today = date('Y-m-d');
@@ -18,13 +19,16 @@ $today_sql = "SELECT
               WHERE DATE(created_at) = ?
               GROUP BY day_date";
 
+$today_growth = 0;
 $stmt = $conn->prepare($today_sql);
-$stmt->bind_param("s", $today);
-$stmt->execute();
-$today_result = $stmt->get_result();
-$today_data = $today_result->fetch_assoc();
-
-$today_growth = $today_data ? (int)$today_data['total_count'] : 0;
+if ($stmt) {
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $today_result = $stmt->get_result();
+    $today_data = $today_result->fetch_assoc();
+    $today_growth = $today_data ? (int)$today_data['total_count'] : 0;
+    $stmt->close();
+}
 
 // Prepare SQL to get last 30 days user signup data
 $thirty_day_sql = "SELECT 
@@ -75,79 +79,105 @@ $weekly_sql = "SELECT
                 COUNT(*) as weekly_count 
                FROM users 
                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+$weekly_growth = 0;
 $weekly_result = $conn->query($weekly_sql);
-$weekly_growth = $weekly_result ? $weekly_result->fetch_assoc()['weekly_count'] : 0;
+if ($weekly_result && $weekly_result->num_rows > 0) {
+    $weekly_row = $weekly_result->fetch_assoc();
+    $weekly_growth = isset($weekly_row['weekly_count']) ? (int)$weekly_row['weekly_count'] : 0;
+}
 
 $monthly_sql = "SELECT 
                 COUNT(*) as monthly_count 
                FROM users 
                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+$monthly_growth = 0;
 $monthly_result = $conn->query($monthly_sql);
-$monthly_growth = $monthly_result ? $monthly_result->fetch_assoc()['monthly_count'] : 0;
+if ($monthly_result && $monthly_result->num_rows > 0) {
+    $monthly_row = $monthly_result->fetch_assoc();
+    $monthly_growth = isset($monthly_row['monthly_count']) ? (int)$monthly_row['monthly_count'] : 0;
+}
 
 // NEW: Get growth rate compared to previous period
 $prev_week_sql = "SELECT 
                     COUNT(*) as prev_weekly_count 
                   FROM users 
                   WHERE created_at BETWEEN DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+$prev_weekly_growth = 0;
 $prev_week_result = $conn->query($prev_week_sql);
-$prev_weekly_growth = $prev_week_result ? $prev_week_result->fetch_assoc()['prev_weekly_count'] : 0;
+if ($prev_week_result && $prev_week_result->num_rows > 0) {
+    $prev_week_row = $prev_week_result->fetch_assoc();
+    $prev_weekly_growth = isset($prev_week_row['prev_weekly_count']) ? (int)$prev_week_row['prev_weekly_count'] : 0;
+}
 
 $prev_month_sql = "SELECT 
                     COUNT(*) as prev_monthly_count 
                   FROM users 
                   WHERE created_at BETWEEN DATE_SUB(CURDATE(), INTERVAL 60 DAY) AND DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+$prev_monthly_growth = 0;
 $prev_month_result = $conn->query($prev_month_sql);
-$prev_monthly_growth = $prev_month_result ? $prev_month_result->fetch_assoc()['prev_monthly_count'] : 0;
+if ($prev_month_result && $prev_month_result->num_rows > 0) {
+    $prev_month_row = $prev_month_result->fetch_assoc();
+    $prev_monthly_growth = isset($prev_month_row['prev_monthly_count']) ? (int)$prev_month_row['prev_monthly_count'] : 0;
+}
 
 // NEW: Calculate growth percentages
 $weekly_growth_rate = $prev_weekly_growth > 0 ? round((($weekly_growth - $prev_weekly_growth) / $prev_weekly_growth) * 100, 2) : 0;
 $monthly_growth_rate = $prev_monthly_growth > 0 ? round((($monthly_growth - $prev_monthly_growth) / $prev_monthly_growth) * 100, 2) : 0;
 
-// NEW: Get user demographics data
-$demographics_sql = "SELECT 
-                        COUNT(*) as total,
-                        CASE 
-                            WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
-                            WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
-                            WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
-                            WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) > 45 THEN '45+'
-                            ELSE 'Unknown'
-                        END as age_group
-                     FROM users 
-                     WHERE date_of_birth IS NOT NULL
-                     GROUP BY age_group 
-                     ORDER BY FIELD(age_group, '18-25', '26-35', '36-45', '45+', 'Unknown')";
-
-$demographics_result = $conn->query($demographics_sql);
+// NEW: Get user demographics data (check if date_of_birth column exists)
 $age_groups = [];
 $age_counts = [];
+$demographics_result = false;
 
-if ($demographics_result && $demographics_result->num_rows > 0) {
-    while ($row = $demographics_result->fetch_assoc()) {
-        $age_groups[] = $row['age_group'];
-        $age_counts[] = (int)$row['total'];
+// Check if date_of_birth column exists
+$check_dob = $conn->query("SHOW COLUMNS FROM users LIKE 'date_of_birth'");
+if ($check_dob && $check_dob->num_rows > 0) {
+    $demographics_sql = "SELECT 
+                            COUNT(*) as total,
+                            CASE 
+                                WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                                WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                                WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                                WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) > 45 THEN '45+'
+                                ELSE 'Unknown'
+                            END as age_group
+                         FROM users 
+                         WHERE date_of_birth IS NOT NULL
+                         GROUP BY age_group 
+                         ORDER BY FIELD(age_group, '18-25', '26-35', '36-45', '45+', 'Unknown')";
+    
+    $demographics_result = $conn->query($demographics_sql);
+    if ($demographics_result && $demographics_result->num_rows > 0) {
+        while ($row = $demographics_result->fetch_assoc()) {
+            $age_groups[] = $row['age_group'];
+            $age_counts[] = (int)$row['total'];
+        }
     }
 }
 
-// NEW: Get user locations data
-$locations_sql = "SELECT 
-                    location,
-                    COUNT(*) as user_count
-                  FROM users 
-                  WHERE location IS NOT NULL AND location != ''
-                  GROUP BY location 
-                  ORDER BY user_count DESC 
-                  LIMIT 10";
-
-$locations_result = $conn->query($locations_sql);
+// NEW: Get user locations data (check if location column exists)
 $locations = [];
 $location_counts = [];
+$locations_result = false;
 
-if ($locations_result && $locations_result->num_rows > 0) {
-    while ($row = $locations_result->fetch_assoc()) {
-        $locations[] = $row['location'];
-        $location_counts[] = (int)$row['user_count'];
+// Check if location column exists
+$check_location = $conn->query("SHOW COLUMNS FROM users LIKE 'location'");
+if ($check_location && $check_location->num_rows > 0) {
+    $locations_sql = "SELECT 
+                        location,
+                        COUNT(*) as user_count
+                      FROM users 
+                      WHERE location IS NOT NULL AND location != ''
+                      GROUP BY location 
+                      ORDER BY user_count DESC 
+                      LIMIT 10";
+    
+    $locations_result = $conn->query($locations_sql);
+    if ($locations_result && $locations_result->num_rows > 0) {
+        while ($row = $locations_result->fetch_assoc()) {
+            $locations[] = $row['location'];
+            $location_counts[] = (int)$row['user_count'];
+        }
     }
 }
 ?>
@@ -682,5 +712,7 @@ if ($locations_result && $locations_result->num_rows > 0) {
             }
         }
     </style>
+
+</div> <!-- End main-content -->
 
 <?php include 'admin_footer.php'; ?>

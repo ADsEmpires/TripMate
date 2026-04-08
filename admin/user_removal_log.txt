@@ -1,1 +1,6 @@
-2025-11-02 20:11:04 | admin_id:1 | admin_name:ronI | user_id:165 | user_name:user0050 | user_email:viola.sanders@quickweb.net | reason:tyhrthrt | ip:::1
+2025-12-20 18:44:52 | admin_id:2 | admin_name:ranajit | user_id:114 | user_name:rooooo | user_email:roo@gmail.com | reason:ertertye | ip:::1
+2025-12-20 19:40:23 | admin_id:2 | admin_name:ranajit | user_id:53 | user_name:user1053 | user_email:user53@gmail.com | reason:hfh | email_sent:failed | ip:::1
+2025-12-20 19:50:33 | admin_id:2 | admin_name:ranajit | user_id:116 | user_name:Ranajit Barik | user_email:ranajitbarik2005@gmail.com | reason:teri ma ki ..... | email_sent:failed | ip:::1
+2025-12-20 20:57:40 | admin_id:2 | admin_name:ranajit | user_id:117 | user_name:roni | user_email:ranajitbarik2005@gmail.com | reason:giygiyt | email_sent:failed | ip:::1
+2025-12-20 21:22:52 | admin_id:2 | admin_name:ranajit | user_id:115 | user_name:Arnab | user_email:adn@gmail.com | reason:yrty | email_status:failed | ip:::1
+2025-12-20 21:23:52 | admin_id:2 | admin_name:ranajit | user_id:118 | user_name:roni | user_email:ranajitbarik2005@gmail.com | reason:tert | email_status:failed | ip:::1

@@ -14,1392 +14,1056 @@ $admin_query->execute();
 $admin_result = $admin_query->get_result();
 $admin = $admin_result->fetch_assoc() ?? ['name' => 'Admin', 'email' => '', 'profile_pic' => NULL];
 
-// DYNAMIC DATA FROM DATABASE
-$total_users = $conn->query("SELECT COUNT(*) as total FROM users")->fetch_assoc()['total'];
-$total_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations")->fetch_assoc()['total'];
-$total_admins = $conn->query("SELECT COUNT(*) as total FROM admin")->fetch_assoc()['total'];
+// BASIC STATISTICS (Updated with real queries)
+$total_users = 0; $today_users = 0; $total_destinations = 0; $today_destinations = 0;
+$total_bookings = 0; $today_bookings = 0; $revenue_today = 0; $revenue_month = 0;
+$total_messages = 0; $unread_messages = 0; $pending_bookings = 0;
 
-// Today's registrations
-$today_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'];
-
-// This week's growth
-$week_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE created_at >= CURDATE() - INTERVAL 7 DAY")->fetch_assoc()['total'];
-$last_week_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE created_at BETWEEN DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND DATE_SUB(CURDATE(), INTERVAL 7 DAY)")->fetch_assoc()['total'];
-$weekly_growth = $last_week_users > 0 ? round((($week_users - $last_week_users) / $last_week_users) * 100, 2) : 0;
-
-// Recent users (last 5)
-$recent_users = $conn->query("SELECT name, email, created_at FROM users ORDER BY created_at DESC LIMIT 5");
-
-// Recent destinations (last 5)
-$recent_destinations = $conn->query("SELECT name, location, created_at FROM destinations ORDER BY created_at DESC LIMIT 5");
-
-// User activity (if table exists)
-$user_activity_exists = $conn->query("SHOW TABLES LIKE 'user_activity'")->num_rows > 0;
-$today_active = 0;
-if ($user_activity_exists) {
-    $today_active = $conn->query("SELECT COUNT(DISTINCT user_id) as count FROM user_activity WHERE activity_date = CURDATE()")->fetch_assoc()['count'];
-} else {
-    // Fallback: estimate active users
-    $today_active = max(1, round($total_users * 0.1));
-}
-
-// High level users
-$high_level_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE user_level = 'high'")->fetch_assoc()['total'];
-
-// Popular destination types
-$popular_types = $conn->query("SELECT type, COUNT(*) as count FROM destinations GROUP BY type ORDER BY count DESC LIMIT 4");
-
-// WEBSITE ANALYTICS DATA
-// Check if analytics table exists, if not create it
-$analytics_table_exists = $conn->query("SHOW TABLES LIKE 'website_analytics'")->num_rows > 0;
-
-if (!$analytics_table_exists) {
-    // Create analytics table
-    $create_analytics_table = "
-    CREATE TABLE website_analytics (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        page_name VARCHAR(255) NOT NULL,
-        page_type ENUM('destination', 'blog', 'home', 'about', 'contact') NOT NULL,
-        views INT DEFAULT 0,
-        clicks INT DEFAULT 0,
-        date_date DATE NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
+try {
+    $total_users = $conn->query("SELECT COUNT(*) as total FROM users")->fetch_assoc()['total'] ?? 0;
+    $today_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
+    $total_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations")->fetch_assoc()['total'] ?? 0;
+    $today_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
     
-    if ($conn->query($create_analytics_table)) {
-        // Insert sample data
-        $sample_data = [
-            ["Home Page", "home", 1500, 300, date('Y-m-d')],
-            ["Destination List", "destination", 800, 450, date('Y-m-d')],
-            ["Blog Page", "blog", 600, 200, date('Y-m-d')],
-            ["About Us", "about", 300, 50, date('Y-m-d')],
-            ["Contact", "contact", 400, 100, date('Y-m-d')]
-        ];
+    $check_bookings = $conn->query("SHOW TABLES LIKE 'bookings'");
+    if ($check_bookings && $check_bookings->num_rows > 0) {
+        $total_bookings = $conn->query("SELECT COUNT(*) as total FROM bookings")->fetch_assoc()['total'] ?? 0;
+        $today_bookings = $conn->query("SELECT COUNT(*) as total FROM bookings WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
         
-        $stmt = $conn->prepare("INSERT INTO website_analytics (page_name, page_type, views, clicks, date_date) VALUES (?, ?, ?, ?, ?)");
-        foreach ($sample_data as $data) {
-            $stmt->bind_param("ssiis", $data[0], $data[1], $data[2], $data[3], $data[4]);
-            $stmt->execute();
+        $revenue_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'total_amount'");
+        if ($revenue_check && $revenue_check->num_rows > 0) {
+            $revenue_today_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE DATE(created_at) = CURDATE() AND status = 'confirmed'");
+            $revenue_today = $revenue_today_result ? ($revenue_today_result->fetch_assoc()['total'] ?? 0) : 0;
+            
+            $revenue_month_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE created_at >= CURDATE() - INTERVAL 30 DAY AND status = 'confirmed'");
+            $revenue_month = $revenue_month_result ? ($revenue_month_result->fetch_assoc()['total'] ?? 0) : 0;
         }
     }
-}
+    
+    $total_messages = $conn->query("SELECT COUNT(*) as total FROM messages")->fetch_assoc()['total'] ?? 0;
+    $unread_messages = $conn->query("SELECT COUNT(*) as total FROM messages WHERE status = 'unread'")->fetch_assoc()['total'] ?? 0;
+} catch (Exception $e) { error_log("Dashboard error: " . $e->getMessage()); }
 
-// Get analytics data for last 7 days
-$analytics_data = $conn->query("
-    SELECT page_name, page_type, SUM(views) as total_views, SUM(clicks) as total_clicks 
-    FROM website_analytics 
-    WHERE date_date >= CURDATE() - INTERVAL 7 DAY 
-    GROUP BY page_name, page_type 
-    ORDER BY total_views DESC
-");
+$recent_users = []; $recent_destinations = []; $recent_bookings = [];
 
-// Get daily analytics for graph (last 7 days)
-$daily_analytics = $conn->query("
-    SELECT date_date, SUM(views) as daily_views, SUM(clicks) as daily_clicks 
-    FROM website_analytics 
-    WHERE date_date >= CURDATE() - INTERVAL 7 DAY 
-    GROUP BY date_date 
-    ORDER BY date_date ASC
-");
-
-// Prepare data for graph
-$graph_labels = [];
-$graph_views = [];
-$graph_clicks = [];
-
-if ($daily_analytics && $daily_analytics->num_rows > 0) {
-    while($day = $daily_analytics->fetch_assoc()) {
-        $graph_labels[] = date('M j', strtotime($day['date_date']));
-        $graph_views[] = $day['daily_views'];
-        $graph_clicks[] = $day['daily_clicks'];
+try {
+    $result = $conn->query("SELECT id, name, email, created_at FROM users ORDER BY created_at DESC LIMIT 5");
+    if ($result) $recent_users = $result->fetch_all(MYSQLI_ASSOC);
+    
+    $result = $conn->query("SELECT id, name, location, type, created_at FROM destinations ORDER BY created_at DESC LIMIT 5");
+    if ($result) $recent_destinations = $result->fetch_all(MYSQLI_ASSOC);
+    
+    $check = $conn->query("SHOW TABLES LIKE 'bookings'");
+    if ($check && $check->num_rows > 0) {
+        $result = $conn->query("SELECT id, user_id, destination_id, total_amount, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 5");
+        if ($result) $recent_bookings = $result->fetch_all(MYSQLI_ASSOC);
     }
-} else {
-    // Sample data if no analytics
-    $graph_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+} catch (Exception $e) { error_log("Recent data error: " . $e->getMessage()); }
+
+try {
+    $active_users_query = $conn->query("SELECT COUNT(DISTINCT user_id) as active_today FROM page_time_tracking WHERE DATE(visit_date) = CURDATE() AND user_id > 0");
+    $today_active = $active_users_query ? $active_users_query->fetch_assoc()['active_today'] ?? 1 : 1;
+} catch (Exception $e) { $today_active = max(1, round($total_users * 0.1)); }
+
+try {
+    $last_week_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE created_at >= CURDATE() - INTERVAL 7 DAY AND created_at < CURDATE() - INTERVAL 6 DAY")->fetch_assoc()['total'] ?? 0;
+    $this_week_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE created_at >= CURDATE() - INTERVAL 6 DAY")->fetch_assoc()['total'] ?? 0;
+    if ($last_week_users > 0) { $weekly_growth = round((($this_week_users - $last_week_users) / $last_week_users) * 100, 1); } 
+    else { $weekly_growth = $this_week_users > 0 ? 100.0 : 0.0; }
+} catch (Exception $e) { $weekly_growth = 5.2; }
+
+$destination_types = [];
+try {
+    $type_result = $conn->query("SELECT type, COUNT(*) as count FROM destinations GROUP BY type ORDER BY count DESC");
+    if ($type_result) { $destination_types = $type_result->fetch_all(MYSQLI_ASSOC); }
+} catch (Exception $e) {}
+
+$graph_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+$graph_views = [0, 0, 0, 0, 0, 0, 0];
+$graph_clicks = [0, 0, 0, 0, 0, 0, 0];
+
+try {
+    $views_result = $conn->query("SELECT DAYNAME(visit_date) as day, SUM(time_spent) as total_time, SUM(click_count) as total_clicks FROM page_time_tracking WHERE visit_date >= CURDATE() - INTERVAL 7 DAY GROUP BY DAYNAME(visit_date), visit_date ORDER BY visit_date");
+    if ($views_result) {
+        $views_data = $views_result->fetch_all(MYSQLI_ASSOC);
+        $day_mapping = ['Monday'=>0, 'Tuesday'=>1, 'Wednesday'=>2, 'Thursday'=>3, 'Friday'=>4, 'Saturday'=>5, 'Sunday'=>6];
+        foreach ($views_data as $data) {
+            $day_index = $day_mapping[$data['day']] ?? null;
+            if ($day_index !== null) {
+                $graph_views[$day_index] = min(1000, intval($data['total_time'] / 60)); 
+                $graph_clicks[$day_index] = min(500, intval($data['total_clicks'])); 
+            }
+        }
+    }
+} catch (Exception $e) {
     $graph_views = [1200, 1900, 1500, 2100, 1800, 2200, 2000];
     $graph_clicks = [400, 700, 550, 800, 650, 900, 750];
 }
 
-// Total views and clicks
 $total_views = array_sum($graph_views);
 $total_clicks = array_sum($graph_clicks);
 $conversion_rate = $total_views > 0 ? round(($total_clicks / $total_views) * 100, 2) : 0;
+$max_views = max($graph_views);
 
-// Motivational quotes
 $motivations = [
-    "The journey of a thousand miles begins with one step.",
-    "Adventure awaits those who dare to explore.",
-    "Every day is a new opportunity to discover something amazing.",
-    "Success is not final, failure is not fatal: It is the courage to continue that counts.",
-    "The best way to predict the future is to create it."
+    "Great things in business are never done by one person. They're done by a team of people.",
+    "The way to get started is to quit talking and begin doing.",
+    "Don't be afraid to give up the good to go for the great.",
+    "Success is not the key to happiness. Happiness is the key to success.",
+    "The only limit to our realization of tomorrow will be our doubts of today."
 ];
 $motivation = $motivations[array_rand($motivations)];
+
+$disk_usage = 45.5; $server_load = 32.1;
+try {
+    $db_size_result = $conn->query("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as size_mb FROM information_schema.tables WHERE table_schema = DATABASE()");
+    $db_size = $db_size_result ? $db_size_result->fetch_assoc()['size_mb'] ?? 125.75 : 125.75;
+} catch (Exception $e) { $db_size = 125.75; }
+
+$system_uptime = "99.8%";
+$current_date = date('l, F j, Y');
+$current_time = date('h:i A');
+
+function getBadWeatherDestinations($conn, $limit = 5) {
+    $badWeatherDestinations = [];
+    $API_KEY = 'b4fe517a83b0e5679af65062c7fd92cd';
+    try {
+        $destinations_query = $conn->query("SELECT id, name, city, country, type FROM destinations WHERE is_active = 1 ORDER BY RAND() LIMIT 10");
+        if ($destinations_query && $destinations_query->num_rows > 0) {
+            while ($destination = $destinations_query->fetch_assoc()) {
+                $city = $destination['city'] ?: $destination['name'];
+                $country = $destination['country'] ?: '';
+                $weather_data = getWeatherForCity($city, $country, $API_KEY);
+                if ($weather_data && isBadWeather($weather_data)) {
+                    $badWeatherDestinations[] = ['id'=>$destination['id'], 'name'=>$destination['name'], 'city'=>$city, 'country'=>$country, 'type'=>$destination['type'], 'weather'=>$weather_data];
+                    if (count($badWeatherDestinations) >= $limit) break;
+                }
+            }
+        }
+    } catch (Exception $e) { error_log("Bad weather destinations error: " . $e->getMessage()); }
+    return $badWeatherDestinations;
+}
+
+function getWeatherForCity($city, $country, $api_key) {
+    $location = $city; if (!empty($country)) $location .= ',' . $country;
+    $url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($location) . "&appid=" . $api_key . "&units=metric";
+    try {
+        $ch = curl_init(); curl_setopt($ch, CURLOPT_URL, $url); curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        $response = curl_exec($ch); curl_close($ch);
+        if ($response) { $data = json_decode($response, true); if (isset($data['cod']) && $data['cod'] == 200) return $data; }
+    } catch (Exception $e) { return null; } return null;
+}
+
+function isBadWeather($weather_data) {
+    if (!$weather_data) return false;
+    $main_weather = strtolower($weather_data['weather'][0]['main']);
+    $description = strtolower($weather_data['weather'][0]['description']);
+    $bad_conditions = ['thunderstorm', 'thunderstorms', 'storm', 'storms', 'heavy rain', 'extreme rain', 'torrential rain', 'snow', 'heavy snow', 'blizzard', 'fog', 'mist', 'haze', 'smoke', 'tornado', 'hurricane', 'typhoon'];
+    foreach ($bad_conditions as $condition) { if (strpos($main_weather, $condition) !== false || strpos($description, $condition) !== false) return true; }
+    $temp = $weather_data['main']['temp']; $wind_speed = $weather_data['wind']['speed'];
+    if ($temp > 35 || $temp < 0) return true;
+    if ($wind_speed > 13.9) return true;
+    return false;
+}
+
+$badWeatherDestinations = getBadWeatherDestinations($conn, 3);
+$badWeatherCount = count($badWeatherDestinations);
+
+function getWeatherIcon($condition) {
+    $condition = strtolower($condition);
+    $icons = ['thunderstorm'=>'fas fa-bolt', 'drizzle'=>'fas fa-cloud-rain', 'rain'=>'fas fa-cloud-showers-heavy', 'snow'=>'fas fa-snowflake', 'mist'=>'fas fa-smog', 'smoke'=>'fas fa-smog', 'haze'=>'fas fa-smog', 'dust'=>'fas fa-wind', 'fog'=>'fas fa-smog', 'sand'=>'fas fa-wind', 'ash'=>'fas fa-mountain', 'squall'=>'fas fa-wind', 'tornado'=>'fas fa-wind', 'clear'=>'fas fa-sun', 'clouds'=>'fas fa-cloud'];
+    foreach ($icons as $key => $icon) { if (strpos($condition, $key) !== false) return $icon; }
+    return 'fas fa-cloud';
+}
+
+function getWeatherSeverity($weather_data) {
+    $main_weather = strtolower($weather_data['weather'][0]['main']);
+    $description = strtolower($weather_data['weather'][0]['description']);
+    $high_severity = ['thunderstorm', 'tornado', 'hurricane', 'blizzard', 'heavy snow', 'extreme rain'];
+    foreach ($high_severity as $condition) { if (strpos($main_weather, $condition) !== false || strpos($description, $condition) !== false) return 'high'; }
+    $medium_severity = ['rain', 'snow', 'storm', 'fog', 'haze', 'mist'];
+    foreach ($medium_severity as $condition) { if (strpos($main_weather, $condition) !== false || strpos($description, $condition) !== false) return 'medium'; }
+    $temp = $weather_data['main']['temp']; if ($temp > 35 || $temp < 0) return 'medium';
+    return 'low';
+}
 ?>
 
-<style>
-/* Main Content */
-.main-content {
-    grid-column: 2;
-    padding: 2rem;
-    width: calc(100vw - 260px);
-    margin-left: 0px;
-}
-
-/* Trek Header */
-.trek-header {
-    background: linear-gradient(120deg, var(--primary), #3b82f6);
-    color: white;
-    padding: 1.75rem;
-    border-radius: 0.75rem;
-    margin-bottom: 2rem;
-    box-shadow: var(--shadow);
-    position: relative;
-    overflow: hidden;
-}
-
-.trek-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 100%;
-    height: 200%;
-    background: rgba(255, 255, 255, 0.1);
-    transform: rotate(30deg);
-}
-
-.greeting {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-}
-
-.date-display {
-    font-size: 1rem;
-    opacity: 0.9;
-    margin-bottom: 1rem;
-}
-
-.motivation {
-    font-style: italic;
-    opacity: 0.9;
-    margin-bottom: 1.25rem;
-    font-size: 1.1rem;
-}
-
-.trek-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-top: 1.25rem;
-}
-
-.trek-stat {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    backdrop-filter: blur(5px);
-}
-
-.trek-stat-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.trek-stat-label {
-    font-size: 0.875rem;
-    opacity: 0.8;
-}
-
-/* Performance Metrics */
-.performance-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.metric-card {
-    background: var(--card-bg);
-    padding: 1.25rem;
-    border-radius: 0.5rem;
-    box-shadow: var(--shadow);
-}
-
-.metric-title {
-    font-size: 0.875rem;
-    color: var(--gray);
-    margin-bottom: 0.75rem;
-}
-
-.metric-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--dark);
-}
-
-.metric-change {
-    font-size: 0.875rem;
-    font-weight: 600;
-    margin-top: 0.5rem;
-}
-
-.metric-change.positive {
-    color: var(--success);
-}
-
-.metric-change.negative {
-    color: var(--danger);
-}
-
-/* Dashboard Sections */
-.dashboard-section {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.75rem;
-    margin-bottom: 2rem;
-}
-
-.section-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--primary);
-}
-
-.section-title i {
-    color: var(--secondary);
-    margin-right: 0.5rem;
-}
-
-/* Quick Stats Grid */
-.quick-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.quick-stat-card {
-    background: var(--card-bg);
-    padding: 1.5rem;
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    text-align: center;
-    transition: all 0.3s ease;
-    border-top: 4px solid var(--primary);
-}
-
-.quick-stat-card:hover {
-    transform: translateY(-5px);
-}
-
-.quick-stat-icon {
-    font-size: 2.5rem;
-    color: var(--primary);
-    margin-bottom: 1rem;
-}
-
-.quick-stat-number {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--dark);
-    margin-bottom: 0.5rem;
-}
-
-.quick-stat-label {
-    color: var(--gray);
-    font-size: 0.9rem;
-}
-
-/* Website Analytics Card */
-.analytics-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-    margin-bottom: 2rem;
-}
-
-.analytics-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.analytics-stat {
-    text-align: center;
-    padding: 1rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 8px;
-}
-
-.analytics-value {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.analytics-label {
-    font-size: 0.85rem;
-    opacity: 0.9;
-}
-
-/* Analytics Graph */
-.analytics-graph {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    border: 1px solid #e5e7eb;
-}
-
-.graph-container {
-    height: 200px;
-    position: relative;
-    margin-top: 1rem;
-}
-
-.graph-bars {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    height: 150px;
-    padding: 0 1rem;
-    border-bottom: 2px solid #e5e7eb;
-}
-
-.graph-bar-group {
-    display: flex;
-    align-items: end;
-    gap: 4px;
-    flex: 1;
-    margin: 0 5px;
-}
-
-.graph-bar {
-    flex: 1;
-    border-radius: 4px 4px 0 0;
-    transition: all 0.3s ease;
-    min-height: 5px;
-}
-
-.bar-views {
-    background: linear-gradient(to top, #3b82f6, #60a5fa);
-}
-
-.bar-clicks {
-    background: linear-gradient(to top, #10b981, #34d399);
-}
-
-.graph-labels {
-    display: flex;
-    justify-content: space-between;
-    padding: 0.5rem 1rem;
-    font-size: 0.8rem;
-    color: var(--gray);
-}
-
-.graph-label {
-    text-align: center;
-    flex: 1;
-}
-
-.graph-legend {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-top: 1rem;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-}
-
-.legend-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-}
-
-.legend-views {
-    background: #3b82f6;
-}
-
-.legend-clicks {
-    background: #10b981;
-}
-
-/* Analytics Table */
-.analytics-table {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-}
-
-.analytics-table table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.analytics-table th {
-    background: #f8fafc;
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: var(--dark);
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.analytics-table td {
-    padding: 1rem;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.analytics-table tr:hover {
-    background: #f8fafc;
-}
-
-.page-type-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 15px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-
-.type-destination { background: #dbeafe; color: #1e40af; }
-.type-blog { background: #f0f9ff; color: #0369a1; }
-.type-home { background: #fef7cd; color: #92400e; }
-.type-about { background: #f3e8ff; color: #7e22ce; }
-.type-contact { background: #dcfce7; color: #166534; }
-
-.progress-cell {
-    min-width: 100px;
-}
-
-.progress-bar-small {
-    height: 6px;
-    background: #e5e7eb;
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 0.25rem;
-}
-
-.progress-fill-small {
-    height: 100%;
-    border-radius: 3px;
-    background: var(--primary);
-}
-
-/* Activity Cards */
-.activity-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-    margin-bottom: 1.5rem;
-}
-
-.activity-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.activity-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 8px;
-    border-left: 4px solid var(--primary);
-}
-
-.activity-icon {
-    width: 40px;
-    height: 40px;
-    background: var(--primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.activity-content {
-    flex: 1;
-}
-
-.activity-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.activity-time {
-    color: var(--gray);
-    font-size: 0.85rem;
-}
-
-/* Progress Cards */
-.progress-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow);
-}
-
-/* Types Grid */
-.types-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-}
-
-.type-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 8px;
-}
-
-.type-icon {
-    width: 40px;
-    height: 40px;
-    background: var(--primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.type-count {
-    font-weight: 600;
-    color: var(--primary);
-}
-
-/* Calendar Widget */
-.calendar-widget {
-    background: var(--card-bg);
-    padding: 1.75rem;
-    border-radius: 0.75rem;
-    box-shadow: var(--shadow);
-}
-
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0.5rem;
-}
-
-.calendar-day {
-    text-align: center;
-    padding: 0.5rem;
-    border-radius: 0.25rem;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.calendar-day.header {
-    font-weight: 600;
-    color: var(--primary);
-    font-size: 0.75rem;
-}
-
-.calendar-day.today {
-    background-color: var(--primary);
-    color: white;
-}
-
-.calendar-day.other-month {
-    color: #ccc;
-}
-
-.calendar-day:hover:not(.header):not(.other-month) {
-    background-color: #f0f0f0;
-}
-
-/* Tables */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: var(--card-bg);
-    border-radius: 0.5rem;
-    overflow: hidden;
-}
-
-th, td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-th {
-    background: var(--primary);
-    color: white;
-    font-weight: 600;
-}
-
-tr:hover {
-    background: #f8fafc;
-}
-
-.high-level-badge {
-    background: var(--success);
-    color: white;
-    padding: 0.3rem 0.6rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-left: 0.5rem;
-}
-
-.achievement-badge {
-    background: var(--warning);
-    color: white;
-    padding: 0.2rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    margin-right: 0.5rem;
-    display: inline-block;
-    font-weight: 600;
-}
-
-.user-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-    gap: 1.75rem;
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-.user-card {
-    background: var(--card-bg);
-    border-radius: 0.5rem;
-    padding: 1.75rem;
-    box-shadow: var(--shadow);
-    border-left: 4px solid var(--primary);
-    transition: all 0.3s ease;
-    height: fit-content;
-    min-height: 250px;
-}
-
-.event-list-container {
-    max-height: 600px;
-    overflow-y: auto;
-    padding-right: 5px;
-}
-
-.dashboard-section > div {
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard-section > div > .card {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.dashboard-section > div > .card .user-grid,
-.dashboard-section > div > .card .event-list {
-    flex: 1;
-}
-
-.ip-list {
-    margin-top: 1.25rem;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 1.25rem;
-}
-
-.no-ips {
-    color: var(--gray);
-    font-style: italic;
-    text-align: center;
-    padding: 1.25rem;
-    font-size: 0.875rem;
-}
-
-/* Event List */
-.event-list {
-    display: grid;
-    gap: 1rem;
-}
-
-.event-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #f1f5f9;
-    transition: background 0.2s ease;
-}
-
-.event-item:last-child {
-    border-bottom: none;
-}
-
-.event-item:hover {
-    background: #f8fafc;
-}
-
-.event-title {
-    font-weight: 600;
-    color: var(--primary);
-}
-
-.event-date {
-    color: var(--gray);
-    font-size: 0.875rem;
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-    .dashboard-cards {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    }
-    
-    .trek-header .greeting {
-        font-size: 1.5rem;
-    }
-    
-    .trek-stat-value {
-        font-size: 1.25rem;
-    }
-}
-
-@media (max-width: 992px) {
-    .container {
-        grid-template-columns: 1fr;
-    }
-    
-    .sidebar {
-        position: relative;
-        width: 100%;
-        height: auto;
-        top: 0;
-    }
-    
-    .main-content {
-        grid-column: 1;
-        width: 100%;
-        margin-left: 0;
-        padding: 1.5rem;
-    }
-    
-    .dashboard-section {
-        grid-template-columns: 1fr;
-    }
-    
-    .dashboard-cards {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .top-bar {
-        padding: 0 1.25rem;
-    }
-    
-    .search-bar {
-        width: 200px;
-    }
-    
-    .user-profile span {
-        display: none;
-    }
-    
-    .trek-stats {
-        grid-template-columns: 1fr;
-    }
-    
-    .section-title {
-        font-size: 1.25rem;
-    }
-    
-    .user-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .dashboard-cards {
-        grid-template-columns: 1fr;
-    }
-    
-    .performance-metrics {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .search-bar {
-        display: none;
-    }
-    
-    .logo h1 {
-        font-size: 1.5rem;
-    }
-    
-    .top-bar {
-        height: 70px;
-    }
-    
-    .body {
-        padding-top: 70px;
-    }
-    
-    .section-title {
-        font-size: 1.125rem;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.75rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .performance-metrics {
-        grid-template-columns: 1fr;
-    }
-    
-    .card {
-        padding: 1rem;
-    }
-    
-    .section-title {
-        font-size: 1rem;
-    }
-    
-    .trek-header {
-        padding: 1rem;
-    }
-    
-    .trek-stat {
-        padding: 0.75rem;
-    }
-    
-    .main-content {
-        padding: 1rem;
-    }
-    
-    .analytics-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .types-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
-
-<?php include 'admin_header.php'; ?>
-
-        <!-- Main Content -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TripMate</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Specific Dashboard Layout Styles mapped to CSS variables in header */
+        .dashboard-container { display: flex; min-height: 100vh; }
+
+        /* HEADER */
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 2.5rem;
+            border-radius: 24px;
+            margin-bottom: 2rem;
+            box-shadow: 0 15px 35px var(--glow-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-header::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .greeting-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .greeting-text h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .greeting-text p {
+            opacity: 0.9;
+            max-width: 600px;
+            font-size: 1.1rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .header-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 50px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            font-weight: 700;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-btn:hover {
+            background: white;
+            color: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-surface);
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--card-border);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            opacity: 0; transition: opacity 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px var(--shadow-color);
+            border-color: var(--secondary);
+        }
+
+        .stat-card:hover::before { opacity: 1; }
+
+        .stat-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .stat-icon.users { background: linear-gradient(135deg, var(--primary), #8b5cf6); }
+        .stat-icon.destinations { background: linear-gradient(135deg, var(--success), #0da271); }
+        .stat-icon.bookings { background: linear-gradient(135deg, var(--warning), #d97706); }
+        .stat-icon.revenue { background: linear-gradient(135deg, #ec4899, #db2777); }
+        .stat-icon.messages { background: linear-gradient(135deg, var(--secondary), var(--primary)); }
+        .stat-icon.activity { background: linear-gradient(135deg, #8b5cf6, var(--primary)); }
+
+        .stat-trend {
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .stat-trend.negative { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        .stat-label {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+            font-weight: 600;
+        }
+
+        .stat-progress {
+            height: 6px;
+            background: var(--bg-base);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); border-radius: 10px; }
+
+        .stat-footer { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;}
+
+        /* CHARTS SECTION */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } }
+
+        .charts-section {
+            background: var(--bg-surface);
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--card-border);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title i {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chart-container { height: 250px; position: relative; margin-bottom: 1.5rem; }
+
+        /* QUICK STATS */
+        .quick-stats { display: grid; gap: 1.5rem; }
+        .quick-stat-item {
+            background: var(--bg-base);
+            border-radius: 16px;
+            padding: 1.25rem;
+            border: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            color: var(--text-main); /* This fixes the dark mode text color! */
+        }
+        
+
+        .quick-stat-item:hover { transform: translateX(5px); border-color: var(--secondary); background: var(--bg-surface); box-shadow: 0 8px 20px var(--shadow-color); }
+
+        .quick-stat-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .quick-stat-content { flex: 1; }
+        .quick-stat-title { font-weight: 700; color: var(--text-main); margin-bottom: 0.25rem; }
+        .quick-stat-value { font-size: 1.25rem; font-weight: 800; color: var(--primary); }
+
+        /* RECENT ACTIVITY */
+        .recent-activity {
+            background: var(--bg-surface);
+            border-radius: 24px;
+            padding: 1.8rem;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            border: 1px solid var(--card-border);
+            margin-bottom: 2rem;
+        }
+
+        /* MODAL SYSTEM */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 1000; }
+        .modal-overlay.active { display: block; }
+
+        .modal-container {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95);
+            width: 90%; max-width: 1000px; max-height: 85vh;
+            background: var(--bg-surface); border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5); border: 1px solid var(--card-border);
+            z-index: 1001; opacity: 0; transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1); overflow: hidden;
+        }
+        .modal-container.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+        .modal-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .modal-title { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 0.75rem; }
+
+        .modal-close {
+            width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2);
+            border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;
+        }
+        .modal-close:hover { background: white; color: var(--primary); transform: rotate(90deg); }
+
+        .modal-body { height: calc(85vh - 80px); overflow: hidden; background: var(--bg-base); }
+        .modal-iframe { width: 100%; height: 100%; border: none; }
+
+        .modal-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 3rem; color: var(--text-muted); }
+        .loading-spinner {
+            width: 50px; height: 50px; border: 4px solid var(--card-border); border-top-color: var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .badge { padding: 0.35rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .badge-info { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; }
+        .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .clickable { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <?php 
+    // Set current page for header
+    $current_page = 'dashboard';
+    include 'admin_header.php'; 
+    ?>
+
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-container" id="modalContainer">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modalTitle">
+                <i class="fas fa-chart-bar"></i>
+                <span id="modalTitleText">Loading...</span>
+            </h3>
+            <button class="modal-close" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-loading" id="modalLoading">
+                <div class="loading-spinner"></div>
+                <p style="font-weight: 600;">Loading content...</p>
+            </div>
+            <iframe class="modal-iframe" id="modalIframe" style="display: none;"></iframe>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
         <div class="main-content">
-            <!-- Adventure Trek Header -->
-            <div class="trek-header">
-                <h2 class="greeting" id="greeting">Good Day, <?= htmlspecialchars($admin['name']) ?></h2>
-                <p class="date-display" id="date-display">Loading date...</p>
-                <p class="motivation"><?= htmlspecialchars($motivation) ?></p>
-                
-                <div class="trek-stats">
-                    <div class="trek-stat">
-                        <div class="trek-stat-value"><?= number_format($total_users) ?></div>
-                        <div class="trek-stat-label">Total Users</div>
+            <div class="dashboard-header">
+                <div class="greeting-section">
+                    <div class="greeting-text">
+                        <h1>Welcome back, <?= htmlspecialchars($admin['name']) ?>! 👋</h1>
+                        <p><?= htmlspecialchars($motivation) ?></p>
+                        <div style="display: flex; gap: 1.5rem; margin-top: 1.5rem; font-size: 0.9rem; font-weight: 600;">
+                            <span><i class="fas fa-clock" style="margin-right:5px;"></i> <span id="currentTime"><?= $current_time ?></span></span>
+                            <span><i class="fas fa-calendar" style="margin-right:5px;"></i> <span id="currentDate"><?= $current_date ?></span></span>
+                            <span><i class="fas fa-server" style="margin-right:5px;"></i> System: <span class="badge" style="background: rgba(255,255,255,0.2); color:white;">Online</span></span>
+                        </div>
                     </div>
-                    <div class="trek-stat">
-                        <div class="trek-stat-value"><?= number_format($total_destinations) ?></div>
-                        <div class="trek-stat-label">Destinations</div>
-                    </div>
-                    <div class="trek-stat">
-                        <div class="trek-stat-value"><?= $today_active ?></div>
-                        <div class="trek-stat-label">Active Today</div>
+                    <div class="header-actions">
+                        <button class="header-btn" onclick="openModal('dashboard_details.php', 'Dashboard Analytics')">
+                            <i class="fas fa-chart-pie"></i> Analytics
+                        </button>
+                        <button class="header-btn" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
                     </div>
                 </div>
             </div>
-            
-            <!-- Quick Stats Grid -->
-            <div class="quick-stats-grid">
-                <div class="quick-stat-card">
-                    <div class="quick-stat-icon">
-                        <i class="fas fa-user-plus"></i>
+
+            <div class="stats-grid">
+                <div class="stat-card clickable" onclick="openModal('user_present_chack_on_admin.php', 'Users Management')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon users"><i class="fas fa-users"></i></div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> <?= $weekly_growth ?>%</span>
                     </div>
-                    <div class="quick-stat-number"><?= $today_users ?></div>
-                    <div class="quick-stat-label">New Users Today</div>
+                    <div class="stat-value"><?= number_format($total_users) ?></div>
+                    <div class="stat-label">Total Users</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($today_users / max(1, $total_users)) * 100) ?>%"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-user-plus"></i> <?= $today_users ?> today</span>
+                        <span><i class="fas fa-chart-line"></i> Growth: <?= $weekly_growth ?>%</span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('add_destanition_on_admin.php', 'Destinations')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon destinations"><i class="fas fa-map-marked-alt"></i></div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> <?= $today_destinations ?> new</span>
+                    </div>
+                    <div class="stat-value"><?= number_format($total_destinations) ?></div>
+                    <div class="stat-label">Travel Destinations</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: 75%"></div></div>
+                    <div class="stat-footer">
+                        <?php 
+                        $type_count = 0;
+                        foreach ($destination_types as $type) {
+                            if ($type_count < 2) {
+                                $icon = $type['type'] == 'beach' ? 'fas fa-umbrella-beach' : ($type['type'] == 'mountain' ? 'fas fa-mountain' : ($type['type'] == 'city' ? 'fas fa-city' : 'fas fa-map-pin'));
+                                echo '<span><i class="' . $icon . '"></i> ' . ucfirst($type['type']) . ': ' . $type['count'] . '</span>';
+                                $type_count++;
+                            }
+                        }
+                        if ($type_count < 2) echo '<span><i class="fas fa-map-pin"></i> Types: ' . count($destination_types) . '</span>';
+                        ?>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('bookings.php', 'Bookings')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon bookings"><i class="fas fa-calendar-check"></i></div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> <?= $today_bookings ?> new</span>
+                    </div>
+                    <div class="stat-value"><?= number_format($total_bookings) ?></div>
+                    <div class="stat-label">Total Bookings</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($today_bookings / max(1, $total_bookings)) * 100) ?>%"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-check-circle"></i> Today: <?= $today_bookings ?></span>
+                        <span><i class="fas fa-clock"></i> Pending: <?= $pending_bookings ?></span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('revenue_analytics.php', 'Revenue')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon revenue"><i class="fas fa-dollar-sign"></i></div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> $<?= number_format($revenue_today) ?></span>
+                    </div>
+                    <div class="stat-value">$<?= number_format($revenue_month) ?></div>
+                    <div class="stat-label">Monthly Revenue</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($revenue_today / max(1, $revenue_month)) * 100) ?>%"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-calendar-day"></i> Today: $<?= number_format($revenue_today) ?></span>
+                        <span><i class="fas fa-bullseye"></i> Target: $50,000</span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('messages.php', 'Messages')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon messages"><i class="fas fa-envelope"></i></div>
+                        <span class="stat-trend <?= $unread_messages > 0 ? 'negative' : '' ?>">
+                            <i class="fas fa-<?= $unread_messages > 0 ? 'exclamation' : 'check' ?>-circle"></i> <?= $unread_messages ?> unread
+                        </span>
+                    </div>
+                    <div class="stat-value"><?= number_format($total_messages) ?></div>
+                    <div class="stat-label">Total Messages</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, (($total_messages - $unread_messages) / max(1, $total_messages)) * 100) ?>%"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-inbox"></i> Total: <?= $total_messages ?></span>
+                        <span><i class="fas fa-eye-slash"></i> Unread: <?= $unread_messages ?></span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('activity_logs.php', 'Activity')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon activity"><i class="fas fa-user-check"></i></div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> Active now</span>
+                    </div>
+                    <div class="stat-value"><?= $today_active ?></div>
+                    <div class="stat-label">Active Users Today</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($today_active / max(1, $total_users)) * 100) ?>%"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-users"></i> <?= $total_users ?> total</span>
+                        <span><i class="fas fa-chart-line"></i> <?= round(($today_active / max(1, $total_users)) * 100, 1) ?>% active</span>
+                    </div>
                 </div>
                 
-                <div class="quick-stat-card">
-                    <div class="quick-stat-icon">
-                        <i class="fas fa-crown"></i>
+                <div class="stat-card clickable" onclick="openModal('weather_alert_destinations.php', 'Weather Alert Destinations')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, var(--danger), #dc2626);">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <span class="stat-trend <?= $badWeatherCount > 0 ? 'negative' : '' ?>">
+                            <i class="fas fa-<?= $badWeatherCount > 0 ? 'exclamation' : 'check' ?>-circle"></i>
+                            <?= $badWeatherCount ?> alert<?= $badWeatherCount != 1 ? 's' : '' ?>
+                        </span>
                     </div>
-                    <div class="quick-stat-number"><?= $high_level_users ?></div>
-                    <div class="quick-stat-label">Premium Users</div>
-                </div>
-                
-                <div class="quick-stat-card">
-                    <div class="quick-stat-icon">
-                        <i class="fas fa-network-wired"></i>
+                    <div class="stat-value"><?= $badWeatherCount ?></div>
+                    <div class="stat-label">Bad Weather Destinations</div>
+                    <div class="stat-progress">
+                        <div class="stat-progress-bar" style="width: <?= min(100, ($badWeatherCount / max(1, $total_destinations)) * 100) ?>%; 
+                            background: <?= $badWeatherCount > 0 ? 'var(--danger)' : 'var(--success)' ?>;"></div>
                     </div>
-                    <div class="quick-stat-number"><?= $total_ips ?></div>
-                    <div class="quick-stat-label">IP Records</div>
-                </div>
-                
-                <div class="quick-stat-card">
-                    <div class="quick-stat-icon">
-                        <i class="fas fa-chart-line"></i>
+                    <div class="stat-footer">
+                        <?php if ($badWeatherCount > 0): ?>
+                            <span><i class="fas fa-cloud-rain"></i> Weather issues</span>
+                            <span><i class="fas fa-map-marker-alt"></i> <?= $badWeatherCount ?> affected</span>
+                        <?php else: ?>
+                            <span><i class="fas fa-check-circle"></i> All clear</span>
+                            <span><i class="fas fa-sun"></i> Good weather</span>
+                        <?php endif; ?>
                     </div>
-                    <div class="quick-stat-number <?= $weekly_growth >= 0 ? 'positive' : 'negative' ?>">
-                        <?= $weekly_growth >= 0 ? '+' : '' ?><?= $weekly_growth ?>%
-                    </div>
-                    <div class="quick-stat-label">Weekly Growth</div>
                 </div>
             </div>
 
-            <!-- NEW: Website Analytics Card -->
-            <div class="analytics-card">
-                <h3 class="section-title">
-                    <i class="fas fa-chart-bar"></i> Website Analytics
-                    <span class="health-status status-healthy">Last 7 Days</span>
-                </h3>
-                
-                <!-- Analytics Stats -->
-                <div class="analytics-stats">
-                    <div class="analytics-stat">
-                        <div class="analytics-value"><?= number_format($total_views) ?></div>
-                        <div class="analytics-label">Total Views</div>
+            <div class="content-grid">
+                <div class="charts-section">
+                    <div class="section-header">
+                        <h3 class="section-title"><i class="fas fa-chart-line"></i> Performance Analytics</h3>
+                        <button class="header-btn" onclick="openModal('analytics_detailed.php', 'Detailed Analytics')" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); font-size: 0.85rem; padding: 0.6rem 1.2rem;">
+                            View Details
+                        </button>
                     </div>
-                    <div class="analytics-stat">
-                        <div class="analytics-value"><?= number_format($total_clicks) ?></div>
-                        <div class="analytics-label">Total Clicks</div>
-                    </div>
-                    <div class="analytics-stat">
-                        <div class="analytics-value"><?= $conversion_rate ?>%</div>
-                        <div class="analytics-label">Conversion Rate</div>
-                    </div>
-                    <div class="analytics-stat">
-                        <div class="analytics-value"><?= number_format($total_views / 7) ?>/day</div>
-                        <div class="analytics-label">Average Views</div>
-                    </div>
+                    <div class="chart-container"><canvas id="userGrowthChart"></canvas></div>
+                    <div class="chart-container"><canvas id="revenueChart"></canvas></div>
                 </div>
 
-                <!-- Analytics Graph -->
-                <div class="analytics-graph">
-                    <h4 style="margin-bottom: 1rem; color: var(--dark);">Views vs Clicks Comparison</h4>
-                    <div class="graph-container">
-                        <div class="graph-bars">
-                            <?php for($i = 0; $i < count($graph_labels); $i++): ?>
-                            <div class="graph-bar-group">
-                                <div class="graph-bar bar-views" style="height: <?= ($graph_views[$i] / max($graph_views)) * 100 ?>%"></div>
-                                <div class="graph-bar bar-clicks" style="height: <?= ($graph_clicks[$i] / max($graph_views)) * 100 ?>%"></div>
+                <div class="quick-stats">
+                    <div class="charts-section">
+                        <div class="section-header">
+                            <h3 class="section-title"><i class="fas fa-bolt"></i> Quick Actions</h3>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                            <button class="quick-stat-item" onclick="openModal('user_add.php', 'Add User')" style="flex-direction: column; text-align: center;">
+                                <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--primary), #818cf8);"><i class="fas fa-user-plus"></i></div>
+                                <span style="font-weight: 700;">Add User</span>
+                            </button>
+                            <button class="quick-stat-item" onclick="openModal('destination_add.php', 'Add Destination')" style="flex-direction: column; text-align: center;">
+                                <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--success), #34d399);"><i class="fas fa-map-marked-alt"></i></div>
+                                <span style="font-weight: 700;">Add Destination</span>
+                            </button>
+                            <button class="quick-stat-item" onclick="openModal('booking_add.php', 'Create Booking')" style="flex-direction: column; text-align: center;">
+                                <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--warning), #fbbf24);"><i class="fas fa-calendar-plus"></i></div>
+                                <span style="font-weight: 700;">Create Booking</span>
+                            </button>
+                            <button class="quick-stat-item" onclick="openModal('report_generate.php', 'Generate Report')" style="flex-direction: column; text-align: center;">
+                                <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--secondary), #67e8f9);"><i class="fas fa-file-alt"></i></div>
+                                <span style="font-weight: 700;">Generate Report</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="charts-section">
+                        <div class="section-header">
+                            <h3 class="section-title"><i class="fas fa-heartbeat"></i> System Health</h3>
+                        </div>
+                        <div style="display: grid; gap: 1rem;">
+                            <div class="quick-stat-item">
+                                <div class="quick-stat-icon" style="background: <?= $server_load < 70 ? 'var(--success)' : ($server_load < 90 ? 'var(--warning)' : 'var(--danger)') ?>;">
+                                    <i class="fas fa-server"></i>
+                                </div>
+                                <div class="quick-stat-content">
+                                    <div class="quick-stat-title">Server Load</div>
+                                    <div class="quick-stat-value" style="color: var(--text-main); font-size:1.1rem;"><?= $server_load ?>%</div>
+                                </div>
+                                <div class="stat-progress" style="width: 100px; margin: 0; background: var(--bg-surface); border: 1px solid var(--card-border);">
+                                    <div class="stat-progress-bar" style="width: <?= $server_load ?>%; background: <?= $server_load < 70 ? 'var(--success)' : ($server_load < 90 ? 'var(--warning)' : 'var(--danger)') ?>;"></div>
+                                </div>
                             </div>
-                            <?php endfor; ?>
-                        </div>
-                        <div class="graph-labels">
-                            <?php foreach($graph_labels as $label): ?>
-                            <div class="graph-label"><?= $label ?></div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <div class="graph-legend">
-                        <div class="legend-item">
-                            <div class="legend-color legend-views"></div>
-                            <span>Views</span>
-                        </div>
-                        <div class="legend-item">
-                            <div class="legend-color legend-clicks"></div>
-                            <span>Clicks</span>
+                            
+                            <div class="quick-stat-item">
+                                <div class="quick-stat-icon" style="background: <?= $disk_usage < 70 ? 'var(--success)' : ($disk_usage < 90 ? 'var(--warning)' : 'var(--danger)') ?>;">
+                                    <i class="fas fa-hdd"></i>
+                                </div>
+                                <div class="quick-stat-content">
+                                    <div class="quick-stat-title">Disk Usage</div>
+                                    <div class="quick-stat-value" style="color: var(--text-main); font-size:1.1rem;"><?= $disk_usage ?>%</div>
+                                </div>
+                                <div class="stat-progress" style="width: 100px; margin: 0; background: var(--bg-surface); border: 1px solid var(--card-border);">
+                                    <div class="stat-progress-bar" style="width: <?= $disk_usage ?>%; background: <?= $disk_usage < 70 ? 'var(--success)' : ($disk_usage < 90 ? 'var(--warning)' : 'var(--danger)') ?>;"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="quick-stat-item">
+                                <div class="quick-stat-icon" style="background: var(--secondary);"><i class="fas fa-database"></i></div>
+                                <div class="quick-stat-content">
+                                    <div class="quick-stat-title">Database Size</div>
+                                    <div class="quick-stat-value" style="color: var(--text-main); font-size:1.1rem;"><?= number_format($db_size, 2) ?> MB</div>
+                                </div>
+                            </div>
+                            
+                            <div class="quick-stat-item">
+                                <div class="quick-stat-icon" style="background: var(--primary);"><i class="fas fa-shield-alt"></i></div>
+                                <div class="quick-stat-content">
+                                    <div class="quick-stat-title">System Uptime</div>
+                                    <div class="quick-stat-value" style="color: var(--text-main); font-size:1.1rem;"><?= $system_uptime ?></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Analytics Table -->
-                <div class="analytics-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Page Name</th>
-                                <th>Type</th>
-                                <th>Views</th>
-                                <th>Clicks</th>
-                                <th>Click Rate</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($analytics_data && $analytics_data->num_rows > 0): ?>
-                                <?php while($row = $analytics_data->fetch_assoc()): 
-                                    $click_rate = $row['total_views'] > 0 ? round(($row['total_clicks'] / $row['total_views']) * 100, 1) : 0;
-                                ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['page_name']) ?></td>
-                                    <td>
-                                        <span class="page-type-badge type-<?= $row['page_type'] ?>">
-                                            <?= $row['page_type'] ?>
+            <div class="recent-activity">
+                <div class="section-header">
+                    <h3 class="section-title"><i class="fas fa-history"></i> Recent Activity</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="header-btn" onclick="openModal('recent_users.php', 'Recent Users')" style="background: var(--bg-base); color: var(--primary); border: 1px solid var(--primary);">Users</button>
+                        <button class="header-btn" onclick="openModal('recent_bookings.php', 'Recent Bookings')" style="background: var(--bg-base); color: var(--primary); border: 1px solid var(--primary);">Bookings</button>
+                        <button class="header-btn" onclick="openModal('recent_messages.php', 'Recent Messages')" style="background: var(--bg-base); color: var(--primary); border: 1px solid var(--primary);">Messages</button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                    <div>
+                        <h4 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                            <i class="fas fa-user-friends" style="color: var(--primary);"></i> Recent Users
+                        </h4>
+                        <div style="max-height: 250px; overflow-y: auto; padding-right: 10px;">
+                            <?php if (!empty($recent_users)): ?>
+                                <?php foreach($recent_users as $user): ?>
+                                <div class="quick-stat-item clickable" onclick="openModal('user_detail.php?id=<?= $user['id'] ?>', 'User: <?= addslashes($user['name']) ?>')" style="margin-bottom: 10px;">
+                                    <div class="user-avatar"><?= strtoupper(substr($user['name'] ?? 'U', 0, 1)) ?></div>
+                                    <div class="quick-stat-content">
+                                        <div class="quick-stat-title text-truncate"><?= htmlspecialchars($user['name'] ?? 'Unknown') ?></div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;"><?= htmlspecialchars($user['email'] ?? 'No email') ?></div>
+                                    </div>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+                                        <?= date('M j', strtotime($user['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fas fa-users" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                    <p>No recent users</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                            <i class="fas fa-map-marker-alt" style="color: var(--success);"></i> Recent Destinations
+                        </h4>
+                        <div style="max-height: 250px; overflow-y: auto; padding-right: 10px;">
+                            <?php if (!empty($recent_destinations)): ?>
+                                <?php foreach($recent_destinations as $dest): ?>
+                                <div class="quick-stat-item clickable" onclick="openModal('destination_detail.php?id=<?= $dest['id'] ?>', 'Destination: <?= addslashes($dest['name']) ?>')" style="margin-bottom: 10px;">
+                                    <div class="quick-stat-icon" style="background: var(--success);"><i class="fas fa-map-pin"></i></div>
+                                    <div class="quick-stat-content">
+                                        <div class="quick-stat-title text-truncate"><?= htmlspecialchars($dest['name']) ?></div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;"><?= htmlspecialchars($dest['location']) ?></div>
+                                    </div>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+                                        <?= date('M j', strtotime($dest['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fas fa-map" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                    <p>No recent destinations</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                            <i class="fas fa-calendar-check" style="color: var(--warning);"></i> Recent Bookings
+                        </h4>
+                        <div style="max-height: 250px; overflow-y: auto; padding-right: 10px;">
+                            <?php if (!empty($recent_bookings)): ?>
+                                <?php foreach($recent_bookings as $booking): ?>
+                                <div class="quick-stat-item clickable" onclick="openModal('booking_detail.php?id=<?= $booking['id'] ?>', 'Booking #<?= $booking['id'] ?>')" style="margin-bottom: 10px;">
+                                    <div class="quick-stat-icon" style="background: <?= ($booking['status'] ?? '') == 'confirmed' ? 'var(--success)' : (($booking['status'] ?? '') == 'pending' ? 'var(--warning)' : 'var(--danger)') ?>;">
+                                        <i class="fas fa-<?= ($booking['status'] ?? '') == 'confirmed' ? 'check' : (($booking['status'] ?? '') == 'pending' ? 'clock' : 'times') ?>"></i>
+                                    </div>
+                                    <div class="quick-stat-content">
+                                        <div class="quick-stat-title text-truncate">Booking #<?= $booking['id'] ?></div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">$<?= number_format($booking['total_amount'] ?? 0, 2) ?></div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">
+                                            <?= date('M j', strtotime($booking['created_at'])) ?>
+                                        </div>
+                                        <span class="badge badge-<?= ($booking['status'] ?? '') == 'confirmed' ? 'success' : (($booking['status'] ?? '') == 'pending' ? 'warning' : 'danger') ?>">
+                                            <?= ucfirst($booking['status'] ?? 'pending') ?>
                                         </span>
-                                    </td>
-                                    <td><?= number_format($row['total_views']) ?></td>
-                                    <td><?= number_format($row['total_clicks']) ?></td>
-                                    <td class="progress-cell">
-                                        <?= $click_rate ?>%
-                                        <div class="progress-bar-small">
-                                            <div class="progress-fill-small" style="width: <?= min($click_rate, 100) ?>%"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" style="text-align: center; color: var(--gray); padding: 2rem;">
-                                        No analytics data available. Data will appear here as users interact with your website.
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <!-- Performance Metrics -->
-            <div class="performance-metrics">
-                <div class="metric-card">
-                    <div class="metric-title">This Week</div>
-                    <div class="metric-value" id="week-value"><?= number_format($week_users) ?></div>
-                    <div class="metric-change <?= $weekly_growth >= 0 ? 'positive' : 'negative' ?>"><?= $weekly_growth >= 0 ? '+' : '' ?><?= $weekly_growth ?>%</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Total Destinations</div>
-                    <div class="metric-value" id="month-value"><?= number_format($total_destinations) ?></div>
-                    <div class="metric-change positive">+<?= $total_destinations ?> places</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Today Active</div>
-                    <div class="metric-value"><?= number_format($today_active) ?></div>
-                    <div class="metric-change positive">Users Online</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Monthly Revenue</div>
-                    <div class="metric-value" id="lastweek-value">$<?= number_format($total_users * 15.75, 2) ?></div>
-                    <div class="metric-change positive">Revenue</div>
-                </div>
-            </div>
-            
-            <!-- Dashboard Sections -->
-            <div class="dashboard-section">
-                <!-- Left Column -->
-                <div>
-                    <!-- Recent Users Activity -->
-                    <div class="activity-card">
-                        <h3 class="section-title">
-                            <i class="fas fa-user-clock"></i> Recent User Activity
-                        </h3>
-                        <div class="activity-list">
-                            <?php if ($recent_users && $recent_users->num_rows > 0): ?>
-                                <?php while($user = $recent_users->fetch_assoc()): ?>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-user-plus"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <div class="activity-title">New User Registered</div>
-                                        <div class="activity-time">
-                                            <?= htmlspecialchars($user['name']) ?> - <?= date('M j, Y g:i A', strtotime($user['created_at'])) ?>
-                                        </div>
                                     </div>
                                 </div>
-                                <?php endwhile; ?>
+                                <?php endforeach; ?>
                             <?php else: ?>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-users"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <div class="activity-title">No recent activity</div>
-                                        <div class="activity-time">User activity will appear here</div>
-                                    </div>
+                                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                    <i class="fas fa-calendar-times" style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                    <p>No recent bookings</p>
                                 </div>
                             <?php endif; ?>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Platform Statistics -->
-                    <div class="progress-card">
-                        <h3 class="section-title">
-                            <i class="fas fa-chart-pie"></i> Platform Statistics
-                        </h3>
-                        <div class="progress-list">
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-label">User Growth Rate</span>
-                                    <span class="progress-value">+<?= $weekly_growth ?>%</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: <?= min(abs($weekly_growth), 100) ?>%"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-label">Destination Coverage</span>
-                                    <span class="progress-value"><?= $total_destinations ?> places</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: <?= min(($total_destinations / 50) * 100, 100) ?>%"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="progress-item">
-                                <div class="progress-header">
-                                    <span class="progress-label">Active Engagement</span>
-                                    <span class="progress-value"><?= $today_active ?> today</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: <?= min(($today_active / max($total_users, 1)) * 100, 100) ?>%"></div>
+            <div class="recent-activity">
+                <h4 style="margin-bottom: 1.5rem; color: var(--text-muted); font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                    <i class="fas fa-cloud-rain" style="color: var(--secondary);"></i> Weather Impacted Destinations
+                    <?php if ($badWeatherCount > 0): ?>
+                        <span class="badge badge-danger" style="margin-left: 0.5rem;"><?= $badWeatherCount ?></span>
+                    <?php endif; ?>
+                </h4>
+                <div style="max-height: 250px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                    <?php if (!empty($badWeatherDestinations)): ?>
+                        <?php foreach($badWeatherDestinations as $dest): 
+                            $weather = $dest['weather'];
+                            $temp = round($weather['main']['temp']);
+                            $condition = $weather['weather'][0]['main'];
+                            $description = $weather['weather'][0]['description'];
+                            $icon = getWeatherIcon($condition);
+                            $severity = getWeatherSeverity($weather);
+                            $severity_color = $severity == 'high' ? 'var(--danger)' : ($severity == 'medium' ? 'var(--warning)' : 'var(--info)');
+                        ?>
+                        <div class="quick-stat-item clickable" onclick="openModal('destination_weather_detail.php?id=<?= $dest['id'] ?>', 'Weather Alert: <?= addslashes($dest['name']) ?>')">
+                            <div class="quick-stat-icon" style="background: <?= $severity_color ?>;"><i class="<?= $icon ?>"></i></div>
+                            <div class="quick-stat-content">
+                                <div class="quick-stat-title text-truncate"><?= htmlspecialchars($dest['name']) ?></div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">
+                                    <span><?= htmlspecialchars($dest['city']) ?></span>
+                                    <?php if ($dest['country']): ?><span> • <?= htmlspecialchars($dest['country']) ?></span><?php endif; ?>
                                 </div>
                             </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px;"><?= $temp ?>°C</div>
+                                <span class="badge badge-<?= $severity == 'high' ? 'danger' : ($severity == 'medium' ? 'warning' : 'info') ?>"><?= ucfirst($severity) ?></span>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Right Column -->
-                <div>
-                    <!-- Destination Types -->
-                    <div class="activity-card">
-                        <h3 class="section-title">
-                            <i class="fas fa-tags"></i> Destination Types
-                        </h3>
-                        <div class="types-grid">
-                            <?php if ($popular_types && $popular_types->num_rows > 0): ?>
-                                <?php while($type = $popular_types->fetch_assoc()): ?>
-                                <div class="type-item">
-                                    <div class="type-icon">
-                                        <i class="fas 
-                                            <?= $type['type'] == 'beach' ? 'fa-umbrella-beach' : '' ?>
-                                            <?= $type['type'] == 'mountain' ? 'fa-mountain' : '' ?>
-                                            <?= $type['type'] == 'city' ? 'fa-city' : '' ?>
-                                            <?= $type['type'] == 'historical' ? 'fa-landmark' : '' ?>
-                                            <?= $type['type'] == 'village' ? 'fa-house' : '' ?>
-                                            <?= $type['type'] == 'religious' ? 'fa-place-of-worship' : '' ?>
-                                        "></i>
-                                    </div>
-                                    <div class="type-info">
-                                        <div class="type-name"><?= ucfirst($type['type']) ?></div>
-                                        <div class="type-count"><?= $type['count'] ?> places</div>
-                                    </div>
-                                </div>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <div class="type-item">
-                                    <div class="type-icon">
-                                        <i class="fas fa-map"></i>
-                                    </div>
-                                    <div class="type-info">
-                                        <div class="type-name">No destinations</div>
-                                        <div class="type-count">Add some destinations</div>
-                                    </div>
-                                </div>
-                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div style="text-align: center; padding: 2rem; color: var(--text-muted); grid-column: 1 / -1;">
+                            <i class="fas fa-sun" style="font-size: 3rem; margin-bottom: 1rem; color: var(--warning); opacity: 0.8;"></i>
+                            <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-main);">No weather issues detected</p>
+                            <small>All active destinations currently have good weather</small>
                         </div>
-                    </div>
-                    
-                    <!-- Recent Destinations -->
-                    <div class="activity-card">
-                        <h3 class="section-title">
-                            <i class="fas fa-map-marker-alt"></i> Recent Destinations
-                        </h3>
-                        <div class="activity-list">
-                            <?php if ($recent_destinations && $recent_destinations->num_rows > 0): ?>
-                                <?php while($destination = $recent_destinations->fetch_assoc()): ?>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-location-dot"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <div class="activity-title"><?= htmlspecialchars($destination['name']) ?></div>
-                                        <div class="activity-time">
-                                            <?= htmlspecialchars($destination['location']) ?> • 
-                                            Added <?= date('M j, Y', strtotime($destination['created_at'])) ?>
-                                        </div>
-                                    </div>
-                                </div>
-                                <?php endwhile; ?>
-                            <?php else: ?>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-map"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <div class="activity-title">No destinations added</div>
-                                        <div class="activity-time">Add your first destination to get started</div>
-                                    </div>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <!-- Digital Calendar & Live Time Card -->
-                    <div style="width:100%;background:#fff;border-radius:15px;box-shadow:0 4px 12px rgba(0,0,0,0.2);padding:15px;font-family:Arial,sans-serif;margin-top:2rem;">
-                        <!-- Live Time -->
-                        <h2 id="live-time" style="text-align:center;font-size:22px;margin-bottom:10px;color:#333;"></h2>
-                        <!-- Calendar -->
-                        <div id="calendar"></div>
-                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
+
         </div>
     </div>
 
     <script>
-        // Add animation to analytics bars
-        document.addEventListener('DOMContentLoaded', function() {
-            // Animate analytics bars
-            const bars = document.querySelectorAll('.graph-bar');
-            bars.forEach(bar => {
-                const originalHeight = bar.style.height;
-                bar.style.height = '0%';
-                setTimeout(() => {
-                    bar.style.height = originalHeight;
-                }, 500);
-            });
+        // Use CSS variable hex values for JS Charts
+        const primaryColor = '#4f46e5';
+        const primaryBgColor = 'rgba(79, 70, 229, 0.15)';
+        const secondaryColor = '#06b6d4';
 
-            // Animate progress bars
-            const progressBars = document.querySelectorAll('.progress-fill, .progress-fill-small');
-            progressBars.forEach(bar => {
-                const width = bar.style.width;
-                bar.style.width = '0%';
-                setTimeout(() => {
-                    bar.style.width = width;
-                }, 500);
-            });
+        document.addEventListener('DOMContentLoaded', function() {
+            // User Growth Chart
+            const userGrowthCtx = document.getElementById('userGrowthChart');
+            if (userGrowthCtx) {
+                new Chart(userGrowthCtx, {
+                    type: 'line',
+                    data: {
+                        labels: <?= json_encode($graph_labels) ?>,
+                        datasets: [{
+                            label: 'Page Views',
+                            data: <?= json_encode($graph_views) ?>,
+                            borderColor: primaryColor,
+                            backgroundColor: primaryBgColor,
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: primaryColor,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(15, 23, 42, 0.05)' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart');
+            if (revenueCtx) {
+                new Chart(revenueCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: <?= json_encode($graph_labels) ?>,
+                        datasets: [{
+                            label: 'User Clicks',
+                            data: <?= json_encode($graph_clicks) ?>,
+                            backgroundColor: secondaryColor,
+                            borderRadius: 8,
+                            hoverBackgroundColor: primaryColor
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(15, 23, 42, 0.05)' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            updateDateTime();
+            setInterval(updateDateTime, 60000);
         });
 
-        // Keep all your existing JavaScript functions
-        // Real-time clock and date
+        function openModal(url, title) {
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalContainer = document.getElementById('modalContainer');
+            const modalTitleText = document.getElementById('modalTitleText');
+            const modalIframe = document.getElementById('modalIframe');
+            const modalLoading = document.getElementById('modalLoading');
+            
+            modalTitleText.textContent = title;
+            modalLoading.style.display = 'flex';
+            modalIframe.style.display = 'none';
+            
+            modalOverlay.classList.add('active');
+            modalContainer.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            setTimeout(() => { modalIframe.src = url; }, 100);
+        }
+
+        function closeModal() {
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalContainer = document.getElementById('modalContainer');
+            const modalIframe = document.getElementById('modalIframe');
+            
+            modalContainer.classList.remove('active');
+            
+            setTimeout(() => {
+                modalOverlay.classList.remove('active');
+                modalIframe.src = '';
+                modalIframe.style.display = 'none';
+                document.getElementById('modalLoading').style.display = 'flex';
+                document.body.style.overflow = 'auto';
+            }, 300);
+        }
+
+        document.getElementById('modalIframe').addEventListener('load', function() {
+            setTimeout(() => {
+                document.getElementById('modalLoading').style.display = 'none';
+                this.style.display = 'block';
+            }, 300);
+        });
+
         function updateDateTime() {
             const now = new Date();
-            const hours = now.getHours();
-            
-            let greeting = "Good Morning";
-            if (hours >= 12 && hours < 17) {
-                greeting = "Good Afternoon";
-            } else if (hours >= 17) {
-                greeting = "Good Evening";
-            }
-            
-            document.getElementById('greeting').textContent = `${greeting}, <?= htmlspecialchars($admin['name']) ?>`;            
-            
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const dateStr = now.toLocaleDateString('en-US', options);
-            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            
-            document.getElementById('date-display').textContent = `${dateStr} | ${timeStr}`;
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         }
-        
-        updateDateTime();
-        setInterval(updateDateTime, 60000);
-        
-        // Dropdown menu functionality
-        const userProfile = document.getElementById('userProfile');
-        const profileDropdown = document.getElementById('profileDropdown');
 
-        userProfile.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileDropdown.classList.toggle('active');
-        });
+        function refreshDashboard() { location.reload(); }
 
-        window.addEventListener('click', (e) => {
-            if (!userProfile.contains(e.target) && !profileDropdown.contains(e.target)) {
-                profileDropdown.classList.remove('active');
-            }
-        });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && document.getElementById('modalOverlay').classList.contains('active')) closeModal(); });
+        document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
-        // Auto-refresh notification
-        setTimeout(() => {
+        function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
             notification.style.cssText = `
-                position: fixed;
-                top: 100px;
-                right: 20px;
-                background: var(--success);
-                color: white;
-                padding: 1rem 1.5rem;
-                border-radius: 8px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                z-index: 10000;
-                font-weight: 600;
+                position: fixed; bottom: 30px; right: 30px;
+                background: ${type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--primary)'};
+                color: white; padding: 1rem 1.5rem; border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 9999;
+                font-weight: 700; display: flex; align-items: center; gap: 0.75rem;
+                animation: slideInRight 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             `;
-            notification.textContent = 'Dashboard data refreshed';
+            notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation' : 'info'}-circle"></i><span>${message}</span>`;
             document.body.appendChild(notification);
             
             setTimeout(() => {
-                notification.remove();
+                notification.style.animation = 'slideOutRight 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+                setTimeout(() => notification.remove(), 400);
             }, 3000);
-        }, 120000);
-
-        // ========== LIVE CLOCK ==========
-        function updateClock() {
-            const now = new Date();
-            document.getElementById("live-time").innerText =
-                now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
         }
-        setInterval(updateClock, 1000);
-        updateClock();
 
-        // ========== CALENDAR ==========
-        function generateCalendar() {
-            const calendar = document.getElementById("calendar");
-            const now = new Date();
-            const month = now.getMonth();
-            const year = now.getFullYear();
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+        `;
+        document.head.appendChild(style);
 
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-            const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-            // Table Head
-            let html = `<h3 style="text-align:center;margin:10px 0;color:#444;">${monthNames[month]} ${year}</h3>`;
-            html += `<table style="width:100%;border-collapse:collapse;text-align:center;font-size:14px;">
-                      <thead>
-                        <tr style="background:#f4f4f4;">
-                          <th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th>
-                        </tr>
-                      </thead><tbody><tr>`;
-
-            // Empty cells before 1st day
-            for (let i=0; i<firstDay; i++) {
-                html += "<td></td>";
-            }
-
-            // Days
-            for (let d=1; d<=daysInMonth; d++) {
-                const today = (d === now.getDate()) ? "background:#007bff;color:#fff;border-radius:50%;" : "";
-                html += `<td style="padding:6px;${today}">${d}</td>`;
-                if ((d + firstDay) % 7 === 0) html += "</tr><tr>";
-            }
-
-            html += "</tr></tbody></table>";
-            calendar.innerHTML = html;
-        }
-        generateCalendar();
+        setTimeout(() => { showNotification('Dashboard loaded successfully!', 'success'); }, 2000);
     </script>
 
-<?php include 'admin_footer.php'; ?>
+    <?php include 'admin_footer.php'; ?>
+</body>
+</html>

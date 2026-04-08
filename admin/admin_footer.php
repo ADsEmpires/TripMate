@@ -1,4 +1,4 @@
-        </div>
+</div>
     </div>
 
     <script>
@@ -7,27 +7,29 @@
             const userProfile = document.getElementById('userProfile');
             const dropdown = document.getElementById('profileDropdown');
 
-            userProfile.addEventListener('click', function(e) {
-                e.stopPropagation();
-                userProfile.classList.toggle('active');
-                dropdown.classList.toggle('active');
-            });
+            if(userProfile && dropdown) {
+                userProfile.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userProfile.classList.toggle('active');
+                    dropdown.classList.toggle('active');
+                });
 
-            // Close when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!userProfile.contains(e.target)) {
-                    userProfile.classList.remove('active');
-                    dropdown.classList.remove('active');
-                }
-            });
+                // Close when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!userProfile.contains(e.target)) {
+                        userProfile.classList.remove('active');
+                        dropdown.classList.remove('active');
+                    }
+                });
 
-            // Close on Escape
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    userProfile.classList.remove('active');
-                    dropdown.classList.remove('active');
-                }
-            });
+                // Close on Escape
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        userProfile.classList.remove('active');
+                        dropdown.classList.remove('active');
+                    }
+                });
+            }
 
             // Add active class to current menu item
             const currentPage = '<?= basename($_SERVER['PHP_SELF']) ?>';
@@ -41,5 +43,6 @@
             });
         });
     </script>
+    <script src="../main/page_time_tracker.js"></script>
 </body>
 </html>

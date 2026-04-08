@@ -1,13 +1,13 @@
 <?php
 // Start the session for admin authentication
 session_start();
-
+/*
 // Redirect to login if admin is not logged in
 if (!isset($_SESSION['admin_logged_in'])) {
     header('Location: login.php');
     exit();
 }
-
+*/
 // Include database configuration and connection
 include '../database/dbconfig.php';
 
@@ -51,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Handle image upload
+    // Handle destination images upload
     $image_urls = [];
     if (!empty($_FILES['images']['name'][0])) {
-        $upload_dir = '../uploads/';
+        $upload_dir = '../uploads/destinations/';
         if (!file_exists($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
@@ -63,7 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unique_file_name = uniqid() . '_' . $file_name;
             $file_path = $upload_dir . $unique_file_name;
             if (move_uploaded_file($tmp_name, $file_path)) {
-                $image_urls[] = $unique_file_name;
+                // Store only relative path from uploads folder
+                $image_urls[] = 'destinations/' . $unique_file_name;
             }
         }
     }
@@ -83,7 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $unique_file_name = uniqid() . '_' . $safe_filename;
                 $file_path = $upload_dir_cuisine . $unique_file_name;
                 if (move_uploaded_file($tmp_name, $file_path)) {
-                    $cuisine_images[$cuisine] = $unique_file_name;
+                    // Store only relative path from uploads folder
+                    $cuisine_images[$cuisine] = 'cuisines/' . $unique_file_name;
                 }
             }
         }
@@ -883,9 +885,9 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                             <input type="url" id="map_link" name="map_link" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label for="images">Upload Images</label>
+                            <label for="images">Upload Destination Images</label>
                             <input type="file" id="images" name="images[]" class="form-control" multiple accept="image/*">
-                            <small>Select Your images</small>
+                            <small>Select your destination images</small>
                         </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Save Destination

@@ -7,78 +7,19 @@ if (!isset($_SESSION['admin_logged_in'])) {
 
 include '../database/dbconfig.php';
 
-// Additional Logic Features
-
-// Handle user removal POST
-$message = '';
-$error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_user'])) {
-    // Required fields
-    $remove_id = isset($_POST['remove_id']) ? (int)$_POST['remove_id'] : 0;
-    $admin_password = $_POST['admin_password'] ?? '';
-    $reason = trim($_POST['reason'] ?? '');
-
-    if ($remove_id <= 0 || empty($admin_password) || empty($reason)) {
-        $error = 'All fields are required to remove a user.';
-    } else {
-        // Ensure admin is in session
-        if (!isset($_SESSION['admin_id'])) {
-            $error = 'Admin session not found. Please login again.';
-        } else {
-            $admin_id = (int)$_SESSION['admin_id'];
-            // Fetch admin password hash
-            $stmt = $conn->prepare("SELECT password, name FROM admin WHERE id = ? LIMIT 1");
-            $stmt->bind_param('i', $admin_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            if ($res && $res->num_rows === 1) {
-                $admin = $res->fetch_assoc();
-                $hash = $admin['password'];
-                // verify password (supports hashed passwords)
-                if (password_verify($admin_password, $hash)) {
-                    // Fetch the user to remove (for logging)
-                    $stmt2 = $conn->prepare("SELECT id, name, email FROM users WHERE id = ? LIMIT 1");
-                    $stmt2->bind_param('i', $remove_id);
-                    $stmt2->execute();
-                    $res2 = $stmt2->get_result();
-                    if ($res2 && $res2->num_rows === 1) {
-                        $u = $res2->fetch_assoc();
-                        // Delete user
-                        $del = $conn->prepare("DELETE FROM users WHERE id = ?");
-                        $del->bind_param('i', $remove_id);
-                        if ($del->execute()) {
-                            // Log removal to a logfile with reason and admin
-                            $logfile = __DIR__ . '/user_removal_log.txt';
-                            $line = sprintf("%s | admin_id:%d | admin_name:%s | user_id:%d | user_name:%s | user_email:%s | reason:%s | ip:%s\n",
-                                date('Y-m-d H:i:s'),
-                                $admin_id,
-                                str_replace("\n", ' ', $admin['name']),
-                                $u['id'],
-                                str_replace("\n", ' ', $u['name']),
-                                $u['email'],
-                                str_replace(["\n","\r"], ' ', $reason),
-                                $_SERVER['REMOTE_ADDR'] ?? 'unknown'
-                            );
-                            @file_put_contents($logfile, $line, FILE_APPEND | LOCK_EX);
-                            $message = 'User removed successfully.';
-                            // After deletion, refresh the page to update list (redirect to avoid repost)
-                            header('Location: user_present_chack_on_admin.php?msg=removed');
-                            exit();
-                        } else {
-                            $error = 'Failed to remove user. Database error.';
-                        }
-                    } else {
-                        $error = 'User not found.';
-                    }
-                } else {
-                    $error = 'Invalid admin password.';
-                }
-            } else {
-                $error = 'Admin record not found.';
-            }
-        }
-    }
+///////////////////////////////////////////////////////////////////////////////
+// Developer helper: enable errors on localhost while debugging (remove in prod)
+if (php_sapi_name() === 'cli' || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])) {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
 }
+
+// Ensure $conn from dbconfig exists
+if (!isset($conn) || !$conn) {
+    die('Database connection not established. Check ../database/dbconfig.php');
+}
+///////////////////////////////////////////////////////////////////////////////
 
 // 1. Search functionality
 $search = '';
@@ -116,15 +57,19 @@ switch($sort) {
 }
 
 // 4. Pagination
-$limit = 12; // Users per page
+$limit = 20;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
 // 5. Get total users for pagination
 $count_query = "SELECT COUNT(*) as total FROM users $search_condition $date_filter";
 $count_result = $conn->query($count_query);
-$total_users = $count_result->fetch_assoc()['total'];
-$total_pages = ceil($total_users / $limit);
+if ($count_result && ($row = $count_result->fetch_assoc())) {
+    $total_users = (int)$row['total'];
+} else {
+    $total_users = 0;
+}
+$total_pages = $limit > 0 ? ceil($total_users / $limit) : 1;
 
 // 6. Fetch users with all conditions
 $users_query = "SELECT id, name, email, created_at FROM users $search_condition $date_filter $sort_condition LIMIT $limit OFFSET $offset";
@@ -142,15 +87,23 @@ $stats_query = "SELECT
     COUNT(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as month_users
 FROM users";
 $stats_result = $conn->query($stats_query);
-$stats = $stats_result->fetch_assoc();
+$stats = [
+    'total_users' => 0,
+    'today_users' => 0,
+    'week_users'  => 0,
+    'month_users' => 0
+];
+if ($stats_result && ($srow = $stats_result->fetch_assoc())) {
+    $stats = $srow;
+}
 
 // Include header
 include 'admin_header.php';
 ?>
 
 <style>
-/* User Management Styles */
-.user-management-card {
+/* User Management Styles - Table Layout */
+.user-management-container {
     background: white;
     border-radius: 10px;
     padding: 1.5rem;
@@ -158,7 +111,7 @@ include 'admin_header.php';
     margin-bottom: 2rem;
 }
 
-.card-header {
+.page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -167,27 +120,26 @@ include 'admin_header.php';
     border-bottom: 1px solid #eee;
 }
 
-.card-header h2 {
+.page-header h1 {
     margin: 0;
     color: var(--primary);
-    font-size: 1.5rem;
+    font-size: 1.8rem;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.card-header h2 i {
+.page-header h1 i {
     color: var(--secondary);
 }
 
-.status-badge {
-    display: inline-block;
-    padding: 0.5rem 1rem;
+.total-badge {
+    background: var(--primary);
+    color: white;
+    padding: 0.5rem 1.2rem;
     border-radius: 20px;
-    font-size: 0.9rem;
     font-weight: 600;
-    background: #c6f6d5;
-    color: #2f855a;
+    font-size: 0.9rem;
 }
 
 /* Statistics Cards */
@@ -255,107 +207,161 @@ include 'admin_header.php';
     font-size: 0.9rem;
 }
 
-.user-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+/* Users Table */
+.users-table-container {
+    overflow-x: auto;
     margin-top: 1.5rem;
 }
 
-.user-card {
-    background: white;
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-    border-left: 4px solid var(--accent);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    position: relative;
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
 }
 
-.user-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.12);
+.users-table thead {
+    background: var(--primary);
+    color: white;
 }
 
-.user-card h3 {
-    margin: 0 0 0.5rem 0;
-    color: var(--primary);
-    font-size: 1.2rem;
+.users-table th {
+    padding: 1rem;
+    text-align: left;
     font-weight: 600;
+    border: none;
 }
 
+.users-table tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background 0.2s ease;
+}
 
+.users-table tbody tr:hover {
+    background: #f9f9f9;
+}
 
-.user-meta i {
-    color: var(--secondary);
-    width: 16px;
+.users-table td {
+    padding: 1rem;
+    vertical-align: middle;
 }
 
 .user-id {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: var(--light);
-    padding: 0.3rem 0.6rem;
-    border-radius: 15px;
-    font-size: 0.75rem;
     color: var(--gray);
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.user-name {
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.user-email {
+    color: var(--gray);
+    font-size: 0.9rem;
+}
+
+.user-date {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
 }
 
 .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.8rem 1.5rem;
-    border-radius: 6px;
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
     font-weight: 600;
     cursor: pointer;
     border: none;
-    gap: 8px;
+    gap: 6px;
     background: var(--primary);
     color: white;
-    margin-bottom: 1.5rem;
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .btn:hover {
     background: #1a5276;
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: #dc3545;
+}
+
+.btn-danger:hover {
+    background: #c82333;
 }
 
 .btn-secondary {
-    background: var(--gray);
+    background: #6c757d;
 }
 
 .btn-secondary:hover {
     background: #5a6268;
 }
 
-.btn:disabled {
-    background: #e0e0e0;
-    color: #a0a0a0;
-    cursor: not-allowed;
+.btn-info {
+    background: #17a2b8;
 }
 
-.btn:disabled:hover {
-    background: #e0e0e0;
+.btn-info:hover {
+    background: #138496;
 }
 
+/* Confirmation Dialog */
+.confirm-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.confirm-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    max-width: 400px;
+    text-align: center;
+    border-top: 4px solid #dc3545;
+}
+
+.confirm-content i {
+    font-size: 3rem;
+    color: #dc3545;
+    margin-bottom: 1rem;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    justify-content: center;
+}
+
+/* No Users Message */
 .no-users {
     text-align: center;
     padding: 3rem 2rem;
     color: var(--gray);
-    grid-column: 1 / -1;
-}
-
-.no-users h3 {
-    margin-bottom: 0.5rem;
-    color: var(--dark);
-}
-
-.no-users p {
-    color: var(--gray);
+    background: #f9f9f9;
+    border-radius: 8px;
+    margin-top: 1.5rem;
 }
 
 /* Pagination */
@@ -389,20 +395,12 @@ include 'admin_header.php';
     border-color: var(--primary);
 }
 
-/* Responsive adjustments */
+/* Responsive */
 @media (max-width: 768px) {
-    .user-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .card-header {
+    .page-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 1rem;
-    }
-    
-    .user-management-card {
-        padding: 1rem;
     }
     
     .filter-group {
@@ -416,64 +414,28 @@ include 'admin_header.php';
     .stats-grid {
         grid-template-columns: 1fr;
     }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
 }
 </style>
 
 <!-- Main Content -->
 <div class="main-content">
-    <div class="user-management-card">
-        <div class="card-header">
-            <h2><i class="fas fa-users"></i> User Management</h2>
-            <span class="status-badge">Total: <?= $total_users ?> Users</span>
+    <div class="user-management-container">
+        <div class="page-header">
+            <h1><i class="fas fa-users"></i> User Management</h1>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <a href="send_user_email.php" class="btn btn-info" style="text-decoration: none;">
+                    <i class="fas fa-envelope"></i> Send Email to Users
+                </a>
+                <a href="user_removal_log_viewer.php" class="btn btn-secondary" style="text-decoration: none;">
+                    <i class="fas fa-history"></i> View Removal Log
+                </a>
+                <div class="total-badge">Total: <?= $total_users ?> Users</div>
+            </div>
         </div>
-
-        <?php if (!empty($_GET['msg']) && $_GET['msg'] === 'removed'): ?>
-            <div style="padding:10px;border-radius:6px;background:#e6ffed;color:#1f7a3a;margin-bottom:1rem;">User removed successfully.</div>
-        <?php endif; ?>
-
-        <?php if (!empty($message)): ?>
-            <div style="padding:10px;border-radius:6px;background:#e6ffed;color:#1f7a3a;margin-bottom:1rem;"><?= htmlspecialchars($message) ?></div>
-        <?php endif; ?>
-
-        <?php if (!empty($error)): ?>
-            <div style="padding:10px;border-radius:6px;background:#ffecec;color:#9b2b2b;margin-bottom:1rem;"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-
-        <?php
-        // If remove_id is present in GET, fetch that user and show confirmation form
-        $selected_user = null;
-        if (isset($_GET['remove_id']) && is_numeric($_GET['remove_id'])) {
-            $rid = (int)$_GET['remove_id'];
-            $sstmt = $conn->prepare("SELECT id, name, email FROM users WHERE id = ? LIMIT 1");
-            $sstmt->bind_param('i', $rid);
-            $sstmt->execute();
-            $sres = $sstmt->get_result();
-            if ($sres && $sres->num_rows === 1) {
-                $selected_user = $sres->fetch_assoc();
-            }
-        }
-        ?>
-
-        <?php if ($selected_user): ?>
-        <div style="background:#fff3f2;border:1px solid #ffd6d2;padding:1rem;border-radius:8px;margin-bottom:1rem;">
-            <h3 style="margin-top:0;color:#b02a2a;">Confirm removal of user "<?= htmlspecialchars($selected_user['name']) ?>" (ID: <?= $selected_user['id'] ?>)</h3>
-            <form method="POST" style="display:block;gap:.5rem;">
-                <input type="hidden" name="remove_id" value="<?= $selected_user['id'] ?>">
-                <div style="margin-bottom:.5rem;">
-                    <label for="reason" style="font-weight:600;display:block;margin-bottom:.25rem;">Reason for removal</label>
-                    <textarea name="reason" id="reason" rows="3" required style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px;"></textarea>
-                </div>
-                <div style="margin-bottom:.5rem;">
-                    <label for="admin_password" style="font-weight:600;display:block;margin-bottom:.25rem;">Confirm with admin password</label>
-                    <input type="password" name="admin_password" id="admin_password" required style="width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px;">
-                </div>
-                <div style="display:flex;gap:.5rem;">
-                    <button type="submit" name="remove_user" class="btn" style="background:#b02a2a;">Remove User</button>
-                    <a href="user_present_chack_on_admin.php" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
-        </div>
-        <?php endif; ?>
 
         <!-- Statistics Cards -->
         <div class="stats-grid">
@@ -528,11 +490,8 @@ include 'admin_header.php';
             </form>
         </div>
 
-        <button class="btn" disabled>
-            <i class="fas fa-plus"></i> Add User (Coming Soon)
-        </button>
-
-        <div class="user-grid">
+        <!-- Users Table -->
+        <div class="users-table-container">
             <?php if (empty($users)): ?>
                 <div class="no-users">
                     <i class="fas fa-users-slash" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
@@ -540,24 +499,41 @@ include 'admin_header.php';
                     <p><?= $search || isset($_GET['date_from']) ? 'Try adjusting your search filters.' : 'There are no users registered in the system yet.' ?></p>
                 </div>
             <?php else: ?>
-                <?php foreach ($users as $user): ?>
-                <div class="user-card">
-                    <span class="user-id">ID: <?= $user['id'] ?></span>
-                    <h3><?= htmlspecialchars($user['name']) ?></h3>
-                    <div class="user-email"><?= htmlspecialchars($user['email']) ?></div>
-                    <div class="user-meta">
-                        <i class="fas fa-calendar-alt"></i>
-                        Joined: <?= date('M d, Y', strtotime($user['created_at'])) ?>
-                    </div>
-                    <div class="user-meta">
-                        <i class="fas fa-clock"></i>
-                        <?= date('h:i A', strtotime($user['created_at'])) ?>
-                    </div>
-                    <div style="margin-top:1rem;display:flex;gap:.5rem;">
-                        <a href="?remove_id=<?= $user['id'] ?>" class="btn btn-secondary" style="background:#d9534f;border-color:#d43f3a;">Remove</a>
-                    </div>
-                </div>
-                <?php endforeach; ?>
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Joined Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user): ?>
+                        <tr>
+                            <td class="user-id">#<?= $user['id'] ?></td>
+                            <td class="user-name"><?= htmlspecialchars($user['name']) ?></td>
+                            <td class="user-email"><?= htmlspecialchars($user['email']) ?></td>
+                            <td class="user-date">
+                                <i class="fas fa-calendar-alt"></i> <?= date('M d, Y', strtotime($user['created_at'])) ?>
+                                <br>
+                                <small><i class="fas fa-clock"></i> <?= date('h:i A', strtotime($user['created_at'])) ?></small>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button onclick="confirmRemove(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['name'])) ?>', '<?= htmlspecialchars(addslashes($user['email'])) ?>')" class="btn btn-danger">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                    <a href="send_user_email.php?user_id=<?= $user['id'] ?>&email=<?= urlencode($user['email']) ?>&subject=<?= urlencode('Account Notification') ?>&sender_name=TRIPMATE%20ADMIN" class="btn btn-info">
+                                        <i class="fas fa-envelope"></i> Email
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             <?php endif; ?>
         </div>
 
@@ -565,7 +541,7 @@ include 'admin_header.php';
         <?php if ($total_pages > 1): ?>
         <div class="pagination">
             <?php if ($page > 1): ?>
-                <a href="?page=<?= $page-1 ?>&search=<?= $search ?>&sort=<?= $sort ?>&date_from=<?= $_GET['date_from'] ?? '' ?>&date_to=<?= $_GET['date_to'] ?? '' ?>">
+                <a href="?page=<?= $page-1 ?>&search=<?= urlencode($search) ?>&sort=<?= urlencode($sort) ?>&date_from=<?= urlencode($_GET['date_from'] ?? '') ?>&date_to=<?= urlencode($_GET['date_to'] ?? '') ?>">
                     <i class="fas fa-chevron-left"></i> Previous
                 </a>
             <?php endif; ?>
@@ -573,7 +549,7 @@ include 'admin_header.php';
             <span>Page <?= $page ?> of <?= $total_pages ?></span>
 
             <?php if ($page < $total_pages): ?>
-                <a href="?page=<?= $page+1 ?>&search=<?= $search ?>&sort=<?= $sort ?>&date_from=<?= $_GET['date_from'] ?? '' ?>&date_to=<?= $_GET['date_to'] ?? '' ?>">
+                <a href="?page=<?= $page+1 ?>&search=<?= urlencode($search) ?>&sort=<?= urlencode($sort) ?>&date_from=<?= urlencode($_GET['date_from'] ?? '') ?>&date_to=<?= urlencode($_GET['date_to'] ?? '') ?>">
                     Next <i class="fas fa-chevron-right"></i>
                 </a>
             <?php endif; ?>
@@ -581,6 +557,72 @@ include 'admin_header.php';
         <?php endif; ?>
     </div>
 </div>
+
+<!-- Simple Confirmation Dialog -->
+<div id="confirmDialog" class="confirm-dialog">
+    <div class="confirm-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3 style="margin-bottom: 0.5rem;">Remove User?</h3>
+        <p id="confirmUserInfo" style="color: #666; margin-bottom: 1rem;"></p>
+        <p style="color: #dc3545; font-size: 0.9rem;">This will redirect to email page. User will be deleted after sending email.</p>
+        <div class="confirm-buttons">
+            <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+            <button class="btn btn-danger" id="confirmRemoveBtn">Continue</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simple confirmation function
+let currentUserId = null;
+let currentUserEmail = null;
+let currentUserName = null;
+
+function confirmRemove(userId, userName, userEmail) {
+    currentUserId = userId;
+    currentUserName = userName;
+    currentUserEmail = userEmail;
+    
+    document.getElementById('confirmUserInfo').innerHTML = 
+        '<strong>' + userName + '</strong><br>' + userEmail;
+    
+    document.getElementById('confirmDialog').style.display = 'flex';
+}
+
+function closeConfirm() {
+    document.getElementById('confirmDialog').style.display = 'none';
+}
+
+// Handle confirm button
+document.getElementById('confirmRemoveBtn').addEventListener('click', function() {
+    if (currentUserId && currentUserEmail) {
+        // Redirect to email page with pre-filled data
+        const redirectUrl = 'send_user_email.php?' + 
+            'user_id=' + encodeURIComponent(currentUserId) + 
+            '&email=' + encodeURIComponent(currentUserEmail) + 
+            '&subject=' + encodeURIComponent('Removed from Website') + 
+            '&sender_name=' + encodeURIComponent('TRIPMATE ADMIN');
+        
+        window.location.href = redirectUrl;
+    }
+    closeConfirm();
+});
+
+// Close dialog when clicking outside
+window.onclick = function(event) {
+    const dialog = document.getElementById('confirmDialog');
+    if (event.target == dialog) {
+        closeConfirm();
+    }
+}
+
+// Escape key to close
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeConfirm();
+    }
+});
+</script>
 
 <?php
 // Include footer

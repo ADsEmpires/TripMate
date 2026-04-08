@@ -29,7 +29,7 @@ $selected_attractions = json_decode($destination['attractions'], true) ?: [];
 
 if (!$destination) {
     $_SESSION['message'] = "Destination not found!";
-    header("Location: add_destanition_on_admin.php");
+    header("Location: add_destination_on_admin.php");
     exit();
 }
 
@@ -59,14 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $image_urls = json_decode($destination['image_urls'], true) ?: [];
 
     if (!empty($_FILES['images']['name'][0])) {
-        $upload_dir = '../uploads/';
+        $upload_dir = '../uploads/destinations/';
         if (!file_exists($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
 
         // Remove old images from the filesystem
         foreach ($image_urls as $old_image) {
-            $old_image_path = $upload_dir . $old_image;
+            $old_image_path = '../uploads/' . $old_image;
             if (file_exists($old_image_path)) {
                 unlink($old_image_path);
             }
@@ -80,7 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $file_path = $upload_dir . $unique_file_name;
 
             if (move_uploaded_file($tmp_name, $file_path)) {
-                $image_urls[] = $unique_file_name; // Store only the filename
+                // Store relative path from uploads folder
+                $image_urls[] = 'destinations/' . $unique_file_name;
             }
         }
     } else {
@@ -125,7 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $file_path = $upload_dir . $unique_file_name;
 
                     if (move_uploaded_file($tmp_name, $file_path)) {
-                        $final_cuisine_images[$cuisine_name_clean] = $unique_file_name;
+                        // Store relative path from uploads folder
+                        $final_cuisine_images[$cuisine_name_clean] = 'cuisines/' . $unique_file_name;
                     }
                 } else {
                     // Keep existing image if available and no new image uploaded
@@ -575,7 +577,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
                 <div class="image-preview-section">
-                    <label><i class="fas fa-images"></i> Current Images</label>
+                    <label><i class="fas fa-images"></i> Current Destination Images</label>
                     <div class="image-preview">
                         <?php
                         $images = json_decode($destination['image_urls'], true);
@@ -590,7 +592,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         </div>
                                     <?php else: ?>
                                         <div class="preview-image">
-                                            <img src="../uploads/placeholder.jpg" alt="Image not found">
+                                            <img src="../images/placeholder.jpg" alt="Image not found">
                                             <div class="image-overlay">Image not found</div>
                                         </div>
                             <?php endif;
@@ -601,7 +603,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
                     </div>
 
-                    <label for="images"><i class="fas fa-upload"></i> Upload New Images</label>
+                    <label for="images"><i class="fas fa-upload"></i> Upload New Destination Images</label>
                     <div class="file-upload">
                         <i class="fas fa-cloud-upload-alt"></i>
                         <h4>Click to upload new images</h4>
@@ -646,7 +648,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         </small>
 
                                         <?php
-                                        $cuisine_image_path = '../uploads/cuisines/' . $cuisine_image;
+                                        $cuisine_image_path = '../uploads/' . $cuisine_image;
                                         if (file_exists($cuisine_image_path)): ?>
                                             <div class="cuisine-preview">
                                                 <img src="<?= $cuisine_image_path ?>" alt="<?= htmlspecialchars($cuisine_name) ?>">
@@ -654,7 +656,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             </div>
                                         <?php else: ?>
                                             <div class="cuisine-preview">
-                                                <img src="../uploads/placeholder.jpg" alt="Image not found">
+                                                <img src="../images/placeholder.jpg" alt="Image not found">
                                                 <span>Image not found: <?= htmlspecialchars($cuisine_image) ?></span>
                                             </div>
                                         <?php endif; ?>
@@ -757,7 +759,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn btn-outline" onclick="window.location.href='add_destanition_on_admin.php'">
+                <button type="button" class="btn btn-outline" onclick="window.location.href='add_destination_on_admin.php'">
                     <i class="fas fa-times"></i> Cancel
                 </button>
                 <button type="submit" class="btn btn-primary">

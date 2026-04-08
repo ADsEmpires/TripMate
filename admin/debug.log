@@ -1,0 +1,111 @@
+2025-12-16 17:11:57 - POST request received
+2025-12-16 17:11:57 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:11:57 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:11:57 - Generated OTP: 519016
+2025-12-16 17:11:57 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:11:57 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:11:57 - Exception while sending OTP: SMTP connect() failed. https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
+2025-12-16 17:11:57 - OTP sending failed
+2025-12-16 17:12:13 - POST request received
+2025-12-16 17:12:13 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:12:13 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:12:13 - Generated OTP: 695604
+2025-12-16 17:12:13 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:12:13 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:12:13 - Exception while sending OTP: SMTP connect() failed. https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
+2025-12-16 17:12:13 - OTP sending failed
+2025-12-16 17:27:16 - POST request received
+2025-12-16 17:27:16 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:27:16 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:27:16 - Generated OTP: 869898
+2025-12-16 17:27:16 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:27:16 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:27:49 - Exception while sending OTP: SMTP connect() failed. https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
+2025-12-16 17:27:49 - OTP sending failed
+2025-12-16 17:28:22 - POST request received
+2025-12-16 17:28:22 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:28:22 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:28:22 - Generated OTP: 694640
+2025-12-16 17:28:22 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:28:22 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:32:19 - POST request received
+2025-12-16 17:32:19 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:32:19 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:32:19 - Generated OTP: 182903
+2025-12-16 17:32:19 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:32:19 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:55:54 - POST request received
+2025-12-16 17:55:54 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:55:54 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:55:54 - Generated OTP: 617792
+2025-12-16 17:55:54 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:55:54 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:56:00 - OTP sent successfully to: ranajitbarik071@gmail.com
+2025-12-16 17:56:00 - OTP sent successfully
+2025-12-16 17:57:09 - POST request received
+2025-12-16 17:57:09 - OTP verified successfully, redirecting to dashboard
+2025-12-16 17:57:09 - POST request received
+2025-12-16 17:57:09 - Login attempt with username: ranajitbarik@user
+2025-12-16 17:57:09 - Invalid credentials
+2025-12-16 17:57:23 - POST request received
+2025-12-16 17:57:23 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 17:57:23 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 17:57:23 - Generated OTP: 446412
+2025-12-16 17:57:23 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:57:23 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 17:57:29 - OTP sent successfully to: ranajitbarik071@gmail.com
+2025-12-16 17:57:29 - OTP sent successfully
+2025-12-16 17:57:44 - POST request received
+2025-12-16 17:57:44 - OTP verified successfully, redirecting to dashboard
+2025-12-16 19:14:16 - POST request received
+2025-12-16 19:14:16 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-16 19:14:16 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-16 19:14:16 - Generated OTP: 692828
+2025-12-16 19:14:16 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-16 19:14:16 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-16 19:14:21 - OTP sent successfully to: ranajitbarik071@gmail.com
+2025-12-16 19:14:21 - OTP sent successfully
+2025-12-16 19:14:29 - POST request received
+2025-12-16 19:14:29 - OTP verified successfully, redirecting to dashboard
+2025-12-20 18:41:17 - POST request received
+2025-12-20 18:41:17 - Login attempt with username: ranajitbarik071@gmail.com
+2025-12-20 18:41:17 - Credentials valid for admin: ranajitbarik071@gmail.com
+2025-12-20 18:41:17 - Generated OTP: 738730
+2025-12-20 18:41:17 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2025-12-20 18:41:17 - Sending OTP to: ranajitbarik071@gmail.com
+2025-12-20 18:41:23 - OTP sent successfully to: ranajitbarik071@gmail.com
+2025-12-20 18:41:23 - OTP sent successfully
+2025-12-20 18:41:42 - POST request received
+2025-12-20 18:41:42 - OTP verified successfully, redirecting to dashboard
+2026-02-19 20:04:22 - POST request received
+2026-02-19 20:04:22 - Login attempt with username: ranajitbarik2005@gmail.com
+2026-02-19 20:04:22 - Invalid credentials
+2026-02-19 20:04:32 - POST request received
+2026-02-19 20:04:32 - Login attempt with username: ranajitbarik071@gmail.com
+2026-02-19 20:04:32 - Credentials valid for admin: ranajitbarik071@gmail.com
+2026-02-19 20:04:32 - Generated OTP: 868117
+2026-02-19 20:04:32 - Attempting to send OTP to: ranajitbarik071@gmail.com
+2026-02-19 20:04:32 - Sending OTP to: ranajitbarik071@gmail.com
+2026-02-19 20:04:37 - OTP sent successfully to: ranajitbarik071@gmail.com
+2026-02-19 20:04:37 - OTP sent successfully
+2026-02-19 20:06:07 - POST request received
+2026-02-19 20:06:07 - OTP verified successfully, redirecting to dashboard
+2026-02-21 18:26:32 - POST request received
+2026-02-21 18:26:32 - Login attempt with username: adn@gmail.com
+2026-02-21 18:26:32 - Credentials valid for admin: adn@gmail.com
+2026-02-21 18:26:32 - Generated OTP: 638121
+2026-02-21 18:26:32 - Attempting to send OTP to: adn@gmail.com
+2026-02-21 18:26:32 - Sending OTP to: adn@gmail.com
+2026-02-21 18:26:37 - OTP sent successfully to: adn@gmail.com
+2026-02-21 18:26:37 - OTP sent successfully
+2026-02-22 11:00:24 - POST request received
+2026-02-22 11:00:24 - Login attempt with username: adnew@gmail.com
+2026-02-22 11:00:24 - Invalid credentials
+2026-02-22 11:00:34 - POST request received
+2026-02-22 11:00:34 - Login attempt with username: adn@gmail.com
+2026-02-22 11:00:34 - Credentials valid for admin: adn@gmail.com
+2026-02-22 11:00:34 - Generated OTP: 960960
+2026-02-22 11:00:34 - Attempting to send OTP to: adn@gmail.com
+2026-02-22 11:00:34 - Sending OTP to: adn@gmail.com
+2026-02-22 11:00:40 - OTP sent successfully to: adn@gmail.com
+2026-02-22 11:00:40 - OTP sent successfully
