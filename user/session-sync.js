@@ -81,3 +81,27 @@ function synchronizeSessions() {
 
 // Periodically check session consistency (every 30 seconds)
 setInterval(synchronizeSessions, 30000);
+
+// Add cross-tab/page communication for session sync
+window.addEventListener('storage', function(e) {
+    if (e.key === 'tripmate_active_user_id' || e.key === 'tripmate_active_user_name') {
+        console.log('Session sync: Storage changed in another tab, re-synchronizing');
+        synchronizeSessions();
+        
+        // Dispatch event for other scripts in this tab
+        const syncEvent = new CustomEvent('sessionSynced', { 
+            detail: { 
+                userId: localStorage.getItem('tripmate_active_user_id'),
+                userName: localStorage.getItem('tripmate_active_user_name'),
+                isLoggedIn: !!localStorage.getItem('tripmate_active_user_id')
+            } 
+        });
+        document.dispatchEvent(syncEvent);
+    }
+});
+
+// Add beforeunload handler to ensure session cleanup on tab close
+window.addEventListener('beforeunload', function() {
+    // Don't clear on refresh, only on actual navigation away
+    // This is handled by the server-side session timeout
+});

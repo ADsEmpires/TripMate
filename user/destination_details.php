@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../database/dbconfig.php';
+require_once '../backand/image_helper.php';
 
 // --- Input validation & load destination ---
 if (!isset($_GET['id'])) {
@@ -27,6 +28,20 @@ $og_image = ''; // resolved below after image checks
 
 // --- Resolve images (support JSON or CSV) ---
 $base_url = '/test/tripmate'; // adjust to your deployment
+
+// --- Resolve images using the helper functions ---
+function getImageUrlForDisplay($path)
+{
+    if (empty($path)) return '/test/tripmate/images/no-image.jpg';
+    // If path starts with http, return as is
+    if (preg_match('/^https?:\/\//', $path)) {
+        return $path;
+    }
+    // Remove leading '../' if present
+    $path = ltrim($path, '../');
+    return '/test/tripmate/' . $path;
+}
+
 function decode_images_field($field)
 {
     if (empty($field)) return [];
@@ -782,7 +797,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             }
         }
 
-                /* Budget Package Section Styles */
+        /* Budget Package Section Styles */
         .budget-section-wrapper {
             margin-top: 2rem;
         }
@@ -833,7 +848,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
 
         .budget-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
 
         .budget-btn-low {
@@ -993,7 +1008,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
         }
 
         /* Hotel and Flight Cards */
-        .package-grid > div {
+        .package-grid>div {
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
             padding: 1rem;
@@ -1002,11 +1017,11 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             cursor: pointer;
         }
 
-        .package-grid > div:hover {
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        .package-grid>div:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
 
-        .package-grid > div.border-4 {
+        .package-grid>div.border-4 {
             border: 4px solid #ff6600;
             background: #fff7f0;
         }
@@ -1156,7 +1171,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             margin-bottom: 1rem;
         }
 
-        .cost-breakdown > div {
+        .cost-breakdown>div {
             display: flex;
             justify-content: space-between;
             margin-bottom: 0.5rem;
@@ -1209,6 +1224,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
             background: #e65c00;
             transform: scale(1.05);
         }
+
         /* Rest of your existing styles remain the same */
         /* ... (keep all your existing styles from line 348 to the end) ... */
     </style>
@@ -1234,7 +1250,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                 // Prefer video if provided (field 'promo_video' hypothetical), else show image
                 $promo_video = $destination['promo_video'] ?? '';
                 if (!empty($promo_video)) {
-                    $video_path = resolve_image_path($base_url, $promo_video, '/uploads/videos/');
+                    $video_path = getImageUrlForDisplay($promo_video);
                     echo '<video class="kenburns" autoplay muted loop playsinline src="' . htmlspecialchars($video_path) . '" poster="' . htmlspecialchars($coverImage) . '"></video>';
                 } else {
                     echo '<img class="kenburns" src="' . htmlspecialchars($coverImage) . '" alt="' . htmlspecialchars($destination['name']) . ' cover image" loading="eager">';
@@ -1394,33 +1410,16 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                     <?php if (!empty($cuisines)): ?>
                         <div class="cuisines-grid" aria-label="Local cuisines">
                             <?php
-                            // For each cuisine show a chip and, if available, an image from $cuisine_images mapping
-                            foreach ($cuisines as $c) {
-                                $c_safe = htmlspecialchars($c);
-                                $img_src = '';
-                                // try to find an image in cuisine_images mapping (keys may be cuisine names)
-                                if (is_array($cuisine_images) && !empty($cuisine_images)) {
-                                    // normalized key lookup (case-insensitive)
-                                    foreach ($cuisine_images as $key => $val) {
-                                        if (strtolower(trim($key)) === strtolower(trim($c))) {
-                                            // resolve path if looks like filename
-                                            $img_candidate = $val;
-                                            // if value looks like filename, resolve; else assume absolute URL
-                                            if (preg_match('/^https?:\\/\\//', $img_candidate)) {
-                                                $img_src = $img_candidate;
-                                            } else {
-                                                $img_src = resolve_image_path($base_url, $img_candidate, '/uploads/cuisines/');
-                                            }
-                                            break;
-                                        }
-                                    }
+                            if (!empty($cuisines)) {
+                                foreach ($cuisines as $c) {
+                                    $c_safe = htmlspecialchars($c);
+                                    // Get cuisine image using helper
+                                    $img_src = isset($cuisine_images[$c]) ? getImageUrlForDisplay($cuisine_images[$c]) : '/test/tripmate/images/cuisine-placeholder.png';
+                                    echo '<div class="cuisine-chip" title="' . $c_safe . '">';
+                                    echo '<img src="' . htmlspecialchars($img_src) . '" alt="' . $c_safe . '">';
+                                    echo '<span>' . $c_safe . '</span>';
+                                    echo '</div>';
                                 }
-                                // fallback to small placeholder if no image
-                                if (empty($img_src)) $img_src = $base_url . '/images/cuisine-placeholder.png';
-                                echo '<div class="cuisine-chip" title="' . $c_safe . '">';
-                                echo '<img src="' . htmlspecialchars($img_src) . '" alt="' . $c_safe . '">';
-                                echo '<span>' . $c_safe . '</span>';
-                                echo '</div>';
                             }
                             ?>
                         </div>
@@ -1447,7 +1446,7 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                                 <?php
                                 if (!empty($images)) {
                                     foreach ($images as $img) {
-                                        $imgPath = resolve_image_path($base_url, $img);
+                                        $imgPath = getImageUrlForDisplay($img);
                                         echo '<div class="swiper-slide"><img src="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-src="' . htmlspecialchars($imgPath) . '"></div>';
                                     }
                                 } else {
@@ -1465,9 +1464,8 @@ header("Content-Security-Policy: default-src 'self' https:; script-src 'self' 'u
                             <?php
                             if (!empty($images)) {
                                 foreach ($images as $img) {
-                                    $imgPath = resolve_image_path($base_url, $img);
-                                    $small = $imgPath;
-                                    echo '<img src="' . htmlspecialchars($small) . '" data-full="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-ready="0">';
+                                    $imgPath = getImageUrlForDisplay($img);
+                                    echo '<img src="' . htmlspecialchars($imgPath) . '" data-full="' . htmlspecialchars($imgPath) . '" alt="' . htmlspecialchars($destination['name']) . '" loading="lazy" data-ready="0">';
                                 }
                             } else {
                                 echo '<div class="muted">No images available</div>';
