@@ -1,8 +1,5 @@
 <?php
-// Toggle favorite endpoint
-// Expects POST: destination_id (int), action ('add'|'remove')
-// Returns JSON: { status: 'success'|'error', action: 'added'|'removed'|'exists', message: '...' }
-
+// actions/toggle_favorite.php
 session_start();
 header('Content-Type: application/json');
 
@@ -13,16 +10,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    // Not logged in
     echo json_encode(['status' => 'error', 'message' => 'Authentication required']);
     exit;
 }
 
-$input = file_get_contents('php://input');
-parse_str($input, $post);
+// Handle both FormData and URL-encoded data
+$input = $_POST;
+if (empty($input)) {
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+}
 
-$destination_id = isset($post['destination_id']) ? intval($post['destination_id']) : 0;
-$action = isset($post['action']) ? $post['action'] : '';
+$destination_id = isset($input['destination_id']) ? intval($input['destination_id']) : 0;
+$action = isset($input['action']) ? $input['action'] : '';
 
 if (!$destination_id || !in_array($action, ['add', 'remove'])) {
     echo json_encode(['status' => 'error', 'message' => 'Invalid parameters']);
@@ -33,52 +32,55 @@ require_once __DIR__ . '/../database/dbconfig.php';
 
 $user_id = intval($_SESSION['user_id']);
 
-// Prefer normalized favorites table. If not present, fallback to user_history JSON approach.
-$use_favorites_table = true;
-$check_table_sql = "SHOW TABLES LIKE 'favorites'";
-$res = $conn->query($check_table_sql);
-if ($res === false || $res->num_rows === 0) {
-    $use_favorites_table = false;
-}
-
 try {
-    if ($use_favorites_table) {
-        if ($action === 'add') {
-            $stmt = $conn->prepare("INSERT IGNORE INTO favorites (user_id, destination_id) VALUES (?, ?)");
-            $stmt->bind_param("ii", $user_id, $destination_id);
+    if ($action === 'add') {
+        // Check if already exists in user_history (to match search.php approach)
+        $check = $conn->prepare("SELECT id FROM user_history WHERE user_id = ? AND activity_type = 'favorite' AND activity_details = ?");
+        $check->bind_param("is", $user_id, $destination_id);
+        $check->execute();
+        $result = $check->get_result();
+        
+        if ($result->num_rows === 0) {
+            // Insert into user_history (search.php expects this format)
+            $stmt = $conn->prepare("INSERT INTO user_history (user_id, activity_type, activity_details, created_at) VALUES (?, 'favorite', ?, NOW())");
+            $stmt->bind_param("is", $user_id, $destination_id);
             $stmt->execute();
+            
+            // Also insert into favorites table if it exists (for our queries)
+            $fav_check = $conn->prepare("INSERT IGNORE INTO favorites (user_id, destination_id, created_at) VALUES (?, ?, NOW())");
+            $fav_check->bind_param("ii", $user_id, $destination_id);
+            $fav_check->execute();
+            $fav_check->close();
+            
             if ($stmt->affected_rows > 0) {
                 echo json_encode(['status' => 'success', 'action' => 'added']);
             } else {
-                // already exists
-                echo json_encode(['status' => 'success', 'action' => 'exists']);
+                echo json_encode(['status' => 'error', 'message' => 'Failed to add favorite']);
             }
             $stmt->close();
         } else {
-            $stmt = $conn->prepare("DELETE FROM favorites WHERE user_id = ? AND destination_id = ?");
-            $stmt->bind_param("ii", $user_id, $destination_id);
-            $stmt->execute();
-            echo json_encode(['status' => 'success', 'action' => 'removed']);
-            $stmt->close();
+            echo json_encode(['status' => 'success', 'action' => 'exists']);
         }
+        $check->close();
     } else {
-        // fallback: user_history JSON usage
-        if ($action === 'add') {
-            $details = json_encode(['id' => $destination_id]);
-            $stmt = $conn->prepare("INSERT INTO user_history (user_id, activity_type, activity_details) VALUES (?, 'favorite', ?)");
-            $stmt->bind_param("is", $user_id, $details);
-            $stmt->execute();
-            echo json_encode(['status' => 'success', 'action' => 'added']);
-            $stmt->close();
-        } else {
-            $stmt = $conn->prepare("DELETE FROM user_history WHERE user_id = ? AND activity_type = 'favorite' AND JSON_EXTRACT(activity_details, '$.id') = ?");
-            $stmt->bind_param("ii", $user_id, $destination_id);
-            $stmt->execute();
-            echo json_encode(['status' => 'success', 'action' => 'removed']);
-            $stmt->close();
-        }
+        // Remove favorite from user_history (search.php approach)
+        $stmt = $conn->prepare("DELETE FROM user_history WHERE user_id = ? AND activity_type = 'favorite' AND activity_details = ?");
+        $stmt->bind_param("is", $user_id, $destination_id);
+        $stmt->execute();
+        
+        // Also remove from favorites table
+        $fav_del = $conn->prepare("DELETE FROM favorites WHERE user_id = ? AND destination_id = ?");
+        $fav_del->bind_param("ii", $user_id, $destination_id);
+        $fav_del->execute();
+        $fav_del->close();
+        
+        echo json_encode(['status' => 'success', 'action' => 'removed']);
+        $stmt->close();
     }
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Server error: ' . $e->getMessage()]);
 }
+
+$conn->close();
+?>

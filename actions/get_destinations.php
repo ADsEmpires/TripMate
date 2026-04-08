@@ -6,7 +6,7 @@ require_once __DIR__ . '/../database/dbconfig.php';
 
 try {
     // Get all destinations from database
-    $query = "SELECT id, name, location, type, description, budget, best_season, image_urls 
+    $query = "SELECT id, name, location, type, description, budget, best_season, image_urls, attractions 
               FROM destinations 
               ORDER BY name ASC";
     
@@ -18,6 +18,15 @@ try {
     
     $destinations = [];
     while ($row = $result->fetch_assoc()) {
+        // Parse attractions if it's a JSON string
+        $attractions = [];
+        if (!empty($row['attractions'])) {
+            $attractions = json_decode($row['attractions'], true);
+            if (!is_array($attractions)) {
+                $attractions = [];
+            }
+        }
+        
         $destinations[] = [
             'id' => (int)$row['id'],
             'name' => $row['name'],
@@ -26,7 +35,8 @@ try {
             'description' => $row['description'],
             'budget' => (float)$row['budget'],
             'best_season' => $row['best_season'],
-            'image_urls' => $row['image_urls']
+            'image_urls' => $row['image_urls'],
+            'attractions' => $attractions
         ];
     }
     
@@ -39,7 +49,7 @@ try {
 } catch (Exception $e) {
     echo json_encode([
         'status' => 'error',
-        'message' => $e->getMessage()
+        'message' => 'Failed to load destinations: ' . $e->getMessage()
     ]);
 }
 
