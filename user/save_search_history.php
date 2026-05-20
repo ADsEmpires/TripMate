@@ -1,6 +1,6 @@
 <?php
 // user/save_search_history.php
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
 require_once __DIR__ . '/../database/dbconfig.php';
 
 header('Content-Type: application/json');
@@ -36,7 +36,7 @@ if ($insert_stmt->execute()) {
     $history_stmt->bind_param("is", $user_id, $search_query);
     $history_stmt->execute();
     $history_stmt->close();
-    
+
     echo json_encode(['status' => 'success', 'message' => 'Search saved']);
 } else {
     echo json_encode(['status' => 'error', 'message' => 'Failed to save search']);
@@ -44,4 +44,3 @@ if ($insert_stmt->execute()) {
 
 $insert_stmt->close();
 $conn->close();
-?>

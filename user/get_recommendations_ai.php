@@ -1,6 +1,6 @@
 <?php
 // user/get_recommendations_ai.php
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
 require_once __DIR__ . '/../database/dbconfig.php';
 require_once __DIR__ . '/../backand/image_helper.php';
 

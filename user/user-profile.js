@@ -157,9 +157,34 @@ function escapeHtml(text) {
 }
 
 // Listen for session sync events
-document.addEventListener('sessionSynced', function(e) {
-    console.log('Session sync event received:', e.detail);
-    if (e.detail.isLoggedIn && !document.querySelector('.navbar .profile-menu') && !document.querySelector('.user-profile')) {
-        initializeUserProfile();
+function hideFloatingUserUI() {
+    const sessionFloat = document.querySelector('.user-session-float');
+    if (sessionFloat) {
+        sessionFloat.style.display = 'none';
+        sessionFloat.classList.remove('active');
     }
-});
+
+    const floatingProfile = document.querySelector('.user-profile');
+    if (floatingProfile) {
+        floatingProfile.remove();
+    }
+
+    const profileMenu = document.querySelector('.navbar .profile-menu');
+    if (profileMenu) {
+        profileMenu.style.display = 'none';
+    }
+}
+
+function handleSessionSyncedEvent(e) {
+    console.log('Session sync event received:', e.detail);
+    if (e.detail.isLoggedIn) {
+        if (!document.querySelector('.navbar .profile-menu') && !document.querySelector('.user-profile')) {
+            initializeUserProfile();
+        }
+    } else {
+        hideFloatingUserUI();
+    }
+}
+
+document.addEventListener('sessionSynced', handleSessionSyncedEvent);
+document.addEventListener('sessionUpdated', handleSessionSyncedEvent);

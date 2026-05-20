@@ -2,106 +2,204 @@
  * Session Synchronization System
  * File: user/session-sync.js
  * 
- * Ensures session consistency across all pages and storage methods
+ * Purpose:
+ * - Validate session on page load
+ * - Sync session data across browser tabs
+ * - Trust PHP-rendered session data
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    synchronizeSessions();
-    
-    // Also run when storage changes (for multi-tab support)
-    window.addEventListener('storage', function(e) {
-        if (e.key === 'tripmate_active_user_id' || e.key === 'user_id' || e.key === 'userid') {
-            console.log('Session sync: Storage changed, re-synchronizing');
-            synchronizeSessions();
-        }
-    });
+    // Wait for DOM to be fully ready
+    setTimeout(() => {
+        validateSessionOnLoad();
+    }, 100);
 });
 
-function synchronizeSessions() {
-    console.log('Session sync: Starting session synchronization');
+/**
+ * Validate session on page load
+ * CRITICAL: Check PHP-rendered meta tags first
+ */
+async function validateSessionOnLoad() {
+    console.log('SessionSync: Validating session on page load...');
     
-    // Check all possible session storage locations
-    const deviceId = localStorage.getItem('tripmate_active_user_id');
-    const deviceName = localStorage.getItem('tripmate_active_user_name');
-    const sessionId = sessionStorage.getItem('user_id');
-    const sessionName = sessionStorage.getItem('user_name');
-    const legacyId = sessionStorage.getItem('userid');
-    const legacyName = sessionStorage.getItem('username');
+    // Step 1: Check PHP meta tags (server-side validation)
+    const metaUserId = document.querySelector('meta[name="user-id"]')?.getAttribute('content');
+    const metaUserName = document.querySelector('meta[name="user-name"]')?.getAttribute('content');
     
-    // Check PHP session via server-side flag
-    const phpSessionId = document.body.getAttribute('data-user-id') || 
-                         document.querySelector('meta[name="user-id"]')?.getAttribute('content');
-    
-    // If device storage exists but session storage is empty, copy from device
-    if (deviceId && !sessionId) {
-        console.log('Session sync: Copying from device to session storage');
-        sessionStorage.setItem('user_id', deviceId);
-        if (deviceName) sessionStorage.setItem('user_name', deviceName);
+    if (metaUserId) {
+        console.log('✅ SessionSync: Server-side session confirmed for user:', metaUserName);
+        syncSessionFromPHP(metaUserId, metaUserName);
+        return;
     }
     
-    // If session storage exists but device storage is empty, copy to device
-    if (sessionId && !deviceId) {
-        console.log('Session sync: Copying from session to device storage');
-        localStorage.setItem('tripmate_active_user_id', sessionId);
-        if (sessionName) localStorage.setItem('tripmate_active_user_name', sessionName);
+    // Step 2: If no meta tags, check if we have stored session
+    const storedUserId = localStorage.getItem('tripmate_active_user_id') || 
+                         sessionStorage.getItem('user_id');
+    
+    if (!storedUserId) {
+        console.log('SessionSync: No session found');
+        clearAllSessionData();
+        return;
     }
     
-    // Ensure legacy keys are set for compatibility
-    const finalId = sessionStorage.getItem('user_id') || deviceId || legacyId;
-    const finalName = sessionStorage.getItem('user_name') || deviceName || legacyName;
+    // Step 3: Validate stored session with server
+    console.log('SessionSync: Validating stored session...');
+    const isValid = await validateSessionWithServer();
     
-    if (finalId) {
-        sessionStorage.setItem('userid', finalId);
-        if (finalName) sessionStorage.setItem('username', finalName);
-        
-        // Add the class that user-profile.js checks for
-        document.body.classList.add('user-logged-in');
-        
-        // Also set a data attribute for server-side checks
-        document.body.setAttribute('data-user-id', finalId);
-        
-        console.log('Session sync: User session synchronized -', finalName);
+    if (isValid) {
+        console.log('✅ SessionSync: Stored session validated');
+        syncSessionFromStorage();
     } else {
-        // Ensure clean state if no user is logged in
-        document.body.classList.remove('user-logged-in');
-        document.body.removeAttribute('data-user-id');
-        console.log('Session sync: No user session found');
+        console.log('❌ SessionSync: Stored session is invalid');
+        clearAllSessionData();
+    }
+}
+
+/**
+ * Sync session from PHP meta tags
+ */
+function syncSessionFromPHP(userId, userName) {
+    console.log('SessionSync: Syncing from PHP for user:', userId);
+    
+    // Update all storage locations
+    localStorage.setItem('tripmate_active_user_id', userId);
+    localStorage.setItem('tripmate_active_user_name', userName || '');
+    
+    sessionStorage.setItem('user_id', userId);
+    sessionStorage.setItem('userid', userId);
+    sessionStorage.setItem('user_name', userName || '');
+    sessionStorage.setItem('username', userName || '');
+    
+    // Update body attributes
+    document.body.classList.add('user-logged-in');
+    document.body.setAttribute('data-user-id', userId);
+    if (userName) {
+        document.body.setAttribute('data-user-name', userName);
     }
     
-    // Dispatch event for other scripts to listen to
-    const event = new CustomEvent('sessionSynced', { 
-        detail: { 
-            userId: finalId, 
-            userName: finalName,
-            isLoggedIn: !!finalId 
-        } 
+    // Dispatch event
+    dispatchSessionEvent(true, { id: userId, name: userName });
+}
+
+/**
+ * Sync session from local storage
+ */
+function syncSessionFromStorage() {
+    const userId = localStorage.getItem('tripmate_active_user_id') || 
+                   sessionStorage.getItem('user_id');
+    const userName = localStorage.getItem('tripmate_active_user_name') || 
+                     sessionStorage.getItem('user_name');
+    
+    if (userId) {
+        console.log('SessionSync: Syncing from storage for user:', userId);
+        syncSessionFromPHP(userId, userName);
+    } else {
+        clearAllSessionData();
+    }
+}
+
+/**
+ * Validate session with server
+ */
+async function validateSessionWithServer() {
+    try {
+        const baseUrl = getBaseUrl();
+        const response = await fetch(baseUrl + '/user/session_refresh.php?action=check&t=' + Date.now(), {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (response.status === 401) {
+            return false;
+        }
+        
+        if (response.ok) {
+            const data = await response.json();
+            return data.success && data.is_valid;
+        }
+        
+        return false;
+    } catch (error) {
+        console.warn('SessionSync: Validation error -', error.message);
+        // Don't treat network errors as invalid session
+        return true;
+    }
+}
+
+/**
+ * Get base URL
+ */
+function getBaseUrl() {
+    const metaBase = document.querySelector('meta[name="api-base"]')?.getAttribute('content');
+    if (metaBase) {
+        return metaBase.replace(/\/$/, '');
+    }
+
+    let path = window.location.pathname;
+    path = path.replace(/\/(user|auth|main|search|bookings|admin|dashboard|Contributor|database|config|actions|image|uploads|css|js|scripts)(\/.*)?$/, '');
+    path = path.replace(/\/$/, '');
+
+    return window.location.origin + path;
+}
+
+/**
+ * Dispatch session sync event
+ */
+function dispatchSessionEvent(isLoggedIn, userData = null) {
+    const event = new CustomEvent('sessionSynced', {
+        detail: {
+            isLoggedIn,
+            userData,
+            timestamp: Date.now()
+        }
     });
     document.dispatchEvent(event);
 }
 
-// Periodically check session consistency (every 30 seconds)
-setInterval(synchronizeSessions, 30000);
+/**
+ * Clear all session data
+ */
+function clearAllSessionData() {
+    console.log('SessionSync: Clearing all session data');
+    
+    localStorage.removeItem('tripmate_active_user_id');
+    localStorage.removeItem('tripmate_active_user_name');
+    localStorage.removeItem('tripmate_user_email');
+    
+    sessionStorage.removeItem('user_id');
+    sessionStorage.removeItem('userid');
+    sessionStorage.removeItem('user_name');
+    sessionStorage.removeItem('username');
+    
+    document.body.classList.remove('user-logged-in');
+    document.body.removeAttribute('data-user-id');
+    document.body.removeAttribute('data-user-name');
+    
+    dispatchSessionEvent(false, null);
+}
 
-// Add cross-tab/page communication for session sync
-window.addEventListener('storage', function(e) {
-    if (e.key === 'tripmate_active_user_id' || e.key === 'tripmate_active_user_name') {
-        console.log('Session sync: Storage changed in another tab, re-synchronizing');
-        synchronizeSessions();
-        
-        // Dispatch event for other scripts in this tab
-        const syncEvent = new CustomEvent('sessionSynced', { 
-            detail: { 
-                userId: localStorage.getItem('tripmate_active_user_id'),
-                userName: localStorage.getItem('tripmate_active_user_name'),
-                isLoggedIn: !!localStorage.getItem('tripmate_active_user_id')
-            } 
-        });
-        document.dispatchEvent(syncEvent);
+// Listen for multi-tab changes
+window.addEventListener('storage', (e) => {
+    if (e.key === 'tripmate_session_lost' && e.newValue === 'true') {
+        console.log('SessionSync: Session lost in another tab');
+        clearAllSessionData();
+    } else if (e.key === 'tripmate_active_user_id' && !e.newValue) {
+        console.log('SessionSync: User logged out in another tab');
+        clearAllSessionData();
     }
 });
 
-// Add beforeunload handler to ensure session cleanup on tab close
-window.addEventListener('beforeunload', function() {
-    // Don't clear on refresh, only on actual navigation away
-    // This is handled by the server-side session timeout
-});
+// Periodic validation
+setInterval(() => {
+    if (document.body.classList.contains('user-logged-in')) {
+        validateSessionWithServer().then(isValid => {
+            if (!isValid) {
+                console.log('SessionSync: Periodic validation failed');
+                clearAllSessionData();
+            }
+        });
+    }
+}, 5 * 60 * 1000); // Every 5 minutes

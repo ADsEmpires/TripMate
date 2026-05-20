@@ -1,69 +1,41 @@
 <?php
-/**
- * User Dashboard
- * File: user/user_dashboard.php
- * 
- * CRITICAL: This file must check session FIRST before any output
- */
-
-// ============================================
-// MUST BE FIRST: Session initialization
-// ============================================
-require_once __DIR__ . '/session_init.php';
+// user/user_dashboard.php
+session_start();
 require_once __DIR__ . '/../database/dbconfig.php';
+require_once __DIR__ . '/../backand/image_helper.php';
 
-// ============================================
 // Get current user from session
-// ============================================
 $user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
-$userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : null;
+$userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : (isset($_SESSION['username']) ? $_SESSION['username'] : 'Guest');
+$base_url = '/test/tripmate';
+
+// Redirect if not logged in (commented out for now)
 /*
-// If no user_id, user is not logged in
 if (!$user_id) {
     header('Location: ../auth/login.html');
-    exit;
+    exit();
 }
 */
-// Dynamically detect base URL
-$protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
-$host = $_SERVER['HTTP_HOST'];
-$script_dir = dirname($_SERVER['SCRIPT_NAME']);
-$base_url = $protocol . "://" . $host . str_replace('/user', '', $script_dir);
 
-// ============================================
 // Get user details from database
-// ============================================
 $user_data = null;
 $profile_pic = '../image/default-avatar.png';
 
-$user_stmt = $conn->prepare("SELECT id, name, email, profile_pic FROM users WHERE id = ? LIMIT 1");
-if ($user_stmt) {
-    $user_stmt->bind_param("i", $user_id);
-    $user_stmt->execute();
-    $user_result = $user_stmt->get_result();
-    
-    if ($user_result->num_rows > 0) {
-        $user_data = $user_result->fetch_assoc();
-        $userName = $user_data['name'];
-        $_SESSION['user_name'] = $user_data['name'];
-        $_SESSION['user_email'] = $user_data['email'];
-        $_SESSION['user_pic'] = $user_data['profile_pic'];
-        
-        if (!empty($user_data['profile_pic'])) {
-            $profile_pic = $user_data['profile_pic'];
-        }
+$user_stmt = $conn->prepare("SELECT id, name, email, profile_pic, created_at FROM users WHERE id = ?");
+$user_stmt->bind_param("i", $user_id);
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user_data = $user_result->fetch_assoc();
+$user_stmt->close();
+
+if ($user_data) {
+    $userName = $user_data['name'];
+    $_SESSION['user_name'] = $user_data['name'];
+    if (!empty($user_data['profile_pic'])) {
+        $profile_pic = $user_data['profile_pic'];
     }
-    $user_stmt->close();
 }
 
-// If user not found in database, clear session
-if (!$user_data) {
-    session_destroy();
-    $_SESSION = [];
-    setcookie(session_name(), '', time() - 3600, '/');
-    header('Location: ../auth/login.html');
-    exit;
-}
 // Get user stats
 $stats = [
     'favorites' => 0,
@@ -637,15 +609,9 @@ $conn->close();
             font-size: 1rem;
         }
     </style>
-
-    <!-- Session Management Scripts -->
-    <script src="session-keepalive.js"></script>
-    <script src="session-sync.js"></script>
-    <script src="auto-logout.js"></script>
-
 </head>
 
-<body data-user-id="<?php echo htmlspecialchars($user_id ?? ''); ?>" class="<?php echo $user_id ? 'user-logged-in' : ''; ?>">
+<body>
     <!-- Scroll Progress Bar -->
     <div class="scroll-progress-bar" id="scrollBar"></div>
 
@@ -1041,7 +1007,7 @@ $conn->close();
         let mapMarkers = [];
         let allReviews = [];
         let allTrips = [];
-        const BASE_URL = '<?php echo $base_url; ?>';
+        const BASE_URL = '/test/tripmate';
 
         // ============== HELPER FUNCTIONS ==============
         function getDestinationImageUrl(filename, baseUrl = BASE_URL) {
@@ -1593,7 +1559,7 @@ $conn->close();
             try {
                 const response = await fetch(`check_destination.php?name=${encodeURIComponent(query)}`);
                 const data = await response.json();
-
+                
                 if (data.status === 'success' && data.destination_id) {
                     // Redirect directly to destination details page
                     window.location.href = `../user/destination_details.php?id=${data.destination_id}`;

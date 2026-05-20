@@ -1,12 +1,19 @@
 <?php
 // Start session at the very beginning
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
+
+// Check if logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: ../auth/login.html');
+    exit;
+}
 
 // Enable error reporting for debugging (remove in production)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once __DIR__ . '/../database/dbconfig.php';
+require_once __DIR__ . '/../database/app_config.php';
 
 // Get user ID and name from session if available
 $user_id = $_SESSION['user_id'] ?? null;
@@ -74,6 +81,15 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+    <!-- Session Management Meta Tags -->
+    <meta name="user-id" content="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
+    <meta name="user-name" content="<?php echo htmlspecialchars($_SESSION['user_name']); ?>">
+
+    <!-- Session Management Scripts -->
+    <script src="session-keepalive.js"></script>
+    <script src="session-sync.js"></script>
+    <script src="auto-logout.js"></script>
+
     <style>
         /* ========================================================
            TRIPMATE PREMIUM THEME - NAVY & TEAL
@@ -82,32 +98,46 @@ $conn->close();
         /* ----- CSS Variables for Light/Dark Theme ----- */
         :root {
             /* Light theme (default) */
-            --primary: #1A2E40;      /* Navy */
-            --secondary: #30BCED;     /* Teal */
-            --accent: #F59E0B;        /* Amber accent */
-            --danger: #EF4444;        /* Red for errors */
-            --success: #10B981;       /* Green for success */
-            --warning: #F59E0B;       /* Amber for warnings */
-            
+            --primary: #1A2E40;
+            /* Navy */
+            --secondary: #30BCED;
+            /* Teal */
+            --accent: #F59E0B;
+            /* Amber accent */
+            --danger: #EF4444;
+            /* Red for errors */
+            --success: #10B981;
+            /* Green for success */
+            --warning: #F59E0B;
+            /* Amber for warnings */
+
             /* Background & surfaces */
-            --bg-body: #F5F7FA;       /* Soft off-white background */
-            --bg-card: #FFFFFF;       /* White cards */
-            --bg-base: #F9FAFC;       /* Base background */
-            --bg-hover: #F0F3F8;      /* Hover state */
-            --bg-surface: rgba(255, 255, 255, 0.95); /* Glass effect */
-            
+            --bg-body: #F5F7FA;
+            /* Soft off-white background */
+            --bg-card: #FFFFFF;
+            /* White cards */
+            --bg-base: #F9FAFC;
+            /* Base background */
+            --bg-hover: #F0F3F8;
+            /* Hover state */
+            --bg-surface: rgba(255, 255, 255, 0.95);
+            /* Glass effect */
+
             /* Text colors */
-            --text-main: #1E2A3A;     /* Dark text */
-            --text-muted: #64748B;    /* Muted text */
-            --text-light: #94A3B8;    /* Light text */
-            
+            --text-main: #1E2A3A;
+            /* Dark text */
+            --text-muted: #64748B;
+            /* Muted text */
+            --text-light: #94A3B8;
+            /* Light text */
+
             /* Borders & shadows */
             --card-border: #E2E8F0;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03);
-            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
-            --shadow-hover: 0 20px 30px -10px rgba(0,0,0,0.15), 0 8px 15px -6px rgba(0,0,0,0.1);
-            
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-hover: 0 20px 30px -10px rgba(0, 0, 0, 0.15), 0 8px 15px -6px rgba(0, 0, 0, 0.1);
+
             /* Spacing */
             --space-xs: 0.25rem;
             --space-sm: 0.5rem;
@@ -115,25 +145,25 @@ $conn->close();
             --space-lg: 1.5rem;
             --space-xl: 2rem;
             --space-2xl: 3rem;
-            
+
             /* Border radius */
             --radius-sm: 8px;
             --radius-md: 12px;
             --radius-lg: 16px;
             --radius-xl: 24px;
             --radius-full: 9999px;
-            
+
             /* Transitions */
             --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
             --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-            
+
             /* Z-index layers */
             --z-nav: 100;
             --z-modal: 200;
             --z-toast: 300;
             --z-progress: 400;
-            
+
             /* Gradients */
             --gradient-primary: linear-gradient(135deg, var(--primary), #2C3E50);
             --gradient-accent: linear-gradient(135deg, var(--secondary), #4DC9FF);
@@ -142,27 +172,37 @@ $conn->close();
 
         /* Dark theme variables */
         .dark-mode {
-            --primary: #2C3E50;       /* Lighter navy for dark mode */
-            --secondary: #4DC9FF;     /* Brighter teal */
-            
+            --primary: #2C3E50;
+            /* Lighter navy for dark mode */
+            --secondary: #4DC9FF;
+            /* Brighter teal */
+
             /* Background & surfaces */
-            --bg-body: #0F172A;       /* Dark navy background */
-            --bg-card: #1E293B;       /* Dark blue-gray cards */
-            --bg-base: #0F172A;       /* Dark background */
-            --bg-hover: #2D3A4F;      /* Hover state */
-            --bg-surface: rgba(30, 41, 59, 0.95); /* Dark glass */
-            
+            --bg-body: #0F172A;
+            /* Dark navy background */
+            --bg-card: #1E293B;
+            /* Dark blue-gray cards */
+            --bg-base: #0F172A;
+            /* Dark background */
+            --bg-hover: #2D3A4F;
+            /* Hover state */
+            --bg-surface: rgba(30, 41, 59, 0.95);
+            /* Dark glass */
+
             /* Text colors */
-            --text-main: #F1F5F9;     /* Light text */
-            --text-muted: #94A3B8;    /* Muted text for dark mode */
-            --text-light: #64748B;    /* Even lighter muted */
-            
+            --text-main: #F1F5F9;
+            /* Light text */
+            --text-muted: #94A3B8;
+            /* Muted text for dark mode */
+            --text-light: #64748B;
+            /* Even lighter muted */
+
             /* Borders & shadows */
             --card-border: #334155;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.3);
-            --shadow-md: 0 4px 20px -2px rgba(0,0,0,0.5);
-            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.5);
-            --shadow-hover: 0 20px 30px -10px rgba(0,0,0,0.6);
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            --shadow-hover: 0 20px 30px -10px rgba(0, 0, 0, 0.6);
         }
 
         /* ===== Base Styles ===== */
@@ -179,7 +219,7 @@ $conn->close();
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-body);
-            background-image: 
+            background-image:
                 radial-gradient(circle at top right, rgba(48, 188, 237, 0.05), transparent 40%),
                 radial-gradient(circle at bottom left, rgba(26, 46, 64, 0.05), transparent 40%);
             color: var(--text-main);
@@ -190,7 +230,12 @@ $conn->close();
         }
 
         /* Headings with Poppins */
-        h1, h2, h3, h4, h5, h6 {
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
             font-family: 'Poppins', sans-serif;
             font-weight: 700;
             letter-spacing: -0.02em;
@@ -242,6 +287,7 @@ $conn->close();
                 opacity: 0;
                 transform: translateY(-30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -410,6 +456,7 @@ $conn->close();
                 opacity: 0;
                 transform: translateY(-10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -436,7 +483,7 @@ $conn->close();
         .premium-badge {
             display: inline-block;
             margin-top: var(--space-xs);
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             padding: 2px 8px;
             border-radius: var(--radius-full);
             font-size: 0.7rem;
@@ -501,6 +548,7 @@ $conn->close();
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -554,8 +602,13 @@ $conn->close();
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .glass-card:hover {
@@ -725,7 +778,7 @@ $conn->close();
             left: 50%;
             width: 0;
             height: 0;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             transform: translate(-50%, -50%);
             transition: width 0.6s, height 0.6s;
@@ -767,6 +820,7 @@ $conn->close();
                 opacity: 0;
                 transform: translateX(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -780,13 +834,18 @@ $conn->close();
             right: -50%;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
             animation: rotate 20s linear infinite;
         }
 
         @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .summary-card h3,
@@ -800,7 +859,7 @@ $conn->close();
             font-size: 2.5rem;
             font-weight: 800;
             color: white;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
 
         /* ===== Selected Items ===== */
@@ -810,7 +869,7 @@ $conn->close();
             border-radius: var(--radius-lg);
             padding: var(--space-xl);
             margin-top: var(--space-xl);
-            border: 1px solid rgba(255,255,255,0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .selected-item {
@@ -818,7 +877,7 @@ $conn->close();
             justify-content: space-between;
             align-items: center;
             padding: var(--space-md) 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .selected-item:last-child {
@@ -912,6 +971,7 @@ $conn->close();
                 opacity: 0;
                 transform: scale(0.95);
             }
+
             to {
                 opacity: 1;
                 transform: scale(1);
@@ -1098,7 +1158,7 @@ $conn->close();
             left: 50%;
             width: 0;
             height: 0;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             transform: translate(-50%, -50%);
             transition: width 0.6s, height 0.6s;
@@ -1173,8 +1233,13 @@ $conn->close();
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* ===== Toast Notifications ===== */
@@ -1310,67 +1375,215 @@ $conn->close();
             justify-content: flex-end;
         }
 
-        .gap-1 { gap: var(--space-xs); }
-        .gap-2 { gap: var(--space-sm); }
-        .gap-3 { gap: var(--space-md); }
-        .gap-4 { gap: var(--space-lg); }
-        .gap-6 { gap: var(--space-xl); }
+        .gap-1 {
+            gap: var(--space-xs);
+        }
 
-        .mt-1 { margin-top: var(--space-xs); }
-        .mt-2 { margin-top: var(--space-sm); }
-        .mt-3 { margin-top: var(--space-md); }
-        .mt-4 { margin-top: var(--space-lg); }
-        .mt-6 { margin-top: var(--space-xl); }
-        .mt-8 { margin-top: var(--space-2xl); }
+        .gap-2 {
+            gap: var(--space-sm);
+        }
 
-        .mb-1 { margin-bottom: var(--space-xs); }
-        .mb-2 { margin-bottom: var(--space-sm); }
-        .mb-3 { margin-bottom: var(--space-md); }
-        .mb-4 { margin-bottom: var(--space-lg); }
-        .mb-6 { margin-bottom: var(--space-xl); }
-        .mb-8 { margin-bottom: var(--space-2xl); }
+        .gap-3 {
+            gap: var(--space-md);
+        }
 
-        .ml-1 { margin-left: var(--space-xs); }
-        .ml-2 { margin-left: var(--space-sm); }
-        .mr-1 { margin-right: var(--space-xs); }
-        .mr-2 { margin-right: var(--space-sm); }
+        .gap-4 {
+            gap: var(--space-lg);
+        }
 
-        .p-3 { padding: var(--space-md); }
-        .p-4 { padding: var(--space-lg); }
-        .p-5 { padding: var(--space-xl); }
+        .gap-6 {
+            gap: var(--space-xl);
+        }
 
-        .text-xs { font-size: 0.75rem; }
-        .text-sm { font-size: 0.875rem; }
-        .text-base { font-size: 1rem; }
-        .text-lg { font-size: 1.125rem; }
-        .text-xl { font-size: 1.25rem; }
-        .text-2xl { font-size: 1.5rem; }
-        .text-3xl { font-size: 1.875rem; }
-        .text-4xl { font-size: 2.25rem; }
-        .text-5xl { font-size: 3rem; }
+        .mt-1 {
+            margin-top: var(--space-xs);
+        }
 
-        .font-normal { font-weight: 400; }
-        .font-medium { font-weight: 500; }
-        .font-semibold { font-weight: 600; }
-        .font-bold { font-weight: 700; }
-        .font-extrabold { font-weight: 800; }
+        .mt-2 {
+            margin-top: var(--space-sm);
+        }
 
-        .text-white { color: white; }
-        .text-white\/80 { color: rgba(255, 255, 255, 0.8); }
+        .mt-3 {
+            margin-top: var(--space-md);
+        }
 
-        .w-full { width: 100%; }
-        .max-w-2xl { max-width: 42rem; }
-        .mx-auto { margin-left: auto; margin-right: auto; }
+        .mt-4 {
+            margin-top: var(--space-lg);
+        }
 
-        .relative { position: relative; }
-        .absolute { position: absolute; }
-        .inset-y-0 { top: 0; bottom: 0; }
-        .right-0 { right: 0; }
-        .left-4 { left: 1rem; }
-        .top-1\/2 { top: 50%; }
-        .-translate-y-1\/2 { transform: translateY(-50%); }
-        .pr-3 { padding-right: 0.75rem; }
-        .pointer-events-none { pointer-events: none; }
+        .mt-6 {
+            margin-top: var(--space-xl);
+        }
+
+        .mt-8 {
+            margin-top: var(--space-2xl);
+        }
+
+        .mb-1 {
+            margin-bottom: var(--space-xs);
+        }
+
+        .mb-2 {
+            margin-bottom: var(--space-sm);
+        }
+
+        .mb-3 {
+            margin-bottom: var(--space-md);
+        }
+
+        .mb-4 {
+            margin-bottom: var(--space-lg);
+        }
+
+        .mb-6 {
+            margin-bottom: var(--space-xl);
+        }
+
+        .mb-8 {
+            margin-bottom: var(--space-2xl);
+        }
+
+        .ml-1 {
+            margin-left: var(--space-xs);
+        }
+
+        .ml-2 {
+            margin-left: var(--space-sm);
+        }
+
+        .mr-1 {
+            margin-right: var(--space-xs);
+        }
+
+        .mr-2 {
+            margin-right: var(--space-sm);
+        }
+
+        .p-3 {
+            padding: var(--space-md);
+        }
+
+        .p-4 {
+            padding: var(--space-lg);
+        }
+
+        .p-5 {
+            padding: var(--space-xl);
+        }
+
+        .text-xs {
+            font-size: 0.75rem;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+
+        .text-base {
+            font-size: 1rem;
+        }
+
+        .text-lg {
+            font-size: 1.125rem;
+        }
+
+        .text-xl {
+            font-size: 1.25rem;
+        }
+
+        .text-2xl {
+            font-size: 1.5rem;
+        }
+
+        .text-3xl {
+            font-size: 1.875rem;
+        }
+
+        .text-4xl {
+            font-size: 2.25rem;
+        }
+
+        .text-5xl {
+            font-size: 3rem;
+        }
+
+        .font-normal {
+            font-weight: 400;
+        }
+
+        .font-medium {
+            font-weight: 500;
+        }
+
+        .font-semibold {
+            font-weight: 600;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .font-extrabold {
+            font-weight: 800;
+        }
+
+        .text-white {
+            color: white;
+        }
+
+        .text-white\/80 {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .w-full {
+            width: 100%;
+        }
+
+        .max-w-2xl {
+            max-width: 42rem;
+        }
+
+        .mx-auto {
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .relative {
+            position: relative;
+        }
+
+        .absolute {
+            position: absolute;
+        }
+
+        .inset-y-0 {
+            top: 0;
+            bottom: 0;
+        }
+
+        .right-0 {
+            right: 0;
+        }
+
+        .left-4 {
+            left: 1rem;
+        }
+
+        .top-1\/2 {
+            top: 50%;
+        }
+
+        .-translate-y-1\/2 {
+            transform: translateY(-50%);
+        }
+
+        .pr-3 {
+            padding-right: 0.75rem;
+        }
+
+        .pointer-events-none {
+            pointer-events: none;
+        }
 
         .line-clamp-2 {
             display: -webkit-box;
@@ -1539,7 +1752,7 @@ $conn->close();
     </style>
 </head>
 
-<body>
+<body class="user-logged-in" data-user-id="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
 
     <div class="scroll-progress-bar" id="scrollBar"></div>
 
@@ -1609,6 +1822,7 @@ $conn->close();
         <!-- Main Form Card -->
         <div class="glass-card">
             <form id="tripPlannerForm" onsubmit="event.preventDefault(); planTrip();">
+                <?php echo getCSRFTokenField(); ?>
                 <!-- Destination Selection -->
                 <div class="mb-6">
                     <label class="form-label">
@@ -2065,8 +2279,7 @@ $conn->close();
             // Simulate API call with sample data
             setTimeout(() => {
                 // Sample hotels data
-                const sampleHotels = [
-                    {
+                const sampleHotels = [{
                         id: 1,
                         hotel_name: 'Grand Luxury Hotel',
                         hotel_type: 'high',
@@ -2108,8 +2321,7 @@ $conn->close();
                 ];
 
                 // Sample flights data
-                const sampleFlights = [
-                    {
+                const sampleFlights = [{
                         id: 1,
                         airline: 'Emirates',
                         flight_type: 'high',

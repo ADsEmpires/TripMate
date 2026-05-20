@@ -1,6 +1,6 @@
 <?php
 // user/get_blog_posts.php
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
 require_once __DIR__ . '/../database/dbconfig.php';
 
 header('Content-Type: application/json');
@@ -46,16 +46,16 @@ while ($row = $result->fetch_assoc()) {
         $row['images'] = json_decode($row['images'], true);
         $row['featured_image'] = is_array($row['images']) && !empty($row['images']) ? $row['images'][0] : null;
     }
-    
+
     // Parse tags
     if ($row['tags']) {
         $row['tags'] = json_decode($row['tags'], true);
     }
-    
+
     // Format date
     $row['date_formatted'] = date('M d, Y', strtotime($row['created_at']));
     $row['time_ago'] = timeAgo(strtotime($row['created_at']));
-    
+
     $posts[] = $row;
 }
 
@@ -71,9 +71,10 @@ $total = $count_result->fetch_assoc()['total'];
 
 $conn->close();
 
-function timeAgo($timestamp) {
+function timeAgo($timestamp)
+{
     $diff = time() - $timestamp;
-    
+
     if ($diff < 60) {
         return $diff . ' seconds ago';
     } elseif ($diff < 3600) {
@@ -90,4 +91,3 @@ function timeAgo($timestamp) {
 }
 
 echo json_encode(['status' => 'success', 'posts' => $posts, 'total' => $total]);
-?>

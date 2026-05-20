@@ -1,6 +1,6 @@
 <?php
 // user/get_user_reviews.php
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
 require_once __DIR__ . '/../database/dbconfig.php';
 
 header('Content-Type: application/json');
@@ -43,12 +43,12 @@ while ($row = $result->fetch_assoc()) {
         $row['destination_images'] = json_decode($row['destination_images'], true);
         $row['destination_image'] = is_array($row['destination_images']) && !empty($row['destination_images']) ? $row['destination_images'][0] : null;
     }
-    
+
     // Calculate time ago
     $created = new DateTime($row['created_at']);
     $now = new DateTime();
     $diff = $now->diff($created);
-    
+
     if ($diff->days > 365) {
         $time_ago = floor($diff->days / 365) . ' year' . (floor($diff->days / 365) > 1 ? 's' : '') . ' ago';
     } elseif ($diff->days > 30) {
@@ -60,7 +60,7 @@ while ($row = $result->fetch_assoc()) {
     } else {
         $time_ago = $diff->i . ' minute' . ($diff->i > 1 ? 's' : '') . ' ago';
     }
-    
+
     $row['time_ago'] = $time_ago;
     $reviews[] = $row;
 }
@@ -78,4 +78,3 @@ $count_stmt->close();
 $conn->close();
 
 echo json_encode(['status' => 'success', 'reviews' => $reviews, 'total' => $total]);
-?>

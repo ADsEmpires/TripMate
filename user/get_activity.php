@@ -1,6 +1,6 @@
 <?php
 // user/get_activity.php
-session_start();
+require_once __DIR__ . '/session_init.php'; // Initialize session management
 require_once __DIR__ . '/../database/dbconfig.php';
 
 header('Content-Type: application/json');
@@ -66,7 +66,7 @@ $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
     $icon = 'fa-circle';
     $activity_text = '';
-    
+
     switch ($row['type_display']) {
         case 'search':
             $icon = 'fa-search';
@@ -88,7 +88,7 @@ while ($row = $result->fetch_assoc()) {
             $icon = 'fa-info-circle';
             $activity_text = htmlspecialchars($row['activity_details'] ?? 'Activity recorded');
     }
-    
+
     $activities[] = [
         'icon' => $icon,
         'text' => $activity_text,
@@ -101,4 +101,3 @@ $stmt->close();
 $conn->close();
 
 echo json_encode(['status' => 'success', 'activities' => $activities]);
-?>
