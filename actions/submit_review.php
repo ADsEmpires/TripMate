@@ -119,7 +119,3 @@ function awardReviewTokens($conn, $user_id) {
     $stmt->execute();
     $stmt->close();
 }
-
-function updateUserReputation($conn, $user_id) {
-    $stmt = $conn->prepare("
-        UPDATE user_reputation
