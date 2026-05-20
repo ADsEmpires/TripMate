@@ -1,39 +1,447 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Price Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Tracker & Alerts - TripMate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="price_tracker.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo">
+                <i class="fas fa-compass"></i>
+                <span>TripMate</span>
+            </div>
+            <div class="user-profile">
+                <span id="username">User</span>
+                <img id="userAvatar" src="default-avatar.png" alt="User Avatar" class="avatar">
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <button class="minimize-btn" onclick="toggleSidebar()">☰</button>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> <span>Dashboard</span></a></li>
+                    <li><a href="../search/search.html"><i class="fas fa-search"></i> <span>Search</span></a></li>
+                    <li><a href="price_tracker.html" class="active"><i class="fas fa-tag"></i> <span>Price Tracker</span></a></li>
+                    <li><a href="itinerary.html"><i class="fas fa-calendar"></i> <span>Itineraries</span></a></li>
+                    <li><a href="reviews.html"><i class="fas fa-star"></i> <span>Reviews</span></a></li>
+                    <li><a href="rewards.html"><i class="fas fa-gift"></i> <span>Rewards</span></a></li>
+                    <li><a href="profile.html"><i class="fas fa-user"></i> <span>Profile</span></a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>💰 Price Tracker & Alerts</h1>
+                <p>Monitor flight and hotel prices in real-time</p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <h3>Active Alerts</h3>
+                    <p class="stat-number" id="activeAlerts">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📉</div>
+                    <h3>Prices Down</h3>
+                    <p class="stat-number" id="pricesDown">0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💾</div>
+                    <h3>Potential Savings</h3>
+                    <p class="stat-number" id="totalSavings">$0</p>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏰</div>
+                    <h3>Best Time to Book</h3>
+                    <p class="stat-number" id="bestTime">--</p>
+                </div>
+            </div>
+
+            <!-- Price Alert Form -->
+            <div class="card alert-section">
+                <h2>🎯 Create Price Alert</h2>
+                <form id="priceAlertForm" class="alert-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="destination-tracker">🗺️ Select Destination</label>
+                            <select id="destination-tracker" required>
+                                <option value="">-- Choose a destination --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="alertType">🔔 Alert Type</label>
+                            <select id="alertType" required>
+                                <option value="flights">Flights</option>
+                                <option value="hotels">Hotels</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="maxPrice">💵 Max Price (₹)</label>
+                            <input type="number" id="maxPrice" placeholder="e.g. 25000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="alertFrequency">📬 Alert Frequency</label>
+                            <select id="alertFrequency" required>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="biweekly">Bi-weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="travelDateFrom">📅 Travel From</label>
+                            <input type="date" id="travelDateFrom" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="travelDateTo">📅 Travel To</label>
+                            <input type="date" id="travelDateTo" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-bell"></i> Set Price Alert
+                    </button>
+                </form>
+            </div>
+
+            <!-- Active Alerts Section -->
+            <div class="card alerts-section">
+                <h2>📋 Active Alerts</h2>
+                <div class="alerts-list" id="alertsList">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No active price alerts. Create one above to get started!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Deals Section -->
+            <div class="card deals-section">
+                <h2>🎉 Special Deals</h2>
+                <div class="price-deals-grid" id="dealsGrid">
+                    <div class="empty-state">
+                        <i class="fas fa-gift"></i>
+                        <p>Loading amazing deals for you...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Trends Section -->
+            <div class="card price-trends-section">
+                <h2>📈 Price Trends</h2>
+                <div class="chart-container" id="trendChart">
+                    <p style="text-align: center; color: #999;">Select a destination to view price trends</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        async function fetchDestinations() {
+        // Load destinations on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDestinations();
+            setupFormHandler();
+            loadPriceStats();
+        });
+
+        // Fetch and populate destinations
+        async function loadDestinations() {
             try {
-                let response = await fetch('actions/get_destinations.php');
+                const response = await fetch('../actions/get_destinations.php');
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    throw new Error('Failed to fetch destinations');
                 }
-                let destinations = await response.json();
-                populateDropdown(destinations);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    populateDestinationDropdown(data.destinations);
+                } else {
+                    console.error('Error:', data.message);
+                }
             } catch (error) {
                 console.error('Fetch error:', error);
             }
         }
 
-        function populateDropdown(destinations) {
-            const dropdown = document.getElementById('destinationDropdown');
+        // Populate destination dropdown
+        function populateDestinationDropdown(destinations) {
+            const select = document.getElementById('destination-tracker');
+            select.innerHTML = '<option value="">-- Choose a destination --</option>';
+            
             destinations.forEach(destination => {
-                let option = document.createElement('option');
-                option.value = destination.id; // Assuming destination has an 'id' field
-                option.textContent = destination.name; // Assuming destination has a 'name' field
-                dropdown.appendChild(option);
+                const option = document.createElement('option');
+                option.value = destination.id;
+                option.textContent = `${destination.name} (₹${destination.budget}/person)`;
+                option.dataset.destination = JSON.stringify(destination);
+                select.appendChild(option);
             });
         }
 
-        document.addEventListener('DOMContentLoaded', fetchDestinations);
+        // Setup form handler
+        function setupFormHandler() {
+            const form = document.getElementById('priceAlertForm');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await createPriceAlert();
+            });
+
+            // Update min/max dates
+            document.getElementById('travelDateFrom').addEventListener('change', function() {
+                document.getElementById('travelDateTo').min = this.value;
+            });
+        }
+
+        // Create price alert
+        async function createPriceAlert() {
+            const destination = document.getElementById('destination-tracker').value;
+            const alertType = document.getElementById('alertType').value;
+            const maxPrice = document.getElementById('maxPrice').value;
+            const alertFrequency = document.getElementById('alertFrequency').value;
+            const travelDateFrom = document.getElementById('travelDateFrom').value;
+            const travelDateTo = document.getElementById('travelDateTo').value;
+
+            if (!destination || !maxPrice || !travelDateFrom || !travelDateTo) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('../actions/track_prices.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        destination_id: destination,
+                        alert_type: alertType,
+                        max_price: maxPrice,
+                        alert_frequency: alertFrequency,
+                        travel_dates_from: travelDateFrom,
+                        travel_dates_to: travelDateTo
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create alert');
+                }
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('Price alert created successfully!');
+                    document.getElementById('priceAlertForm').reset();
+                    // Wait a moment for backend to process, then reload
+                    setTimeout(() => {
+                        loadPriceStats();
+                    }, 500);
+                } else {
+                    showError(data.message || 'Failed to create alert');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error creating price alert');
+            }
+        }
+
+        // Load price statistics
+        async function loadPriceStats() {
+            try {
+                console.log('Loading price stats...');
+                const response = await fetch('../actions/get_prices.php');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch price stats: ${response.status} ${response.statusText}`);
+                }
+                const data = await response.json();
+                console.log('Price stats response:', data);
+                
+                // Handle both data.data and data response formats
+                const statsData = data.data || data;
+                if (data.status === 'success' || (statsData && typeof statsData === 'object')) {
+                    updatePriceStats(statsData);
+                } else {
+                    console.warn('Unexpected data format:', data);
+                    updatePriceStats({}); // Update with empty object to show defaults
+                }
+            } catch (error) {
+                console.error('Error loading price stats:', error);
+                showError('Failed to load price statistics. Please check the console.');
+            }
+        }
+
+        // Update price statistics
+        function updatePriceStats(data) {
+            // Validate data
+            if (!data || typeof data !== 'object') {
+                console.warn('Invalid data format for updatePriceStats:', data);
+                return;
+            }
+
+            // Log the data for debugging
+            console.log('Updating price stats with data:', data);
+
+            // Update stat cards with fallback values
+            const activeAlertsEl = document.getElementById('activeAlerts');
+            if (activeAlertsEl) {
+                activeAlertsEl.textContent = data.active_alerts !== undefined ? data.active_alerts : 0;
+            }
+
+            const pricesDownEl = document.getElementById('pricesDown');
+            if (pricesDownEl) {
+                pricesDownEl.textContent = data.prices_down !== undefined ? data.prices_down : 0;
+            }
+
+            const totalSavingsEl = document.getElementById('totalSavings');
+            if (totalSavingsEl) {
+                const savings = data.potential_savings || 0;
+                totalSavingsEl.textContent = `₹${parseFloat(savings).toLocaleString()}`;
+            }
+
+            const bestTimeEl = document.getElementById('bestTime');
+            if (bestTimeEl) {
+                bestTimeEl.textContent = data.best_time || '--';
+            }
+
+            // Update alerts list
+            const alertsList = document.getElementById('alertsList');
+            if (data.alerts && data.alerts.length > 0) {
+                alertsList.innerHTML = data.alerts.map(alert => `
+                    <div class="alert-item">
+                        <div class="alert-item-content">
+                            <h3>${alert.destination_name}</h3>
+                            <div class="alert-item-details">
+                                <div class="alert-item-detail">
+                                    <i class="fas fa-tag"></i>
+                                    <span>Max: ₹${alert.max_price}</span>
+                                </div>
+                                <div class="alert-item-detail">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>${alert.travel_dates_from} to ${alert.travel_dates_to}</span>
+                                </div>
+                                <div class="alert-item-detail">
+                                    <i class="fas fa-bell"></i>
+                                    <span>${capitalizeFirstLetter(alert.alert_frequency)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert-item-actions">
+                            <button class="btn-secondary" onclick="editAlert(${alert.id})">Edit</button>
+                            <button class="btn-danger" onclick="deleteAlert(${alert.id})">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                alertsList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No active price alerts. Create one above to get started!</p>
+                    </div>
+                `;
+            }
+
+            // Update deals
+            const dealsGrid = document.getElementById('dealsGrid');
+            if (data.deals && data.deals.length > 0) {
+                dealsGrid.innerHTML = data.deals.map(deal => `
+    <div class="deal-card">
+        <div class="deal-header">
+            <h3>${deal.destination_name}</h3>
+            <span class="deal-badge">-${deal.discount}%</span>
+        </div>
+        <div class="deal-details">
+            <p><strong>Price:</strong> ₹${deal.price.toLocaleString()}</p>
+            <p><strong>Original:</strong> <strike>₹${deal.original_price.toLocaleString()}</strike></p>
+            <p><strong>Savings:</strong> ₹${(deal.original_price - deal.price).toLocaleString()}</p>
+        </div>
+        <button class="deal-button">Book Now</button>
+    </div>
+`).join('');
+            }
+        }
+
+        // Utility functions
+        function capitalizeFirstLetter(string) {
+            if (!string) return '';
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+
+        function showError(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification error';
+            notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
+
+        function showSuccess(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification success';
+            notification.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
+
+        function editAlert(alertId) {
+            console.log('Editing alert:', alertId);
+            showSuccess('Edit functionality coming soon!');
+        }
+
+        async function deleteAlert(alertId) {
+            if (confirm('Are you sure you want to delete this alert?')) {
+                try {
+                    const response = await fetch('../actions/track_prices.php', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            alert_id: alertId
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to delete alert');
+                    }
+
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        showSuccess('Alert deleted successfully!');
+                        loadPriceStats();
+                    } else {
+                        showError(data.message || 'Failed to delete alert');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error deleting alert');
+                }
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('minimized');
+        }
     </script>
-</head>
-<body>
-    <h1>Price Tracker</h1>
-    <label for="destinationDropdown">Select a Destination:</label>
-    <select id="destinationDropdown">
-        <option value="">-- Please select --</option>
-    </select>
 </body>
 </html>

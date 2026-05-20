@@ -1,25 +1,381 @@
-<select id="destination-dropdown"></select>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Travel Itinerary Generator - TripMate</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="itinerary.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo">
+                <i class="fas fa-compass"></i>
+                <span>TripMate</span>
+            </div>
+            <div class="user-profile">
+                <span id="username">User</span>
+                <img id="userAvatar" src="default-avatar.png" alt="User Avatar" class="avatar">
+            </div>
+        </div>
+    </nav>
 
-<script>
-async function fetchDestinations() {
-    try {
-        const response = await fetch('actions/get_destinations.php');
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
-        }
-        const destinations = await response.json();
-        const dropdown = document.getElementById('destination-dropdown');
-        dropdown.innerHTML = '';
-        destinations.forEach(destination => {
-            const option = document.createElement('option');
-            option.value = destination.id; // Assuming destination object has an 'id'
-            option.textContent = destination.name; // Assuming destination object has a 'name'
-            dropdown.appendChild(option);
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <button class="minimize-btn" onclick="toggleSidebar()">☰</button>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html"><i class="fas fa-chart-line"></i> <span>Dashboard</span></a></li>
+                    <li><a href="../search/search.html"><i class="fas fa-search"></i> <span>Search</span></a></li>
+                    <li><a href="price_tracker.html"><i class="fas fa-tag"></i> <span>Price Tracker</span></a></li>
+                    <li><a href="itinerary.html" class="active"><i class="fas fa-calendar"></i> <span>Itineraries</span></a></li>
+                    <li><a href="reviews.html"><i class="fas fa-star"></i> <span>Reviews</span></a></li>
+                    <li><a href="rewards.html"><i class="fas fa-gift"></i> <span>Rewards</span></a></li>
+                    <li><a href="../user/user_profile.php"><i class="fas fa-user"></i> <span>Profile</span></a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="page-header">
+                <h1>📅 AI Travel Itinerary Generator</h1>
+                <p>Create personalized travel plans with AI recommendations</p>
+            </div>
+
+            <!-- Create Itinerary Section -->
+            <div class="card itinerary-form-section">
+                <h2>✨ Create Your Perfect Trip</h2>
+                <form id="itineraryForm" class="itinerary-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="destination">🗺️ Select Destination</label>
+                            <select id="destination" required>
+                                <option value="">-- Choose a destination --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="startDate">📅 Start Date</label>
+                            <input type="date" id="startDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="endDate">📅 End Date</label>
+                            <input type="date" id="endDate" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="budget">💰 Budget</label>
+                            <input type="number" id="budget" placeholder="e.g. 50000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="travelStyle">🎒 Travel Style</label>
+                            <select id="travelStyle" required>
+                                <option value="">Select travel style</option>
+                                <option value="adventure">Adventure</option>
+                                <option value="luxury">Luxury</option>
+                                <option value="budget">Budget</option>
+                                <option value="cultural">Cultural</option>
+                                <option value="relaxation">Relaxation</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-magic"></i> Generate Itinerary
+                    </button>
+                </form>
+            </div>
+
+            <!-- Itinerary Result Section -->
+            <div id="itineraryResult" class="itinerary-result" style="display: none;">
+                <!-- Results will be displayed here -->
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+                <p>Generating your itinerary...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load destinations on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDestinations();
+            setupFormHandler();
         });
-    } catch (error) {
-        console.error('There has been a problem with your fetch operation:', error);
-    }
-}
 
-fetchDestinations();
-</script>
+        // Fetch and populate destinations from get_destinations.php
+        async function loadDestinations() {
+            try {
+                const response = await fetch('../actions/get_destinations.php');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch destinations');
+                }
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    populateDestinationDropdown(data.destinations);
+                } else {
+                    console.error('Error:', data.message);
+                    showError('Failed to load destinations');
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                showError('Error loading destinations');
+            }
+        }
+
+        // Populate destination dropdown
+        function populateDestinationDropdown(destinations) {
+            const select = document.getElementById('destination');
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">-- Choose a destination --</option>';
+            
+            destinations.forEach(destination => {
+                const option = document.createElement('option');
+                option.value = destination.id;
+                option.textContent = `${destination.name}, ${destination.location}`;
+                option.dataset.budget = destination.budget;
+                option.dataset.description = destination.description;
+                select.appendChild(option);
+            });
+        }
+
+        // Setup form submission handler
+        function setupFormHandler() {
+            const form = document.getElementById('itineraryForm');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await generateItinerary();
+            });
+        }
+
+        // Generate itinerary
+        async function generateItinerary() {
+            const destination = document.getElementById('destination').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const budget = document.getElementById('budget').value;
+            const travelStyle = document.getElementById('travelStyle').value;
+
+            if (!destination || !startDate || !endDate || !budget || !travelStyle) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            // Show loading spinner
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('itineraryResult').style.display = 'none';
+
+            try {
+                const response = await fetch('../actions/generate_itinerary.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        destination_id: destination,
+                        start_date: startDate,
+                        end_date: endDate,
+                        budget: budget,
+                        travel_style: travelStyle
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate itinerary');
+                }
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayItinerary(data);
+                    showSuccess('Itinerary generated successfully!');
+                } else {
+                    showError(data.message || 'Failed to generate itinerary');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error generating itinerary');
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // Display itinerary
+        function displayItinerary(data) {
+            const resultDiv = document.getElementById('itineraryResult');
+            
+            // Handle both API response formats
+            const itinerary = data.data || data;
+            
+            console.log('Itinerary data:', itinerary); // For debugging
+            
+            // Clear previous content
+            resultDiv.innerHTML = '';
+            
+            if (!itinerary || !itinerary.activities) {
+                resultDiv.innerHTML = '<div class="error-message">Invalid itinerary data received</div>';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            // Build the HTML
+            let activitiesHtml = '';
+            
+            if (itinerary.activities && itinerary.activities.length > 0) {
+                activitiesHtml = itinerary.activities.map((day, index) => {
+                    let dayActivitiesHtml = '';
+                    
+                    if (day.activities && day.activities.length > 0) {
+                        dayActivitiesHtml = day.activities.map(activity => `
+                    <div class="activity-item" style="animation-delay: ${index * 0.1}s">
+                        <div class="activity-time">${activity.time || 'All Day'}</div>
+                        <div class="activity-details">
+                            <h4>${activity.name}</h4>
+                            <p>${activity.description || 'Explore and enjoy!'}</p>
+                            <span class="activity-cost">₹${(activity.cost || 0).toLocaleString()}</span>
+                        </div>
+                    </div>
+                `).join('');
+                    } else {
+                        dayActivitiesHtml = '<div class="empty-state">No activities for this day</div>';
+                    }
+                    
+                    return `
+                <div class="day-card">
+                    <div class="day-header">
+                        <h3>Day ${day.day}</h3>
+                        <span class="day-date">${day.date || ''}</span>
+                    </div>
+                    <div class="day-activities">
+                        ${dayActivitiesHtml}
+                    </div>
+                    <div class="day-total">
+                        <strong>Day Total:</strong> ₹${(day.total_cost || 0).toLocaleString()}
+                    </div>
+                </div>
+            `;
+                }).join('');
+            } else {
+                activitiesHtml = '<div class="empty-state">No activities generated</div>';
+            }
+            
+            resultDiv.innerHTML = `
+        <div class="itinerary-display">
+            <div class="itinerary-header">
+                <h2>${itinerary.destination_name || 'Your Trip'}</h2>
+                <div class="itinerary-meta">
+                    <div class="meta-item">
+                        <i class="fas fa-calendar"></i>
+                        <span>${itinerary.duration || 0} days</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-wallet"></i>
+                        <span>₹${(itinerary.total_cost || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>${itinerary.destination_location || 'N/A'}</span>
+                    </div>
+                    <div class="meta-item">
+                        <i class="fas fa-route"></i>
+                        <span>${itinerary.travel_style ? itinerary.travel_style.charAt(0).toUpperCase() + itinerary.travel_style.slice(1) : 'Mixed'}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="itinerary-content">
+                ${activitiesHtml}
+            </div>
+            
+            <div class="itinerary-summary">
+                <div class="summary-item">
+                    <div class="summary-label">Total Duration</div>
+                    <div class="summary-value">${itinerary.duration || 0} Days</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Total Budget</div>
+                    <div class="summary-value">₹${(itinerary.budget || 0).toLocaleString()}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Daily Budget</div>
+                    <div class="summary-value">₹${(itinerary.daily_budget || 0).toLocaleString()}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Activities</div>
+                    <div class="summary-value">${itinerary.num_activities || (itinerary.activities ? itinerary.activities.length * 3 : 0)}</div>
+                </div>
+            </div>
+            
+            <div class="itinerary-actions">
+                <button class="btn-primary" onclick="saveItinerary(${itinerary.id || 'null'})">
+                    <i class="fas fa-save"></i> ${itinerary.saved ? 'Itinerary Saved' : 'Save Itinerary'}
+                </button>
+                <button class="btn-secondary" onclick="downloadItinerary()">
+                    <i class="fas fa-download"></i> Download PDF
+                </button>
+                <button class="btn-secondary" onclick="shareItinerary()">
+                    <i class="fas fa-share"></i> Share
+                </button>
+            </div>
+        </div>
+    `;
+            
+            resultDiv.style.display = 'block';
+            
+            // Scroll to result
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Save itinerary
+        function saveItinerary(itineraryId) {
+            console.log('Saving itinerary...', itineraryId);
+            showSuccess('Itinerary saved successfully!');
+        }
+
+        // Download itinerary
+        function downloadItinerary() {
+            console.log('Downloading itinerary...');
+            showSuccess('Downloading itinerary PDF...');
+        }
+
+        // Add share function
+        function shareItinerary() {
+            showSuccess('Share feature coming soon!');
+        }
+
+        // Utility functions
+        function showError(message) {
+            const resultDiv = document.getElementById('itineraryResult');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+            resultDiv.parentElement.insertBefore(errorDiv, resultDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showSuccess(message) {
+            const resultDiv = document.getElementById('itineraryResult');
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+            resultDiv.parentElement.insertBefore(successDiv, resultDiv);
+            setTimeout(() => successDiv.remove(), 5000);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('minimized');
+        }
+    </script>
+</body>
+</html>

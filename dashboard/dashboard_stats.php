@@ -1,6 +1,6 @@
 <?php
-session_start();
-include 'dbconfig.php';
+require_once __DIR__ . '/../user/session_init.php';
+require_once __DIR__ . '/../database/dbconfig.php';
 
 header('Content-Type: application/json');
 
@@ -42,4 +42,3 @@ echo json_encode([
 ]);
 
 $conn->close();
-?>
