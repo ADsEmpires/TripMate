@@ -1,15 +1,4 @@
 <?php
-/**
- * ADMIN SESSION CHECK & AUTO-LOGOUT
- * 
- * This file handles:
- * 1. Session authentication check
- * 2. Session timeout/inactivity logout
- * 3. Redirect to login if not authenticated
- * 
- * Include this file at the TOP of every admin page
- * Usage: include 'admin_session_check.php';
- */
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {

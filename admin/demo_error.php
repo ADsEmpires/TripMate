@@ -1,5 +1,5 @@
 <?php include 'admin_header.php'; ?>
-<?php if (!isset($_SESSION['admin_logged_in'])) { header('Location: login.php'); exit(); } ?>
+<?php if (!isset($_SESSION['admin_logged_in'])) { header('Location: admin_login.php'); exit(); } ?>
 <style>
         :root {
             --primary: #2563eb;

@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
+    header('Location: admin_login.php');
     exit();
 }
 if (isset($_POST['theme']) && in_array($_POST['theme'], ['light', 'dark'])) {

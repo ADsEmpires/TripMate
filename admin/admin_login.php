@@ -26,6 +26,37 @@ function generateOTP() {
     return rand(100000, 999999);
 }
 
+function looksLikeMd5($hash) {
+    return is_string($hash) && preg_match('/^[a-f0-9]{32}$/i', $hash);
+}
+
+/**
+ * Verify admin password supporting legacy MD5 rows.
+ * If legacy MD5 matches, automatically upgrade to bcrypt.
+ */
+function verifyAdminPasswordAndUpgradeIfNeeded(PDO $pdo, int $adminId, string $plainPassword, string $storedHash): bool {
+    // Standard bcrypt (or any password_hash supported) verification
+    if (password_verify($plainPassword, $storedHash)) {
+        // Optional: rehash if algorithm/cost changed
+        if (password_needs_rehash($storedHash, PASSWORD_BCRYPT)) {
+            $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+            $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
+            $up->execute([$newHash, $adminId]);
+        }
+        return true;
+    }
+
+    // Legacy MD5 support (some rows in tripmate dump use MD5)
+    if (looksLikeMd5($storedHash) && hash_equals(strtolower($storedHash), md5($plainPassword))) {
+        $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+        $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
+        $up->execute([$newHash, $adminId]);
+        return true;
+    }
+
+    return false;
+}
+
 // Send OTP function with better error handling
 function sendOTP($receiverEmail, $otp) {
     debugLog("Attempting to send OTP to: $receiverEmail");
@@ -136,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$username, $username]);
                 $admin = $stmt->fetch();
 
-                if ($admin && password_verify($password, $admin['password'])) {
+                if ($admin && verifyAdminPasswordAndUpgradeIfNeeded($pdo, (int)$admin['id'], $password, (string)$admin['password'])) {
                     $otp = generateOTP();
                     $_SESSION['temp_admin_id'] = $admin['id'];
                     $_SESSION['temp_admin_name'] = $admin['name'];

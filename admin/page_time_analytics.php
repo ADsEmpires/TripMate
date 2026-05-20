@@ -1,8 +1,4 @@
 <?php
-/* -------------------------------------------------------------
-   PAGE TIME ANALYTICS – FINAL FIXED EDITION (2025)
-   CSS Fixed • Proper Spacing • Score Removed • Table Below Chart
-   ------------------------------------------------------------- */
 session_start();
 
 if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_id'])) {
@@ -163,15 +159,10 @@ include 'admin_header.php';
         --bg: #f5f7ff; --card: rgba(255,255,255,0.9); --text: #1a1a2e; --primary: #4361ee; --success: #28a745; --warning: #ffc107; --danger: #dc3545;
         --shadow: 0 8px 32px rgba(0,0,0,0.08); --border: rgba(255,255,255,0.2);
     }
-    .dark-mode {
-        --bg: #0f0f1a; --card: rgba(20,20,40,0.8); --text: #e0e0ff; --primary: #5d7aff; --shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
-    body { background: var(--bg); color: var(--text); transition: all 0.4s ease; }
-
+   
     /* Fixed Layout – Proper Spacing */
     .analytics-wrapper {
-        margin-left: 220px;
+        margin-left: 250px;
         width: calc(100% - 250px);
         min-height: 100vh;
         padding: 70px 20px 50px; /* Increased top padding */
@@ -302,14 +293,6 @@ include 'admin_header.php';
 <div class="analytics-wrapper">
     <div class="analytics-container">
 
-        <!-- Header -->
-        <div class="analytics-header">
-            <h1>Page Time Analytics Pro</h1>
-            <p>Real-time insights • Interactive • Dark Mode • Export Ready</p>
-            <div class="dark-toggle" onclick="toggleDarkMode()">
-                <i class="fas fa-moon" id="modeIcon"></i>
-            </div>
-        </div>
 
         <?php if (empty($tables_found)): ?>
             <div class="table-container">
@@ -474,20 +457,6 @@ include 'admin_header.php';
 </div>
 
 <script>
-// Dark Mode
-function toggleDarkMode() {
-    const body = document.body;
-    const icon = document.getElementById('modeIcon');
-    body.classList.toggle('dark-mode');
-    icon.classList.toggle('fa-moon');
-    icon.classList.toggle('fa-sun');
-    localStorage.setItem('darkMode', body.classList.contains('dark-mode'));
-}
-if (localStorage.getItem('darkMode') === 'true') {
-    document.body.classList.add('dark-mode');
-    document.getElementById('modeIcon').classList.replace('fa-moon', 'fa-sun');
-}
-
 // Counter Animation
 document.querySelectorAll('.stat-value').forEach(el => {
     const target = +el.getAttribute('data-target');

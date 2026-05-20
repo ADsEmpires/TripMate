@@ -1,14 +1,14 @@
 <?php
 session_start();
 if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
+    header('Location: admin_login.php');
     exit();
 }
 
 include '../database/dbconfig.php';
 
 // Get destination ID from POST
-$id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+$id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
 
 if ($id <= 0) {
     $_SESSION['message'] = "Invalid destination ID!";
@@ -48,6 +48,6 @@ if ($stmt->execute()) {
 $stmt->close();
 $conn->close();
 
-header("Location: admin.php"); // Already correct, stays in admin folder
+header("Location: add_destination_on_admin.php"); // Already correct, stays in admin folder
 exit();
 ?>

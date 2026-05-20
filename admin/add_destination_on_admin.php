@@ -1,20 +1,19 @@
 <?php
-// Start the session for admin authentication
 session_start();
-/*
-// Redirect to login if admin is not logged in
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
-    exit();
+
+try {
+    include '../database/dbconfig.php';
+    if (!isset($conn)) {
+        throw new Exception('Database connection failed');
+    }
+} catch (Exception $e) {
+    die('Error: ' . $e->getMessage());
 }
-*/
-// Include database configuration and connection
-include '../database/dbconfig.php';
 
 // Get admin info from session
-$admin_id = $_SESSION['admin_id'];
-$admin_name = $_SESSION['admin_name'];
-$admin_email = $_SESSION['admin_email'];
+$admin_id = $_SESSION['admin_id'] ?? null;
+$admin_name = $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $_SESSION['admin_email'] ?? '';
 
 // Handle form submission for adding a new destination
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,33 +24,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $location = $conn->real_escape_string($_POST['location']);
     $budget = (float)$_POST['budget'];
     $map_link = $conn->real_escape_string($_POST['map_link']);
-    
+
     // Handle multiple select for season and people
     $season = isset($_POST['season']) ? implode(',', array_map([$conn, 'real_escape_string'], $_POST['season'])) : '';
     $people_json = isset($_POST['people']) ? json_encode($_POST['people']) : '[]';
-    
+
     // Handle tips and language if provided
     $tips = isset($_POST['tips']) ? json_encode($_POST['tips']) : '[]';
     $language = isset($_POST['language']) ? json_encode($_POST['language']) : '[]';
-    
-    // Handle attractions if provided
+
+    // ============================================
+    // ATTRACTIONS - Handle multiple attractions
+    // ============================================
     $attractions_json = '[]';
     if (!empty($_POST['attractions'])) {
+        // Get attractions from textarea (one per line)
         $attractions_array = array_filter(array_map('trim', explode("\n", $_POST['attractions'])));
         if (!empty($attractions_array)) {
             $attractions_json = json_encode(array_values($attractions_array));
         }
     }
 
-    // Handle destination image upload
-    $image_urls = [];
+    // ============================================
+    // DESTINATION IMAGES - Store only filenames in 'images' column
+    // ============================================
+    $image_filenames = [];
     if (!empty($_FILES['images']['name'][0])) {
         $upload_dir = '../uploads/destinations/';
         // Create upload directory if it doesn't exist
         if (!file_exists($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
-        
+
         foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
             if ($_FILES['images']['error'][$key] === UPLOAD_ERR_OK) {
                 $file_name = basename($_FILES['images']['name'][$key]);
@@ -59,39 +63,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $safe_filename = preg_replace("/[^a-zA-Z0-9.-]/", "_", $file_name);
                 $unique_file_name = uniqid() . '_' . $safe_filename;
                 $file_path = $upload_dir . $unique_file_name;
-                
+
                 if (move_uploaded_file($tmp_name, $file_path)) {
-                    // Store relative path from uploads folder (e.g., "destinations/unique_filename.jpg")
-                    $image_urls[] = 'destinations/' . $unique_file_name;
+                    // Store ONLY the filename (not the full path)
+                    $image_filenames[] = $unique_file_name;
                 }
             }
         }
     }
-    $image_urls_json = json_encode($image_urls);
+    $images_json = json_encode($image_filenames);
 
-    // Handle cuisine images upload
+    // ============================================
+    // CUISINE IMAGES - Store only filenames
+    // ============================================
     $cuisine_images = [];
     $cuisines = isset($_POST['cuisines']) ? $_POST['cuisines'] : [];
-    
+
     if (isset($_FILES['cuisine_images']) && is_array($_FILES['cuisine_images']['name'])) {
         $upload_dir_cuisine = '../uploads/cuisines/';
         if (!file_exists($upload_dir_cuisine)) {
             mkdir($upload_dir_cuisine, 0777, true);
         }
-        
-        foreach ($_FILES['cuisine_images']['tmp_name'] as $cuisine => $tmp_name) {
-            if (!empty($tmp_name) && $_FILES['cuisine_images']['error'][$cuisine] === UPLOAD_ERR_OK) {
-                $file_name = $_FILES['cuisine_images']['name'][$cuisine];
+
+        foreach ($_FILES['cuisine_images']['tmp_name'] as $cuisine_index => $tmp_name) {
+            if (!empty($tmp_name) && $_FILES['cuisine_images']['error'][$cuisine_index] === UPLOAD_ERR_OK) {
+                $file_name = $_FILES['cuisine_images']['name'][$cuisine_index];
                 // Sanitize filename
                 $safe_filename = preg_replace("/[^a-zA-Z0-9.-]/", "_", $file_name);
                 $unique_file_name = uniqid() . '_' . $safe_filename;
                 $file_path = $upload_dir_cuisine . $unique_file_name;
-                
+
                 if (move_uploaded_file($tmp_name, $file_path)) {
-                    // Map cuisine name to relative path from uploads folder
-                    if (isset($cuisines[$cuisine])) {
-                        $cuisine_name = $cuisines[$cuisine];
-                        $cuisine_images[$cuisine_name] = 'cuisines/' . $unique_file_name;
+                    // Map cuisine name to filename only
+                    if (isset($cuisines[$cuisine_index])) {
+                        $cuisine_name = $cuisines[$cuisine_index];
+                        $cuisine_images[$cuisine_name] = $unique_file_name;
                     }
                 }
             }
@@ -100,13 +106,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cuisines_json = json_encode($cuisines);
     $cuisine_images_json = json_encode($cuisine_images);
 
-    // Prepare and execute SQL to insert new destination
-    $stmt = $conn->prepare("INSERT INTO destinations (name, type, description, location, budget, image_urls, map_link, season, people, tips, cuisines, language, cuisine_images, attractions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // Insert using 'images' column
+    $stmt = $conn->prepare("INSERT INTO destinations (name, type, description, location, budget, images, map_link, season, people, tips, cuisines, language, cuisine_images, attractions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if ($stmt === false) {
         die('Prepare failed: ' . htmlspecialchars($conn->error));
     }
-    
-    $stmt->bind_param("ssssdsssssssss", $name, $type, $description, $location, $budget, $image_urls_json, $map_link, $season, $people_json, $tips, $cuisines_json, $language, $cuisine_images_json, $attractions_json);
+
+    $stmt->bind_param("ssssdsssssssss", $name, $type, $description, $location, $budget, $images_json, $map_link, $season, $people_json, $tips, $cuisines_json, $language, $cuisine_images_json, $attractions_json);
 
     if ($stmt->execute()) {
         $_SESSION['message'] = "Destination added successfully!";
@@ -118,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get admin info with profile picture
-$admin_id = $_SESSION['admin_id'];
+$admin_id = $_SESSION['admin_id'] ?? null;
 $admin_query = $conn->prepare("SELECT name, email, profile_pic FROM admin WHERE id = ?");
 $admin_query->bind_param("i", $admin_id);
 $admin_query->execute();
@@ -164,7 +170,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     <label for="name">Destination Name</label>
                     <input type="text" id="name" name="name" class="form-control" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="type">Destination Type</label>
                     <select id="type" name="type" class="form-control" required>
@@ -175,7 +181,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                         <option value="historical">Historical</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="season">Best Season to Visit</label>
                     <select id="season" name="season[]" class="form-control" multiple required style="height: auto; min-height: 120px;">
@@ -187,7 +193,7 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     </select>
                     <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple options</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="people">Recommended For</label>
                     <select id="people" name="people[]" class="form-control" multiple required style="height: auto; min-height: 120px;">
@@ -199,49 +205,76 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                     </select>
                     <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple options</small>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" class="form-control" required></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="location">Location</label>
                     <input type="text" id="location" name="location" class="form-control" required>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="budget">Budget (₹ per day)</label>
                     <input type="number" id="budget" name="budget" step="0.01" class="form-control" required>
                 </div>
-                
+
+                <!-- ============================================ -->
+                <!-- ATTRACTIONS SECTION - NEW -->
+                <!-- ============================================ -->
+                <div class="form-group">
+                    <label for="attractions">Nearby Attractions</label>
+                    <textarea id="attractions" name="attractions" class="form-control" rows="4" placeholder="Enter each attraction on a new line&#10;Example:&#10;Taj Mahal&#10;Agra Fort&#10;Fatehpur Sikri"></textarea>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">
+                        <i class="fas fa-info-circle"></i> Enter one attraction per line. These will be displayed on the destination page.
+                    </small>
+                </div>
+
                 <div class="form-group">
                     <label for="images">Upload Destination Images</label>
                     <input type="file" id="images" name="images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;">
                     <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-image"></i> Select your destination images</small>
                 </div>
-                
+
+                <!-- Cuisines Section with Add New Cuisine Button -->
                 <div class="form-group">
                     <label for="cuisines">Local Cuisines</label>
-                    <select id="cuisines" name="cuisines[]" class="form-control" multiple style="height: auto; min-height: 120px;">
-                        <option value="Biryani">Biryani</option>
-                        <option value="Butter Chicken">Butter Chicken</option>
-                        <option value="Paneer Tikka">Paneer Tikka</option>
-                        <option value="Masala Dosa">Masala Dosa</option>
-                        <option value="Chole Bhature">Chole Bhature</option>
-                        <option value="Rogan Josh">Rogan Josh</option>
-                        <option value="Dal Makhani">Dal Makhani</option>
-                        <option value="Tandoori Chicken">Tandoori Chicken</option>
-                    </select>
-                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple cuisines</small>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="cuisines" name="cuisines[]" class="form-control" multiple style="height: auto; min-height: 120px; flex: 1;">
+                            <option value="Biryani">Biryani</option>
+                            <option value="Butter Chicken">Butter Chicken</option>
+                            <option value="Paneer Tikka">Paneer Tikka</option>
+                            <option value="Masala Dosa">Masala Dosa</option>
+                            <option value="Chole Bhature">Chole Bhature</option>
+                            <option value="Rogan Josh">Rogan Josh</option>
+                            <option value="Dal Makhani">Dal Makhani</option>
+                            <option value="Tandoori Chicken">Tandoori Chicken</option>
+                        </select>
+
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <button type="button" id="addCuisineBtn" class="btn btn-outline" style="padding: 8px 16px;">
+                                <i class="fas fa-plus"></i> Add New
+                            </button>
+                        </div>
+                    </div>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;"><i class="fas fa-info-circle"></i> Hold Ctrl/Cmd to select multiple options. Click "Add New" to add a custom cuisine.</small>
+
+                    <!-- Custom Cuisine Input (Hidden by default) -->
+                    <div id="customCuisineContainer" style="display: none; margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="customCuisineName" class="form-control" placeholder="Enter new cuisine name" style="flex: 1;">
+                        <button type="button" id="confirmCuisineBtn" class="btn btn-primary" style="padding: 8px 20px;">Add</button>
+                        <button type="button" id="cancelCuisineBtn" class="btn btn-outline" style="padding: 8px 16px;">Cancel</button>
+                    </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="cuisine_images">Cuisine Images</label>
                     <small style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;"><i class="fas fa-image"></i> Upload images for each selected cuisine in the same order</small>
                     <input type="file" id="cuisine_images" name="cuisine_images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="map_link">Google Map Link</label>
                     <input type="url" id="map_link" name="map_link" class="form-control" required>
@@ -269,17 +302,27 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                 <?php while ($row = $result->fetch_assoc()): ?>
                     <div class="destination-card widget-card" style="padding: 0; overflow: hidden;">
                         <div class="destination-images">
-                            <?php 
-                            if (!empty($row['image_urls'])): 
-                                $images = json_decode($row['image_urls'], true);
-                                if (is_array($images) && !empty($images[0])): 
-                                    $image_path = '../uploads/' . $images[0];
-                                ?>
-                                    <img src="<?= htmlspecialchars($image_path) ?>" alt="<?= htmlspecialchars($row['name']) ?>">
-                                <?php else: ?>
+                            <?php
+                            if (!empty($row['images'])):
+                                $images = json_decode($row['images'], true);
+                                if (is_array($images) && !empty($images[0])):
+                                    $image_path = '../uploads/destinations/' . $images[0];
+                                    if (file_exists($image_path)):
+                            ?>
+                                        <img src="<?= htmlspecialchars($image_path) ?>" alt="<?= htmlspecialchars($row['name']) ?>">
+                                    <?php
+                                    else:
+                                    ?>
+                                        <img src="../image/placeholder.png" alt="Default destination image">
+                                    <?php
+                                    endif;
+                                else:
+                                    ?>
                                     <img src="../image/placeholder.png" alt="Default destination image">
-                                <?php endif; ?>
-                            <?php else: ?>
+                                <?php
+                                endif;
+                            else:
+                                ?>
                                 <img src="../image/placeholder.png" alt="Default destination image">
                             <?php endif; ?>
                             <div class="destination-type-badge">
@@ -288,36 +331,43 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
                         </div>
                         <div class="destination-info">
                             <h3 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-main);"><?= htmlspecialchars($row['name']) ?></h3>
-                            
+
                             <div class="destination-meta" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1.5rem;">
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-calendar-alt" style="color: var(--primary); width: 16px; text-align: center;"></i> 
+                                    <i class="fas fa-calendar-alt" style="color: var(--primary); width: 16px; text-align: center;"></i>
                                     <span class="text-truncate" title="<?= str_replace(',', ', ', ucwords($row['season'] ?? '', ',')) ?>"><?= str_replace(',', ', ', ucwords($row['season'] ?? '', ',')) ?></span>
                                 </span>
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-user-friends" style="color: var(--secondary); width: 16px; text-align: center;"></i> 
-                                    <?php 
+                                    <i class="fas fa-user-friends" style="color: var(--secondary); width: 16px; text-align: center;"></i>
+                                    <?php
                                     $people = json_decode($row['people'] ?? '[]', true);
                                     echo is_array($people) ? htmlspecialchars(implode(', ', $people)) : htmlspecialchars($row['people'] ?? '');
                                     ?>
                                 </span>
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-rupee-sign" style="color: var(--primary); width: 16px; text-align: center;"></i> 
+                                    <i class="fas fa-rupee-sign" style="color: var(--primary); width: 16px; text-align: center;"></i>
                                     <span style="font-weight: 700; color: var(--text-main);"><?= number_format($row['budget']) ?></span>/day
                                 </span>
                                 <span style="display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-map-marker-alt" style="color: var(--danger); width: 16px; text-align: center;"></i> 
+                                    <i class="fas fa-map-marker-alt" style="color: var(--danger); width: 16px; text-align: center;"></i>
                                     <span class="text-truncate" title="<?= htmlspecialchars($row['location']) ?>"><?= htmlspecialchars($row['location']) ?></span>
                                 </span>
                             </div>
-                            
+
                             <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem; height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                                 <?= htmlspecialchars($row['description'] ?? '') ?>
                             </p>
-                            
+
+                            <!-- Action Buttons -->
                             <div class="destination-actions" style="display: flex; gap: 0.5rem; border-top: 1px solid var(--card-border); padding-top: 1.25rem; flex-wrap: wrap;">
                                 <a href="edit_destination.php?id=<?= $row['id'] ?>" class="btn btn-outline" style="flex: 1; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem;">
                                     <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <a href="manage_hotels.php?destination_id=<?= $row['id'] ?>" class="btn btn-outline" style="flex: 1; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem; background: linear-gradient(135deg, var(--secondary), #0284c7); color: white;">
+                                    <i class="fas fa-hotel"></i> Hotels
+                                </a>
+                                <a href="manage_flights.php?destination_id=<?= $row['id'] ?>" class="btn btn-outline" style="flex: 1; border-radius: 50px; font-size: 0.9rem; padding: 0.6rem; background: linear-gradient(135deg, var(--primary), #3b82f6); color: white;">
+                                    <i class="fas fa-plane"></i> Flights
                                 </a>
                                 <form action="delete_destination.php" method="POST" style="flex: 1;">
                                     <input type="hidden" name="id" value="<?= $row['id'] ?>">
@@ -336,42 +386,125 @@ $result = $conn->query("SELECT * FROM destinations ORDER BY id DESC");
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const showBtn       = document.getElementById('showAddFormBtn');
-    const container     = document.getElementById('addFormContainer');
-    const closeBtn      = document.getElementById('closeFormBtn');
-    const cancelBtn     = document.getElementById('cancelFormBtn');
+    document.addEventListener('DOMContentLoaded', function() {
+        const showBtn = document.getElementById('showAddFormBtn');
+        const container = document.getElementById('addFormContainer');
+        const closeBtn = document.getElementById('closeFormBtn');
+        const cancelBtn = document.getElementById('cancelFormBtn');
 
-    function openForm() {
-        container.style.display = 'block';
-        setTimeout(() => {
-            container.style.maxHeight = container.scrollHeight + 500 + 'px';
-            container.style.opacity = '1';
-        }, 10);
-        showBtn.style.display = 'none';
-        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+        function openForm() {
+            container.style.display = 'block';
+            setTimeout(() => {
+                container.style.maxHeight = container.scrollHeight + 500 + 'px';
+                container.style.opacity = '1';
+            }, 10);
+            showBtn.style.display = 'none';
+            container.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
 
-    function closeForm() {
-        container.style.maxHeight = '0';
-        container.style.opacity = '0';
-        setTimeout(() => {
-            container.style.display = 'none';
-        }, 500);
-        showBtn.style.display = 'inline-flex';
-    }
+        function closeForm() {
+            container.style.maxHeight = '0';
+            container.style.opacity = '0';
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 500);
+            showBtn.style.display = 'inline-flex';
+        }
 
-    showBtn.addEventListener('click', openForm);
-    closeBtn.addEventListener('click', closeForm);
-    cancelBtn.addEventListener('click', closeForm);
-});
+        showBtn.addEventListener('click', openForm);
+        closeBtn.addEventListener('click', closeForm);
+        cancelBtn.addEventListener('click', closeForm);
+
+        // Add New Cuisine functionality
+        const addCuisineBtn = document.getElementById('addCuisineBtn');
+        const customCuisineContainer = document.getElementById('customCuisineContainer');
+        const customCuisineName = document.getElementById('customCuisineName');
+        const confirmCuisineBtn = document.getElementById('confirmCuisineBtn');
+        const cancelCuisineBtn = document.getElementById('cancelCuisineBtn');
+        const cuisinesSelect = document.getElementById('cuisines');
+
+        if (addCuisineBtn) {
+            function showCustomCuisineInput() {
+                customCuisineContainer.style.display = 'flex';
+                customCuisineName.focus();
+            }
+
+            function hideCustomCuisineInput() {
+                customCuisineContainer.style.display = 'none';
+                customCuisineName.value = '';
+            }
+
+            function addCustomCuisine() {
+                let newCuisine = customCuisineName.value.trim();
+                if (newCuisine === '') {
+                    alert('Please enter a cuisine name');
+                    return;
+                }
+
+                // Capitalize first letter of each word
+                newCuisine = newCuisine.replace(/\b\w/g, function(l) {
+                    return l.toUpperCase();
+                });
+
+                // Check if cuisine already exists in select options
+                let exists = false;
+                for (let i = 0; i < cuisinesSelect.options.length; i++) {
+                    if (cuisinesSelect.options[i].value === newCuisine) {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (exists) {
+                    alert('This cuisine already exists in the list!');
+                    hideCustomCuisineInput();
+                    return;
+                }
+
+                // Create new option
+                const newOption = document.createElement('option');
+                newOption.value = newCuisine;
+                newOption.textContent = newCuisine;
+                newOption.selected = true;
+                cuisinesSelect.appendChild(newOption);
+
+                hideCustomCuisineInput();
+
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.className = 'alert alert-success';
+                successMsg.style.padding = '0.5rem 1rem';
+                successMsg.style.marginTop = '0.5rem';
+                successMsg.style.fontSize = '0.9rem';
+                successMsg.innerHTML = '<i class="fas fa-check-circle"></i> Cuisine "' + newCuisine + '" added successfully!';
+                customCuisineContainer.parentNode.appendChild(successMsg);
+
+                setTimeout(() => {
+                    successMsg.remove();
+                }, 3000);
+            }
+
+            addCuisineBtn.addEventListener('click', showCustomCuisineInput);
+            confirmCuisineBtn.addEventListener('click', addCustomCuisine);
+            cancelCuisineBtn.addEventListener('click', hideCustomCuisineInput);
+
+            customCuisineName.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addCustomCuisine();
+                }
+            });
+        }
+    });
 </script>
 
 <style>
     .form-group {
         margin-bottom: 1.8rem;
     }
-    
+
     .form-group label {
         display: block;
         margin-bottom: 0.6rem;
@@ -379,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
         color: var(--text-main);
         font-size: 0.95rem;
     }
-    
+
     .form-control {
         width: 100%;
         padding: 0.9rem 1.2rem;
@@ -391,7 +524,7 @@ document.addEventListener('DOMContentLoaded', function() {
         transition: all 0.3s;
         font-family: inherit;
     }
-    
+
     .form-control:focus {
         border-color: var(--secondary);
         outline: none;
@@ -404,13 +537,13 @@ document.addEventListener('DOMContentLoaded', function() {
         background: var(--bg-surface);
         color: var(--text-main);
     }
-    
+
     textarea.form-control {
         min-height: 150px;
         resize: vertical;
         line-height: 1.6;
     }
-    
+
     .btn {
         display: inline-flex;
         align-items: center;
@@ -424,42 +557,42 @@ document.addEventListener('DOMContentLoaded', function() {
         gap: 8px;
         font-size: 1rem;
     }
-    
+
     .btn-primary {
         background: linear-gradient(135deg, var(--primary), var(--secondary));
         color: white;
     }
-    
+
     .btn-primary:hover {
         transform: translateY(-3px);
         box-shadow: 0 10px 25px var(--glow-color);
     }
-    
+
     .btn-outline {
         background: transparent;
         border: 2px solid var(--card-border);
         color: var(--text-main);
     }
-    
+
     .btn-outline:hover {
         background: var(--bg-base);
         border-color: var(--primary);
         color: var(--primary);
     }
-    
+
     .btn-danger {
         background: transparent;
         border: 2px solid rgba(239, 68, 68, 0.3);
         color: var(--danger);
     }
-    
+
     .btn-danger:hover {
         background: var(--danger);
         color: white;
         border-color: var(--danger);
         box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
     }
-    
+
     .alert {
         padding: 1.2rem 1.5rem;
         border-radius: 16px;
@@ -471,44 +604,44 @@ document.addEventListener('DOMContentLoaded', function() {
         gap: 12px;
         box-shadow: 0 10px 20px var(--shadow-color);
     }
-    
+
     .alert-success {
         background-color: var(--bg-surface);
         color: var(--success);
         border: 1px solid var(--card-border);
         border-left-color: var(--success);
     }
-    
+
     .alert-danger {
         background-color: var(--bg-surface);
         color: var(--danger);
         border: 1px solid var(--card-border);
         border-left-color: var(--danger);
     }
-    
+
     .destination-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
         gap: 2rem;
     }
-    
+
     .destination-images {
         height: 220px;
         overflow: hidden;
         position: relative;
     }
-    
+
     .destination-images img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
     }
-    
+
     .destination-card:hover .destination-images img {
         transform: scale(1.08);
     }
-    
+
     .destination-type-badge {
         position: absolute;
         top: 15px;
@@ -522,13 +655,13 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 0.8rem;
         font-weight: 700;
         border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
-    
+
     .destination-info {
         padding: 1.8rem;
     }
-    
+
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -537,26 +670,33 @@ document.addEventListener('DOMContentLoaded', function() {
         font-size: 0.9rem;
         font-weight: 700;
     }
-    
+
     .status-active {
         background: rgba(16, 185, 129, 0.1);
         color: var(--success);
         border: 1px solid rgba(16, 185, 129, 0.2);
     }
-    
+
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
-    
+
     .fade-in {
         animation: fadeIn 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
     }
 
     .destination-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        display: flex;
         gap: 0.5rem;
+        flex-wrap: wrap;
     }
 
     .destination-actions .btn {

@@ -1,11 +1,11 @@
 <?php
 session_start();
-
+/*
 if (!isset($_SESSION['admin_logged_in'])) {
     header('Location: login.php');
     exit();
 }
-
+*/
 include '../database/dbconfig.php';
 
 // Get destination ID from URL
@@ -13,7 +13,7 @@ $destination_id = isset($_GET['destination_id']) && is_numeric($_GET['destinatio
 
 if ($destination_id === 0) {
     $_SESSION['message'] = "Invalid destination ID";
-    header("Location: add_destanition_on_admin.php");
+    header("Location: add_destination_on_admin.php");
     exit();
 }
 
@@ -25,7 +25,7 @@ $dest_result = $dest_query->get_result();
 
 if ($dest_result->num_rows === 0) {
     $_SESSION['message'] = "Destination not found";
-    header("Location: add_destanition_on_admin.php");
+    header("Location: add_destination_on_admin.php");
     exit();
 }
 
@@ -695,7 +695,7 @@ $admin_query->close();
                 <h1><i class="fas fa-hotel" style="color: var(--secondary);"></i> Manage Hotels</h1>
                 <p class="text-muted"><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($destination_name) ?></p>
             </div>
-            <a href="add_destanition_on_admin.php" class="btn btn-outline">
+            <a href="add_destination_on_admin.php" class="btn btn-outline">
                 <i class="fas fa-arrow-left"></i> Back to Destinations
             </a>
         </div>

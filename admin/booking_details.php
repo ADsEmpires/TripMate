@@ -1,5 +1,9 @@
 <?php
 session_start();
+// Added error reporting so you can actually see if a database column is missing!
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_id'])) {
     header('Location: admin_login.php');
     exit();
@@ -7,11 +11,10 @@ if (!isset($_SESSION['admin_logged_in']) || !isset($_SESSION['admin_id'])) {
 
 require_once '../database/dbconfig.php';
 
-// Get booking ID from URL
 $booking_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$booking_id) {
-    header('Location: booking.php');
+    header('Location: bookings.php');
     exit();
 }
 
@@ -26,8 +29,7 @@ $query = "SELECT b.*, u.name as user_name, u.email as user_email, u.phone as use
 
 $stmt = $conn->prepare($query);
 if (!$stmt) {
-    error_log('booking_details: prepare failed (booking select): ' . $conn->error);
-    die('Server error. Please check the logs.');
+    die("Database Error in booking selection: " . $conn->error);
 }
 $stmt->bind_param("i", $booking_id);
 $stmt->execute();
@@ -43,10 +45,8 @@ $booking = $result->fetch_assoc();
 // Fetch payment history
 $payments_query = "SELECT * FROM booking_payments WHERE booking_id = ? ORDER BY payment_date DESC";
 $payments_stmt = $conn->prepare($payments_query);
-if (!$payments_stmt) {
-    error_log('booking_details: prepare failed (payments select): ' . $conn->error);
-    $payments = [];
-} else {
+$payments = [];
+if ($payments_stmt) {
     $payments_stmt->bind_param("i", $booking_id);
     $payments_stmt->execute();
     $payments = $payments_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -67,11 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success_message = "Booking status updated successfully!";
                 $booking['booking_status'] = $new_status;
                 $booking['admin_notes'] = $admin_notes;
-            } else {
-                error_log('booking_details: execute failed (update status): ' . $update_stmt->error);
             }
-        } else {
-            error_log('booking_details: prepare failed (update status): ' . $conn->error);
         }
     }
     
@@ -88,36 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $booking['payment_status'] = $payment_status;
                 $booking['transaction_id'] = $transaction_id;
                 $booking['payment_method'] = $payment_method;
-            } else {
-                error_log('booking_details: execute failed (update payment): ' . $update_stmt->error);
             }
-        } else {
-            error_log('booking_details: prepare failed (update payment): ' . $conn->error);
-        }
-    }
-    
-    if ($action === 'add_payment') {
-        $amount = $_POST['amount'] ?? 0;
-        $payment_date = $_POST['payment_date'] ?? date('Y-m-d');
-        $payment_method = $_POST['payment_method'] ?? '';
-        $transaction_id = $_POST['transaction_id'] ?? '';
-        $receipt_url = $_POST['receipt_url'] ?? '';
-        
-        $insert_stmt = $conn->prepare("INSERT INTO booking_payments (booking_id, amount, payment_date, payment_method, transaction_id, receipt_url, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
-        if ($insert_stmt) {
-            $insert_stmt->bind_param("idssss", $booking_id, $amount, $payment_date, $payment_method, $transaction_id, $receipt_url);
-            if ($insert_stmt->execute()) {
-                $success_message = "Payment recorded successfully!";
-                // Refresh payments list
-                if ($payments_stmt) {
-                    $payments_stmt->execute();
-                    $payments = $payments_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-                }
-            } else {
-                error_log('booking_details: execute failed (insert payment): ' . $insert_stmt->error);
-            }
-        } else {
-            error_log('booking_details: prepare failed (insert payment): ' . $conn->error);
         }
     }
 }
@@ -126,292 +93,76 @@ include 'admin_header.php';
 ?>
 
 <style>
-/* Booking Details Styles */
-.booking-details-wrapper {
-    padding: 1.5rem;
+/* Booking Details Styles linked to admin_header.php variables */
+.booking-details-wrapper { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+
+/* Cards & Layout */
+.booking-header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    margin-bottom: 2rem; padding: 1.5rem; border-radius: 12px; 
+    background: var(--bg-surface); 
+    border: 1px solid var(--card-border);
+    box-shadow: 0 4px 6px -1px var(--shadow-color); 
+}
+.booking-card { 
+    background: var(--bg-surface); 
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; 
+    border: 1px solid var(--card-border);
+    box-shadow: 0 4px 6px -1px var(--shadow-color); 
 }
 
-.booking-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(0,0,0,0.08);
-}
+.booking-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; }
+@media (max-width: 992px) { .booking-layout { grid-template-columns: 1fr; } }
 
-.booking-title h1 {
-    font-size: 1.75rem;
-    color: var(--dark);
-    margin-bottom: 0.5rem;
-}
+/* Text & Headers */
+.booking-title h1 { font-size: 1.5rem; color: var(--text-main); margin: 0 0 0.25rem 0; }
+.booking-id { color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--card-border); }
+.card-title { font-size: 1.15rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 
-.booking-id {
-    color: var(--gray);
-    font-size: 0.9rem;
-}
+/* Data Grid */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+.info-item { display: flex; flex-direction: column; gap: 0.4rem; }
+.info-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.info-value { font-size: 1rem; color: var(--text-main); font-weight: 500; }
 
-.booking-actions {
-    display: flex;
-    gap: 0.75rem;
-}
+/* Status Badges */
+.status-display { display: inline-flex; align-items: center; padding: 0.4rem 1rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid var(--warning); }
+.status-confirmed, .payment-paid { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid var(--success); }
+.status-completed { background: rgba(59, 130, 246, 0.1); color: var(--info); border: 1px solid var(--info); }
+.status-cancelled, .payment-cancelled { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); }
+.payment-refunded { background: rgba(99, 102, 241, 0.1); color: var(--primary); border: 1px solid var(--primary); }
 
-/* Booking Layout */
-.booking-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 2rem;
-}
+/* Forms & Buttons */
+.btn { padding: 0.6rem 1.2rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; transition: all 0.2s; text-decoration: none; font-size: 0.9rem; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { filter: brightness(110%); transform: translateY(-1px); }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { filter: brightness(110%); }
+.btn-secondary { background: var(--text-muted); color: white; }
+.btn-secondary:hover { background: var(--text-main); }
 
-@media (max-width: 992px) {
-    .booking-layout {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Booking Card */
-.booking-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
-    margin-bottom: 1.5rem;
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-
-.card-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--dark);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-/* Info Grid */
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-}
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.info-label {
-    font-size: 0.85rem;
-    color: var(--gray);
-    font-weight: 500;
-}
-
-.info-value {
-    font-size: 1rem;
-    color: var(--dark);
-    font-weight: 600;
-}
-
-/* Status Display */
-.status-display {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-}
-
-.status-pending {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.status-confirmed {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.status-completed {
-    background: #dbeafe;
-    color: #1e40af;
-}
-
-.status-cancelled {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-/* Timeline */
-.timeline {
-    position: relative;
-    padding-left: 2rem;
-}
-
-.timeline::before {
-    content: '';
-    position: absolute;
-    left: 0.5rem;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--primary);
-}
-
-.timeline-item {
-    position: relative;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-.timeline-item:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-.timeline-marker {
-    position: absolute;
-    left: -2rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    background: var(--primary);
-    border: 3px solid var(--card-bg);
-}
-
-.timeline-content {
-    margin-left: 1rem;
-}
-
-.timeline-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-    color: var(--dark);
-}
-
-.timeline-time {
-    font-size: 0.85rem;
-    color: var(--gray);
-}
-
-/* Payment History */
-.payment-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.payment-table th {
-    text-align: left;
-    padding: 0.75rem;
-    background: var(--muted);
-    font-weight: 600;
-    color: var(--dark);
-}
-
-.payment-table td {
-    padding: 0.75rem;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-/* Forms */
-.update-form {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(0,0,0,0.05);
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-@media (max-width: 576px) {
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Buttons */
-.btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-    text-decoration: none;
-}
-
-.btn-primary {
-    background: var(--primary);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: var(--secondary);
-}
-
-.btn-success {
-    background: var(--success);
-    color: white;
-}
-
-.btn-success:hover {
-    background: #0d9488;
-}
-
-.btn-danger {
-    background: var(--danger);
-    color: white;
-}
-
-.btn-danger:hover {
-    background: #dc2626;
-}
-
-.btn-secondary {
-    background: var(--gray);
-    color: white;
-}
-
-.btn-secondary:hover {
-    background: #6b7280;
-}
+.form-control { width: 100%; padding: 0.75rem; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-base); color: var(--text-main); margin-top: 0.25rem; font-family: inherit; }
+.form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--glow-color); }
 </style>
 
 <div class="main-content">
     <div class="booking-details-wrapper">
         <?php if (isset($success_message)): ?>
-            <div class="alert alert-success" style="background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+            <div class="alert alert-success" style="background: #d1fae5; color: #065f46; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                 <i class="fas fa-check-circle"></i> <?= htmlspecialchars($success_message) ?>
             </div>
         <?php endif; ?>
 
-        <!-- Booking Header -->
         <div class="booking-header">
             <div class="booking-title">
-                <h1><?= htmlspecialchars($booking['booking_title']) ?></h1>
-                <div class="booking-id">Booking ID: #<?= $booking['id'] ?></div>
+                <h1><?= htmlspecialchars($booking['booking_title'] ?? 'N/A') ?></h1>
+                <div class="booking-id">Booking Ref: #<?= htmlspecialchars($booking['id']) ?></div>
             </div>
             <div class="booking-actions">
                 <a href="bookings.php" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Bookings
+                    <i class="fas fa-arrow-left"></i> Back
                 </a>
                 <button onclick="window.print()" class="btn btn-primary">
                     <i class="fas fa-print"></i> Print
@@ -419,338 +170,121 @@ include 'admin_header.php';
             </div>
         </div>
 
-        <!-- Booking Layout -->
         <div class="booking-layout">
-            <!-- Left Column -->
             <div>
-                <!-- Booking Information -->
                 <div class="booking-card">
                     <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-info-circle"></i> Booking Information
-                        </h3>
-                        <span class="status-display status-<?= $booking['booking_status'] ?>">
-                            <?= ucfirst($booking['booking_status']) ?>
+                        <h3 class="card-title"><i class="fas fa-info-circle"></i> Booking Details</h3>
+                        <span class="status-display status-<?= htmlspecialchars($booking['booking_status'] ?? 'pending') ?>">
+                            <?= ucfirst(htmlspecialchars($booking['booking_status'] ?? 'Pending')) ?>
                         </span>
                     </div>
                     
                     <div class="info-grid">
                         <div class="info-item">
-                            <span class="info-label">Booking Type</span>
-                            <span class="info-value"><?= ucfirst($booking['booking_type']) ?></span>
+                            <span class="info-label">Type</span>
+                            <span class="info-value"><?= ucfirst(htmlspecialchars($booking['booking_type'] ?? 'Standard')) ?></span>
                         </div>
-                        
                         <div class="info-item">
-                            <span class="info-label">Booking Date</span>
-                            <span class="info-value"><?= date('F j, Y', strtotime($booking['booking_date'])) ?></span>
+                            <span class="info-label">Date Placed</span>
+                            <span class="info-value"><?= isset($booking['booking_date']) ? date('F j, Y', strtotime($booking['booking_date'])) : 'N/A' ?></span>
                         </div>
-                        
-                        <?php if ($booking['start_date']): ?>
+                        <?php if (!empty($booking['start_date'])): ?>
                         <div class="info-item">
                             <span class="info-label">Start Date</span>
                             <span class="info-value"><?= date('F j, Y', strtotime($booking['start_date'])) ?></span>
                         </div>
                         <?php endif; ?>
-                        
-                        <?php if ($booking['end_date']): ?>
                         <div class="info-item">
-                            <span class="info-label">End Date</span>
-                            <span class="info-value"><?= date('F j, Y', strtotime($booking['end_date'])) ?></span>
+                            <span class="info-label">Guests</span>
+                            <span class="info-value"><?= htmlspecialchars($booking['number_of_people'] ?? '0') ?></span>
                         </div>
-                        <?php endif; ?>
-                        
-                        <div class="info-item">
-                            <span class="info-label">Number of People</span>
-                            <span class="info-value"><?= $booking['number_of_people'] ?></span>
-                        </div>
-                        
                         <div class="info-item">
                             <span class="info-label">Total Amount</span>
-                            <span class="info-value" style="color: var(--success); font-size: 1.25rem;">
-                                $<?= number_format($booking['total_amount'], 2) ?>
+                            <span class="info-value" style="color: var(--success); font-size: 1.25rem; font-weight: 700;">
+                                $<?= number_format($booking['total_amount'] ?? 0, 2) ?>
                             </span>
                         </div>
                     </div>
-                    
-                    <?php if ($booking['booking_details']): ?>
-                    <div style="margin-top: 1.5rem;">
-                        <h4 style="margin-bottom: 0.5rem; color: var(--dark);">Booking Details</h4>
-                        <div style="background: var(--muted); padding: 1rem; border-radius: 6px;">
-                            <?= nl2br(htmlspecialchars($booking['booking_details'])) ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
-                <!-- Customer Information -->
                 <div class="booking-card">
                     <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-user"></i> Customer Information
-                        </h3>
+                        <h3 class="card-title"><i class="fas fa-user"></i> Customer Info</h3>
                     </div>
-                    
                     <div class="info-grid">
                         <div class="info-item">
-                            <span class="info-label">Customer Name</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['user_name']) ?></span>
+                            <span class="info-label">Name</span>
+                            <span class="info-value"><?= htmlspecialchars($booking['user_name'] ?? 'Unknown') ?></span>
                         </div>
-                        
                         <div class="info-item">
                             <span class="info-label">Email</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['user_email']) ?></span>
+                            <span class="info-value"><?= htmlspecialchars($booking['user_email'] ?? 'N/A') ?></span>
                         </div>
-                        
-                        <?php if ($booking['user_phone']): ?>
                         <div class="info-item">
                             <span class="info-label">Phone</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['user_phone']) ?></span>
+                            <span class="info-value"><?= htmlspecialchars($booking['user_phone'] ?? 'N/A') ?></span>
                         </div>
-                        <?php endif; ?>
                     </div>
                 </div>
-
-                <!-- Destination Information -->
-                <?php if ($booking['destination_name']): ?>
-                <div class="booking-card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-map-marker-alt"></i> Destination Information
-                        </h3>
-                    </div>
-                    
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Destination</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['destination_name']) ?></span>
-                        </div>
-                        
-                        <div class="info-item">
-                            <span class="info-label">Location</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['destination_location']) ?></span>
-                        </div>
-                    </div>
-                    
-                    <?php if ($booking['destination_description']): ?>
-                    <div style="margin-top: 1.5rem;">
-                        <h4 style="margin-bottom: 0.5rem; color: var(--dark);">Description</h4>
-                        <div style="color: var(--text); line-height: 1.6;">
-                            <?= nl2br(htmlspecialchars(substr($booking['destination_description'], 0, 300))) ?>
-                            <?= strlen($booking['destination_description']) > 300 ? '...' : '' ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
             </div>
 
-            <!-- Right Column -->
             <div>
-                <!-- Payment Information -->
                 <div class="booking-card">
                     <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-credit-card"></i> Payment Information
-                        </h3>
-                        <span class="status-display payment-<?= $booking['payment_status'] ?>">
-                            <?= ucfirst($booking['payment_status']) ?>
+                        <h3 class="card-title"><i class="fas fa-credit-card"></i> Payment Status</h3>
+                        <span class="status-display payment-<?= htmlspecialchars($booking['payment_status'] ?? 'pending') ?>">
+                            <?= ucfirst(htmlspecialchars($booking['payment_status'] ?? 'Pending')) ?>
                         </span>
                     </div>
                     
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">Payment Status</span>
-                            <span class="info-value"><?= ucfirst($booking['payment_status']) ?></span>
-                        </div>
-                        
-                        <div class="info-item">
-                            <span class="info-label">Payment Method</span>
-                            <span class="info-value"><?= $booking['payment_method'] ?: 'Not specified' ?></span>
-                        </div>
-                        
-                        <?php if ($booking['transaction_id']): ?>
-                        <div class="info-item">
-                            <span class="info-label">Transaction ID</span>
-                            <span class="info-value"><?= htmlspecialchars($booking['transaction_id']) ?></span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <!-- Update Payment Form -->
-                    <div class="update-form">
-                        <h4 style="margin-bottom: 1rem; color: var(--dark);">Update Payment Status</h4>
-                        <form method="POST">
-                            <input type="hidden" name="action" value="update_payment">
-                            
-                            <div class="form-row">
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Payment Status</label>
-                                    <select name="payment_status" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: var(--muted); color: var(--text);">
-                                        <option value="pending" <?= $booking['payment_status'] === 'pending' ? 'selected' : '' ?>>Pending</option>
-                                        <option value="paid" <?= $booking['payment_status'] === 'paid' ? 'selected' : '' ?>>Paid</option>
-                                        <option value="cancelled" <?= $booking['payment_status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
-                                        <option value="refunded" <?= $booking['payment_status'] === 'refunded' ? 'selected' : '' ?>>Refunded</option>
-                                    </select>
-                                </div>
-                                
-                                <div>
-                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Payment Method</label>
-                                    <input type="text" name="payment_method" value="<?= htmlspecialchars($booking['payment_method'] ?? '') ?>" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: var(--muted); color: var(--text);">
-                                </div>
-                            </div>
-                            
-                            <div style="margin-bottom: 1rem;">
-                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Transaction ID</label>
-                                <input type="text" name="transaction_id" value="<?= htmlspecialchars($booking['transaction_id'] ?? '') ?>" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: var(--muted); color: var(--text);">
-                            </div>
-                            
-                            <button type="submit" class="btn btn-success" style="width: 100%;">
-                                <i class="fas fa-save"></i> Update Payment
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Booking Timeline -->
-                <div class="booking-card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-history"></i> Booking Timeline
-                        </h3>
-                    </div>
-                    
-                    <div class="timeline">
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content">
-                                <div class="timeline-title">Booking Created</div>
-                                <div class="timeline-time"><?= date('F j, Y g:i A', strtotime($booking['created_at'])) ?></div>
-                            </div>
-                        </div>
-                        
-                        <?php if ($booking['updated_at'] && $booking['updated_at'] !== $booking['created_at']): ?>
-                        <div class="timeline-item">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content">
-                                <div class="timeline-title">Last Updated</div>
-                                <div class="timeline-time"><?= date('F j, Y g:i A', strtotime($booking['updated_at'])) ?></div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Admin Actions -->
-                <div class="booking-card">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-cogs"></i> Admin Actions
-                        </h3>
-                    </div>
-                    
-                    <!-- Update Booking Status Form -->
-                    <form method="POST" style="margin-bottom: 1.5rem;">
-                        <input type="hidden" name="action" value="update_status">
-                        
+                    <form method="POST" style="margin-top: 1rem;">
+                        <input type="hidden" name="action" value="update_payment">
                         <div style="margin-bottom: 1rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Update Booking Status</label>
-                            <select name="status" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: var(--muted); color: var(--text); margin-bottom: 1rem;">
-                                <option value="pending" <?= $booking['booking_status'] === 'pending' ? 'selected' : '' ?>>Pending</option>
-                                <option value="confirmed" <?= $booking['booking_status'] === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
-                                <option value="completed" <?= $booking['booking_status'] === 'completed' ? 'selected' : '' ?>>Completed</option>
-                                <option value="cancelled" <?= $booking['booking_status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                            <label class="info-label">Update Status</label>
+                            <select name="payment_status" class="form-control">
+                                <option value="pending" <?= ($booking['payment_status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
+                                <option value="paid" <?= ($booking['payment_status'] ?? '') === 'paid' ? 'selected' : '' ?>>Paid</option>
+                                <option value="cancelled" <?= ($booking['payment_status'] ?? '') === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                             </select>
                         </div>
-                        
                         <div style="margin-bottom: 1rem;">
-                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Admin Notes</label>
-                            <textarea name="admin_notes" style="width: 100%; padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; background: var(--muted); color: var(--text); min-height: 100px;"><?= htmlspecialchars($booking['admin_notes'] ?? '') ?></textarea>
+                            <label class="info-label">Transaction ID</label>
+                            <input type="text" name="transaction_id" class="form-control" value="<?= htmlspecialchars($booking['transaction_id'] ?? '') ?>">
                         </div>
-                        
-                        <button type="submit" class="btn btn-primary" style="width: 100%;">
-                            <i class="fas fa-save"></i> Update Booking Status
-                        </button>
+                        <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center;">Save Payment</button>
                     </form>
-                    
-                    <!-- Quick Actions -->
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button onclick="sendConfirmationEmail(<?= $booking['id'] ?>)" class="btn btn-success" style="flex: 1;">
-                            <i class="fas fa-envelope"></i> Send Confirmation
-                        </button>
-                        <button onclick="generateInvoice(<?= $booking['id'] ?>)" class="btn btn-primary" style="flex: 1;">
-                            <i class="fas fa-file-invoice"></i> Generate Invoice
-                        </button>
-                    </div>
                 </div>
 
-                <!-- Payment History -->
-                <?php if (!empty($payments)): ?>
                 <div class="booking-card">
                     <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-receipt"></i> Payment History
-                        </h3>
+                        <h3 class="card-title"><i class="fas fa-cogs"></i> Manage Booking</h3>
                     </div>
-                    
-                    <div style="overflow-x: auto;">
-                        <table class="payment-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Amount</th>
-                                    <th>Method</th>
-                                    <th>Transaction ID</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($payments as $payment): ?>
-                                <tr>
-                                    <td><?= date('M j, Y', strtotime($payment['payment_date'])) ?></td>
-                                    <td style="color: var(--success); font-weight: 600;">$<?= number_format($payment['amount'], 2) ?></td>
-                                    <td><?= htmlspecialchars($payment['payment_method']) ?></td>
-                                    <td><?= htmlspecialchars($payment['transaction_id']) ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="update_status">
+                        <div style="margin-bottom: 1rem;">
+                            <label class="info-label">Booking Status</label>
+                            <select name="status" class="form-control">
+                                <option value="pending" <?= ($booking['booking_status'] ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
+                                <option value="confirmed" <?= ($booking['booking_status'] ?? '') === 'confirmed' ? 'selected' : '' ?>>Confirmed</option>
+                                <option value="completed" <?= ($booking['booking_status'] ?? '') === 'completed' ? 'selected' : '' ?>>Completed</option>
+                                <option value="cancelled" <?= ($booking['booking_status'] ?? '') === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            <label class="info-label">Admin Notes</label>
+                            <textarea name="admin_notes" class="form-control" rows="3"><?= htmlspecialchars($booking['admin_notes'] ?? '') ?></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Update Booking</button>
+                    </form>
                 </div>
-                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function sendConfirmationEmail(bookingId) {
-    if (confirm('Send confirmation email to customer?')) {
-        fetch('send_confirmation.php?id=' + bookingId)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Confirmation email sent successfully!');
-                } else {
-                    alert('Failed to send email: ' + data.message);
-                }
-            })
-            .catch(error => {
-                alert('Error sending email');
-                console.error('Error:', error);
-            });
-    }
-}
-
-function generateInvoice(bookingId) {
-    window.open('generate_invoice.php?id=' + bookingId, '_blank');
-}
-
-// Auto-hide success messages
-setTimeout(() => {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        alert.style.display = 'none';
-    });
-}, 5000);
+setTimeout(() => { document.querySelectorAll('.alert').forEach(a => a.style.display = 'none'); }, 4000);
 </script>
 
 <?php include 'admin_footer.php'; ?>

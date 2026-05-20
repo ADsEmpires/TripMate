@@ -1,11 +1,6 @@
 <?php
 session_start();
-/*
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
-    exit();
-}
-*/
+
 include '../database/dbconfig.php';
 
 // Get destination ID
@@ -35,6 +30,12 @@ $selected_people  = json_decode($destination['people'] ?? '[]', true) ?: [];
 $selected_cuisines = json_decode($destination['cuisines'] ?? '[]', true) ?: [];
 $cuisine_images_from_db = json_decode($destination['cuisine_images'] ?? '{}', true) ?: [];
 
+// ============================================
+// ATTRACTIONS - Decode existing attractions
+// ============================================
+$attractions_array = json_decode($destination['attractions'] ?? '[]', true);
+$attractions_text = is_array($attractions_array) ? implode("\n", $attractions_array) : '';
+
 // Handle form submission (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name        = $conn->real_escape_string(trim($_POST['name']));
@@ -47,8 +48,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $season = !empty($_POST['season']) ? implode(',', array_map([$conn, 'real_escape_string'], $_POST['season'])) : '';
     $people_json = isset($_POST['people']) ? json_encode($_POST['people']) : '[]';
 
-    // Images: keep old ones if no new upload
-    $image_urls = json_decode($destination['image_urls'] ?? '[]', true) ?: [];
+    // ============================================
+    // ATTRACTIONS - Handle multiple attractions
+    // ============================================
+    $attractions_json = '[]';
+    if (!empty($_POST['attractions'])) {
+        $attractions_array_new = array_filter(array_map('trim', explode("\n", $_POST['attractions'])));
+        if (!empty($attractions_array_new)) {
+            $attractions_json = json_encode(array_values($attractions_array_new));
+        }
+    }
+
+    // ============================================
+    // DESTINATION IMAGES - Store only filenames in 'images' column
+    // ============================================
+    $image_filenames = json_decode($destination['images'] ?? '[]', true) ?: [];
 
     if (!empty($_FILES['images']['name'][0])) {
         $upload_dir = '../uploads/destinations/';
@@ -65,16 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $file_path = $upload_dir . $unique_file_name;
                 
                 if (move_uploaded_file($tmp_name, $file_path)) {
-                    // Store relative path from uploads folder
-                    $image_urls[] = 'destinations/' . $unique_file_name;
+                    // Store ONLY the filename
+                    $image_filenames[] = $unique_file_name;
                 }
             }
         }
     }
 
-    $image_urls_json = json_encode($image_urls);
+    $images_json = json_encode($image_filenames);
 
-    // Handle cuisine images
+    // ============================================
+    // CUISINE IMAGES - Store only filenames
+    // ============================================
     $final_cuisine_images = [];
     $cuisines = isset($_POST['cuisines']) ? $_POST['cuisines'] : [];
     
@@ -93,10 +109,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $file_path = $upload_dir_cuisine . $unique_file_name;
 
                 if (move_uploaded_file($tmp_name, $file_path)) {
-                    // Map cuisine name to relative path from uploads folder
+                    // Map cuisine name to filename only
                     if (isset($cuisines[$cuisine_index])) {
                         $cuisine_name = $cuisines[$cuisine_index];
-                        $final_cuisine_images[$cuisine_name] = 'cuisines/' . $unique_file_name;
+                        $final_cuisine_images[$cuisine_name] = $unique_file_name;
                     }
                 }
             } else {
@@ -125,26 +141,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tips = isset($_POST['tips']) ? json_encode($_POST['tips']) : '[]';
     $language = isset($_POST['language']) ? json_encode($_POST['language']) : '[]';
 
-    // Handle attractions if provided
-    $attractions_json = '[]';
-    if (!empty($_POST['attractions'])) {
-        $attractions_array = array_filter(array_map('trim', explode("\n", $_POST['attractions'])));
-        if (!empty($attractions_array)) {
-            $attractions_json = json_encode(array_values($attractions_array));
-        }
-    }
-
     $update_stmt = $conn->prepare("
         UPDATE destinations 
-        SET name = ?, type = ?, description = ?, location = ?, budget = ?, 
-            image_urls = ?, map_link = ?, season = ?, people = ?, 
-            tips = ?, cuisines = ?, language = ?, cuisine_images = ?, attractions = ?
+        SET name = ?, 
+            type = ?, 
+            description = ?, 
+            location = ?, 
+            budget = ?, 
+            images = ?, 
+            map_link = ?, 
+            season = ?, 
+            people = ?, 
+            tips = ?, 
+            cuisines = ?, 
+            language = ?, 
+            cuisine_images = ?, 
+            attractions = ?
         WHERE id = ?
     ");
 
+    if (!$update_stmt) {
+        die('Prepare failed: ' . htmlspecialchars($conn->error));
+    }
+
     $update_stmt->bind_param("ssssdsssssssssi", 
         $name, $type, $description, $location, $budget, 
-        $image_urls_json, $map_link, $season, $people_json,
+        $images_json, $map_link, $season, $people_json,
         $tips, $cuisines_json, $language, $cuisine_images_json, $attractions_json, $id
     );
 
@@ -153,8 +175,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: add_destination_on_admin.php");
         exit();
     } else {
-        $_SESSION['message'] = "Error: " . $conn->error;
+        $_SESSION['message'] = "Error: " . $update_stmt->error;
     }
+    $update_stmt->close();
 }
 ?>
 
@@ -237,18 +260,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            value="<?= htmlspecialchars($destination['budget'] ?? '0') ?>" required>
                 </div>
 
+                <!-- ============================================ -->
+                <!-- ATTRACTIONS SECTION - NEW -->
+                <!-- ============================================ -->
+                <div class="form-group">
+                    <label for="attractions">Nearby Attractions</label>
+                    <textarea id="attractions" name="attractions" class="form-control" rows="4" 
+                              placeholder="Enter each attraction on a new line&#10;Example:&#10;Taj Mahal&#10;Agra Fort&#10;Fatehpur Sikri"><?= htmlspecialchars($attractions_text) ?></textarea>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">
+                        <i class="fas fa-info-circle"></i> Enter one attraction per line. These will be displayed on the destination page.
+                    </small>
+                </div>
+
                 <div class="form-group">
                     <label>Current Destination Images</label>
                     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
                         <?php
-                        $images = json_decode($destination['image_urls'] ?? '[]', true);
+                        $images = json_decode($destination['images'] ?? '[]', true);
                         if (is_array($images) && !empty($images)):
                             foreach ($images as $img):
-                                $image_path = '../uploads/' . $img;
+                                $image_path = '../uploads/destinations/' . $img;
+                                if (file_exists($image_path)):
                         ?>
                             <img src="<?= htmlspecialchars($image_path) ?>" alt="Current image" 
                                  style="max-width: 180px; height: auto; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         <?php
+                                endif;
                             endforeach;
                         else:
                             echo "<p style='color:#777;'>No images yet</p>";
@@ -261,19 +298,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <small style="color: var(--accent);">Select new images to add to existing ones</small>
                 </div>
 
+                <!-- Cuisines Section with Add New Cuisine Button -->
                 <div class="form-group">
                     <label for="cuisines">Local Cuisines</label>
-                    <select id="cuisines" name="cuisines[]" class="form-control" multiple style="height: auto; min-height: 120px;">
-                        <option value="Biryani" <?= in_array('Biryani', $selected_cuisines) ? 'selected' : '' ?>>Biryani</option>
-                        <option value="Butter Chicken" <?= in_array('Butter Chicken', $selected_cuisines) ? 'selected' : '' ?>>Butter Chicken</option>
-                        <option value="Paneer Tikka" <?= in_array('Paneer Tikka', $selected_cuisines) ? 'selected' : '' ?>>Paneer Tikka</option>
-                        <option value="Masala Dosa" <?= in_array('Masala Dosa', $selected_cuisines) ? 'selected' : '' ?>>Masala Dosa</option>
-                        <option value="Chole Bhature" <?= in_array('Chole Bhature', $selected_cuisines) ? 'selected' : '' ?>>Chole Bhature</option>
-                        <option value="Rogan Josh" <?= in_array('Rogan Josh', $selected_cuisines) ? 'selected' : '' ?>>Rogan Josh</option>
-                        <option value="Dal Makhani" <?= in_array('Dal Makhani', $selected_cuisines) ? 'selected' : '' ?>>Dal Makhani</option>
-                        <option value="Tandoori Chicken" <?= in_array('Tandoori Chicken', $selected_cuisines) ? 'selected' : '' ?>>Tandoori Chicken</option>
-                    </select>
-                    <small style="color: var(--accent);">Hold Ctrl/Cmd to select multiple cuisines</small>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <select id="cuisines" name="cuisines[]" class="form-control" multiple style="height: auto; min-height: 120px; flex: 1;">
+                            <option value="Biryani" <?= in_array('Biryani', $selected_cuisines) ? 'selected' : '' ?>>Biryani</option>
+                            <option value="Butter Chicken" <?= in_array('Butter Chicken', $selected_cuisines) ? 'selected' : '' ?>>Butter Chicken</option>
+                            <option value="Paneer Tikka" <?= in_array('Paneer Tikka', $selected_cuisines) ? 'selected' : '' ?>>Paneer Tikka</option>
+                            <option value="Masala Dosa" <?= in_array('Masala Dosa', $selected_cuisines) ? 'selected' : '' ?>>Masala Dosa</option>
+                            <option value="Chole Bhature" <?= in_array('Chole Bhature', $selected_cuisines) ? 'selected' : '' ?>>Chole Bhature</option>
+                            <option value="Rogan Josh" <?= in_array('Rogan Josh', $selected_cuisines) ? 'selected' : '' ?>>Rogan Josh</option>
+                            <option value="Dal Makhani" <?= in_array('Dal Makhani', $selected_cuisines) ? 'selected' : '' ?>>Dal Makhani</option>
+                            <option value="Tandoori Chicken" <?= in_array('Tandoori Chicken', $selected_cuisines) ? 'selected' : '' ?>>Tandoori Chicken</option>
+                        </select>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <button type="button" id="addCuisineBtn" class="btn btn-outline" style="padding: 8px 16px;">
+                                <i class="fas fa-plus"></i> Add New
+                            </button>
+                        </div>
+                    </div>
+                    <small style="color: var(--accent);">Hold Ctrl/Cmd to select multiple options. Click "Add New" to add a custom cuisine.</small>
+                    
+                    <!-- Custom Cuisine Input (Hidden by default) -->
+                    <div id="customCuisineContainer" style="display: none; margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="customCuisineName" class="form-control" placeholder="Enter new cuisine name" style="flex: 1;">
+                        <button type="button" id="confirmCuisineBtn" class="btn btn-primary" style="padding: 8px 20px;">Add</button>
+                        <button type="button" id="cancelCuisineBtn" class="btn btn-outline" style="padding: 8px 16px;">Cancel</button>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -282,7 +335,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php
                         if (is_array($cuisine_images_from_db) && !empty($cuisine_images_from_db)):
                             foreach ($cuisine_images_from_db as $cuisine_name => $img):
-                                $image_path = '../uploads/' . $img;
+                                $image_path = '../uploads/cuisines/' . $img;
+                                if (file_exists($image_path)):
                         ?>
                             <div style="display: flex; flex-direction: column; align-items: center;">
                                 <img src="<?= htmlspecialchars($image_path) ?>" alt="<?= htmlspecialchars($cuisine_name) ?>" 
@@ -290,6 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <small style="margin-top: 0.5rem; text-align: center;"><?= htmlspecialchars($cuisine_name) ?></small>
                             </div>
                         <?php
+                                endif;
                             endforeach;
                         else:
                             echo "<p style='color:#777;'>No cuisine images yet</p>";
@@ -308,13 +363,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                            value="<?= htmlspecialchars($destination['map_link'] ?? '') ?>" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Update Destination
-                </button>
-
-                <a href="add_destination_on_admin.php" class="btn btn-outline" style="margin-left: 1rem;">
-                    <i class="fas fa-arrow-left"></i> Back
-                </a>
+                <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Destination
+                    </button>
+                    <a href="add_destination_on_admin.php" class="btn btn-outline">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+                </div>
 
             </form>
         </div>
@@ -456,6 +512,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </style>
 
 <script>
+// Add New Cuisine functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const addCuisineBtn = document.getElementById('addCuisineBtn');
+    const customCuisineContainer = document.getElementById('customCuisineContainer');
+    const customCuisineName = document.getElementById('customCuisineName');
+    const confirmCuisineBtn = document.getElementById('confirmCuisineBtn');
+    const cancelCuisineBtn = document.getElementById('cancelCuisineBtn');
+    const cuisinesSelect = document.getElementById('cuisines');
+    
+    if (addCuisineBtn) {
+        function showCustomCuisineInput() {
+            customCuisineContainer.style.display = 'flex';
+            customCuisineName.focus();
+        }
+        
+        function hideCustomCuisineInput() {
+            customCuisineContainer.style.display = 'none';
+            customCuisineName.value = '';
+        }
+        
+        function addCustomCuisine() {
+            let newCuisine = customCuisineName.value.trim();
+            if (newCuisine === '') {
+                alert('Please enter a cuisine name');
+                return;
+            }
+            
+            // Capitalize first letter of each word
+            newCuisine = newCuisine.replace(/\b\w/g, function(l) { return l.toUpperCase(); });
+            
+            // Check if cuisine already exists in select options
+            let exists = false;
+            for (let i = 0; i < cuisinesSelect.options.length; i++) {
+                if (cuisinesSelect.options[i].value === newCuisine) {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (exists) {
+                alert('This cuisine already exists in the list!');
+                hideCustomCuisineInput();
+                return;
+            }
+            
+            // Create new option
+            const newOption = document.createElement('option');
+            newOption.value = newCuisine;
+            newOption.textContent = newCuisine;
+            newOption.selected = true;
+            cuisinesSelect.appendChild(newOption);
+            
+            hideCustomCuisineInput();
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.className = 'alert alert-success';
+            successMsg.style.padding = '0.5rem 1rem';
+            successMsg.style.marginTop = '0.5rem';
+            successMsg.style.fontSize = '0.9rem';
+            successMsg.innerHTML = '<i class="fas fa-check-circle"></i> Cuisine "' + newCuisine + '" added successfully!';
+            customCuisineContainer.parentNode.appendChild(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        }
+        
+        addCuisineBtn.addEventListener('click', showCustomCuisineInput);
+        confirmCuisineBtn.addEventListener('click', addCustomCuisine);
+        cancelCuisineBtn.addEventListener('click', hideCustomCuisineInput);
+        
+        customCuisineName.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addCustomCuisine();
+            }
+        });
+    }
+});
+
 let startTime = Date.now();
 let clickCount = 0;
 

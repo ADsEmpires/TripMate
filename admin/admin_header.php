@@ -21,7 +21,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 // Map filenames to breadcrumb segments. Each value can be an array of segment labels
 $page_breadcrumb_map = [
     'admin_dasbord.php' => ['Dashboard'],
-    'add_destanition_on_admin.php' => ['Destinations','Add Destination'],
+    'add_destination_on_admin.php' => ['Destinations','Add Destination'],
     'edit_destination.php' => ['Destinations','Edit Destination'],
     'delete_destination.php' => ['Destinations','Delete Destination'],
     'user_present_chack_on_admin.php' => ['Users','List Users'],
@@ -307,6 +307,36 @@ foreach ($segments as $i => $seg) {
         }
 
         .header-avatar img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); }
+        
+        /* Profile Avatar Fallback Styles */
+        .profile-avatar-fallback {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 2px solid var(--bg-base);
+        }
+        
+        .profile-avatar-fallback-large {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            border: 2px solid var(--primary);
+        }
+        
         .header-info h4 { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--text-main); }
         .header-info p { font-size: 0.8rem; color: var(--text-muted); }
 
@@ -456,7 +486,7 @@ foreach ($segments as $i => $seg) {
         .weather-temp {
             font-size: 2.8rem; font-weight: 800;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            /* -webkit-background-clip: text; -webkit-text-fill-color: transparent; */
             margin: 0.25rem 0; line-height: 1;
         }
         .weather-condition { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -507,7 +537,13 @@ foreach ($segments as $i => $seg) {
 
                 <div class="user-profile">
                     <div class="profile-avatar">
-                        <img src="<?= $admin_profile_pic ? $admin_profile_pic : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' ?>" alt="Admin">
+                        <?php if ($admin_profile_pic): ?>
+                            <img src="<?= $admin_profile_pic ?>" alt="Admin">
+                        <?php else: ?>
+                            <div class="profile-avatar-fallback">
+                                <?= strtoupper(substr($admin_name, 0, 1)) ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="status-indicator online"></div>
                     </div>
                     <div class="profile-info">
@@ -519,7 +555,13 @@ foreach ($segments as $i => $seg) {
                     <div class="profile-dropdown-menu">
                         <div class="dropdown-header">
                             <div class="header-avatar">
-                                <img src="<?= $admin_profile_pic ? $admin_profile_pic : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face' ?>" alt="Admin">
+                                <?php if ($admin_profile_pic): ?>
+                                    <img src="<?= $admin_profile_pic ?>" alt="Admin">
+                                <?php else: ?>
+                                    <div class="profile-avatar-fallback-large">
+                                        <?= strtoupper(substr($admin_name, 0, 1)) ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="header-info">
                                 <h4><?= htmlspecialchars($admin_name) ?></h4>
@@ -560,8 +602,8 @@ foreach ($segments as $i => $seg) {
                         <span class="nav-text">Dashboard</span>
                     </a>
                 </li>
-                <li class="nav-item <?= $current_page == 'add_destanition_on_admin.php' ? 'active' : '' ?>">
-                    <a href="add_destanition_on_admin.php" class="nav-link">
+                <li class="nav-item <?= $current_page == 'add_destination_on_admin.php' ? 'active' : '' ?>">
+                    <a href="add_destination_on_admin.php" class="nav-link">
                         <div class="nav-icon"><i class="fas fa-map-marker-alt"></i></div>
                         <span class="nav-text">Destinations</span>
                     </a>
@@ -600,6 +642,12 @@ foreach ($segments as $i => $seg) {
                     <a href="bookings.php" class="nav-link">
                         <div class="nav-icon"><i class="fas fa-calendar-check"></i></div>
                         <span class="nav-text">Bookings</span>
+                    </a>
+                </li>
+                <li class="nav-item <?= $current_page == 'manage_contributor_submissions.php' ? 'active' : '' ?>">
+                    <a href="manage_contributor_submissions.php" class="nav-link">
+                        <div class="nav-icon"><i class="fas fa-user-pen"></i></div>
+                        <span class="nav-text">Contributor Submissions</span>
                     </a>
                 </li>
 

@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['admin_id'])) {
-    header("Location: login.php");
+    header("Location: admin_login.php");
     exit;
 }
 
@@ -17,13 +17,25 @@ $admin = $admin_result->fetch_assoc() ?? ['name' => 'Admin', 'email' => '', 'pro
 // BASIC STATISTICS (Updated with real queries)
 $total_users = 0; $today_users = 0; $total_destinations = 0; $today_destinations = 0;
 $total_bookings = 0; $today_bookings = 0; $revenue_today = 0; $revenue_month = 0;
-$total_messages = 0; $unread_messages = 0; $pending_bookings = 0;
+$total_messages = 0; $unread_messages = 0; $pending_bookings = 0; $google_auth_users = 0;
+$total_contributors = 0; $total_contributor_destinations = 0;
 
 try {
     $total_users = $conn->query("SELECT COUNT(*) as total FROM users")->fetch_assoc()['total'] ?? 0;
     $today_users = $conn->query("SELECT COUNT(*) as total FROM users WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
     $total_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations")->fetch_assoc()['total'] ?? 0;
     $today_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
+    
+    // Contributor stats
+    $check_contributors = $conn->query("SHOW TABLES LIKE 'contributors'");
+    if ($check_contributors && $check_contributors->num_rows > 0) {
+        $total_contributors = $conn->query("SELECT COUNT(*) as total FROM contributors")->fetch_assoc()['total'] ?? 0;
+    }
+    
+    $check_contributor_id = $conn->query("SHOW COLUMNS FROM destinations LIKE 'contributor_id'");
+    if ($check_contributor_id && $check_contributor_id->num_rows > 0) {
+        $total_contributor_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations WHERE contributor_id IS NOT NULL AND contributor_id > 0")->fetch_assoc()['total'] ?? 0;
+    }
     
     $check_bookings = $conn->query("SHOW TABLES LIKE 'bookings'");
     if ($check_bookings && $check_bookings->num_rows > 0) {
@@ -43,6 +55,9 @@ try {
     $total_messages = $conn->query("SELECT COUNT(*) as total FROM messages")->fetch_assoc()['total'] ?? 0;
     $unread_messages = $conn->query("SELECT COUNT(*) as total FROM messages WHERE status = 'unread'")->fetch_assoc()['total'] ?? 0;
 } catch (Exception $e) { error_log("Dashboard error: " . $e->getMessage()); }
+
+// Count Google authenticated users using the function
+$google_auth_users = getGoogleAuthUserCount($conn);
 
 $recent_users = []; $recent_destinations = []; $recent_bookings = [];
 
@@ -185,6 +200,23 @@ function getWeatherSeverity($weather_data) {
     foreach ($medium_severity as $condition) { if (strpos($main_weather, $condition) !== false || strpos($description, $condition) !== false) return 'medium'; }
     $temp = $weather_data['main']['temp']; if ($temp > 35 || $temp < 0) return 'medium';
     return 'low';
+}
+
+function getGoogleAuthUserCount($conn) {
+    try {
+        $check_table = $conn->query("SHOW TABLES LIKE 'users_google'");
+        if ($check_table && $check_table->num_rows > 0) {
+            $result = $conn->query("SELECT COUNT(*) as total FROM users_google");
+            if ($result) {
+                $data = $result->fetch_assoc();
+                return $data['total'] ?? 0;
+            }
+        }
+        return 0;
+    } catch (Exception $e) {
+        error_log("Error getting Google auth user count: " . $e->getMessage());
+        return 0;
+    }
 }
 ?>
 
@@ -405,7 +437,7 @@ function getWeatherSeverity($weather_data) {
 
         .section-title i {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
+   
             -webkit-text-fill-color: transparent;
         }
 
@@ -570,7 +602,7 @@ function getWeatherSeverity($weather_data) {
                     </div>
                 </div>
 
-                <div class="stat-card clickable" onclick="openModal('add_destanition_on_admin.php', 'Destinations')">
+                <div class="stat-card clickable" onclick="openModal('add_destination_on_admin.php', 'Destinations')">
                     <div class="stat-card-header">
                         <div class="stat-icon destinations"><i class="fas fa-map-marked-alt"></i></div>
                         <span class="stat-trend"><i class="fas fa-arrow-up"></i> <?= $today_destinations ?> new</span>
@@ -677,6 +709,52 @@ function getWeatherSeverity($weather_data) {
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <div class="stat-card clickable" onclick="openModal('google_auth_users.php', 'Google Auth Users')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #4285F4, #34A853);">
+                            <i class="fab fa-google"></i>
+                        </div>
+                        <span class="stat-trend"><i class="fas fa-arrow-up"></i> <?= round(($google_auth_users / max(1, $total_users)) * 100, 1) ?>%</span>
+                    </div>
+                    <div class="stat-value"><?= number_format($google_auth_users) ?></div>
+                    <div class="stat-label">Google Auth Users</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($google_auth_users / max(1, $total_users)) * 100) ?>%; background: linear-gradient(135deg, #4285F4, #34A853);"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fab fa-google"></i> Google: <?= number_format($google_auth_users) ?></span>
+                        <span><i class="fas fa-user-friends"></i> <?= round(($google_auth_users / max(1, $total_users)) * 100, 1) ?>% of users</span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('contributor_management.php', 'Contributors')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                            <i class="fas fa-hands-helping"></i>
+                        </div>
+                        <span class="stat-trend"><i class="fas fa-users"></i> Contributors</span>
+                    </div>
+                    <div class="stat-value"><?= number_format($total_contributors) ?></div>
+                    <div class="stat-label">Total Contributors</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($total_contributors / max(1, $total_users)) * 100) ?>%; background: linear-gradient(135deg, #f59e0b, #d97706);"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-user-tie"></i> <?= number_format($total_contributors) ?> contributors</span>
+                    </div>
+                </div>
+
+                <div class="stat-card clickable" onclick="openModal('contributor_destinations.php', 'Contributor Destinations')">
+                    <div class="stat-card-header">
+                        <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <i class="fas fa-map-signs"></i>
+                        </div>
+                        <span class="stat-trend"><i class="fas fa-map"></i> Contrib. Dest</span>
+                    </div>
+                    <div class="stat-value"><?= number_format($total_contributor_destinations) ?></div>
+                    <div class="stat-label">Contributor Destinations</div>
+                    <div class="stat-progress"><div class="stat-progress-bar" style="width: <?= min(100, ($total_contributor_destinations / max(1, $total_destinations)) * 100) ?>%; background: linear-gradient(135deg, #10b981, #059669);"></div></div>
+                    <div class="stat-footer">
+                        <span><i class="fas fa-map-marker-alt"></i> <?= number_format($total_contributor_destinations) ?> destinations added</span>
+                    </div>
+                </div>
             </div>
 
             <div class="content-grid">
@@ -701,7 +779,7 @@ function getWeatherSeverity($weather_data) {
                                 <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--primary), #818cf8);"><i class="fas fa-user-plus"></i></div>
                                 <span style="font-weight: 700;">Add User</span>
                             </button>
-                            <button class="quick-stat-item" onclick="openModal('destination_add.php', 'Add Destination')" style="flex-direction: column; text-align: center;">
+                            <button class="quick-stat-item" onclick="openModal('add_destination_on_admin.php', 'Add Destination')" style="flex-direction: column; text-align: center;">
                                 <div class="quick-stat-icon" style="background: linear-gradient(135deg, var(--success), #34d399);"><i class="fas fa-map-marked-alt"></i></div>
                                 <span style="font-weight: 700;">Add Destination</span>
                             </button>

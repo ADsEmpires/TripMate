@@ -218,6 +218,12 @@ function sendUserEmail($toEmail, $toName, $subject, $message, $senderName = 'RAN
         $mail->Port       = SMTP_PORT;
         $mail->CharSet    = 'UTF-8';
         
+        // Enable debug output to error log (set to 0 in production)
+        $mail->SMTPDebug  = 0;
+        $mail->Debugoutput = function($str, $level) {
+            error_log("SMTP Debug [$level]: $str");
+        };
+        
         // Sender
         $mail->setFrom(SMTP_FROM, $senderName);
         $mail->addReplyTo(SMTP_FROM, $senderName);
@@ -346,7 +352,7 @@ function sendUserEmail($toEmail, $toName, $subject, $message, $senderName = 'RAN
         $mail->Body = $htmlBody;
         $mail->AltBody = $plainText;
         
-        // SMTP Options for local testing
+        // SMTP Options for local testing (disable SSL verification on XAMPP)
         $mail->SMTPOptions = [
             'ssl' => [
                 'verify_peer'       => false,
@@ -354,6 +360,9 @@ function sendUserEmail($toEmail, $toName, $subject, $message, $senderName = 'RAN
                 'allow_self_signed' => true
             ]
         ];
+        
+        // Set timeout to avoid long hangs
+        $mail->Timeout = 30;
         
         return $mail->send();
     } catch (Exception $e) {
@@ -523,7 +532,7 @@ try {
         }
         
         .page-container {
-            margin-left: 220px;
+            margin-left: 250px;
             margin-top: 64px;
             padding: 1.5rem;
             min-height: calc(100vh - 64px);

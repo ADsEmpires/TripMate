@@ -1,7 +1,7 @@
 <?php
 session_start();
 if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
+    header('Location: admin_login.php');
     exit();
 }
 
@@ -12,7 +12,7 @@ include 'admin_header.php';
 // FIX 1: Track admin's own IP when viewing this page
 // ============================================
 if (isset($_SESSION['admin_id'])) {
-    include_once '../backend/ip_tracking.php';
+    include_once 'ip_tracking.php'; // The file is in the same 'admin' folder, not 'backend'
     
     // Check if function exists, if not define it here
     if (!function_exists('trackUserIP')) {
@@ -20,20 +20,27 @@ if (isset($_SESSION['admin_id'])) {
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
             
+            // Get next ID physically since AUTO_INCREMENT might be missing in DB
+            $id_query = $conn->query("SELECT MAX(id) AS max_id FROM user_ips");
+            $next_id = 1;
+            if ($id_query && $row = $id_query->fetch_assoc()) {
+                $next_id = ($row['max_id'] ?? 0) + 1;
+            }
+
             // Check if user_type column exists
             $check = $conn->query("SHOW COLUMNS FROM user_ips LIKE 'user_type'");
             if ($check && $check->num_rows > 0) {
-                $sql = "INSERT INTO user_ips (user_id, user_type, ip_address, user_agent, login_time) 
-                        VALUES (?, 'admin', ?, ?, NOW())";
+                $sql = "INSERT INTO user_ips (id, user_id, user_type, ip_address, user_agent, login_time) 
+                        VALUES (?, ?, 'admin', ?, ?, NOW())";
                 $stmt = $conn->prepare($sql);
-                $stmt->bind_param("iss", $user_id, $ip_address, $user_agent);
+                $stmt->bind_param("iiss", $next_id, $user_id, $ip_address, $user_agent);
                 $stmt->execute();
             } else {
                 // Fallback - just insert without user_type
-                $sql = "INSERT INTO user_ips (user_id, ip_address, user_agent, login_time) 
-                        VALUES (?, ?, ?, NOW())";
+                $sql = "INSERT INTO user_ips (id, user_id, ip_address, user_agent, login_time) 
+                        VALUES (?, ?, ?, ?, NOW())";
                 $stmt = $conn->prepare($sql);
-                $stmt->bind_param("iss", $user_id, $ip_address, $user_agent);
+                $stmt->bind_param("iiss", $next_id, $user_id, $ip_address, $user_agent);
                 $stmt->execute();
             }
             return true;
@@ -119,30 +126,45 @@ if ($result) {
 }
 
 // ============================================
-// FIX 4: Get ADMINS with their IP counts
+// FIX 4: Get ADMINS with their IP counts (from admin_ips)
 // ============================================
 $admins = [];
 
-// Check if admin table exists (your table is 'admin', not 'admins')
 $admin_table_exists = false;
 $check_admin_table = $conn->query("SHOW TABLES LIKE 'admin'");
 if ($check_admin_table && $check_admin_table->num_rows > 0) {
     $admin_table_exists = true;
 }
 
+// Check if admin_ips table exists
+$admin_ips_exists = false;
+$check_admin_ips = $conn->query("SHOW TABLES LIKE 'admin_ips'");
+if ($check_admin_ips && $check_admin_ips->num_rows > 0) {
+    $admin_ips_exists = true;
+}
+
 if ($admin_table_exists) {
-    $admin_where = $show_all ? "" : "AND EXISTS (
-        SELECT 1 FROM user_ips ui
-        WHERE ui.user_id = a.id
-        AND ui.user_type = 'admin'
-        AND ui.login_time >= DATE_SUB(NOW(), INTERVAL 5 DAY)
-    )";
-    
-    $admin_sql = "SELECT a.id, a.name, a.email, a.created_at,
-                  (SELECT COUNT(*) FROM user_ips WHERE user_id = a.id AND user_type = 'admin') as ip_count
-                  FROM admin a
-                  WHERE 1=1 $admin_where
-                  ORDER BY a.created_at DESC";
+    if ($admin_ips_exists) {
+        $admin_where = $show_all ? "" : "AND EXISTS (
+            SELECT 1 FROM admin_ips ai
+            WHERE ai.admin_id = a.id
+            AND ai.login_time >= DATE_SUB(NOW(), INTERVAL 5 DAY)
+        )";
+        
+        $admin_sql = "SELECT a.id, a.name, a.email, a.created_at,
+                      (SELECT COUNT(*) FROM admin_ips WHERE admin_id = a.id) as ip_count
+                      FROM admin a
+                      WHERE 1=1 $admin_where
+                      ORDER BY a.created_at DESC";
+    } else {
+        // Fallback or empty if admin_ips doesn't exist yet
+        $admin_where = "";
+        $admin_sql = "SELECT a.id, a.name, a.email, a.created_at,
+                      0 as ip_count
+                      FROM admin a
+                      WHERE 1=1 $admin_where
+                      ORDER BY a.created_at DESC";
+    }
     
     $admin_result = $conn->query($admin_sql);
     
@@ -152,24 +174,19 @@ if ($admin_table_exists) {
         // Get IP addresses for each admin
         foreach ($admins as &$admin) {
             $admin_id = $admin['id'];
-            
-            if ($has_user_type) {
-                $ip_sql = "SELECT ip_address, user_agent, login_time 
-                          FROM user_ips 
-                          WHERE user_id = $admin_id AND user_type = 'admin' 
-                          ORDER BY login_time DESC LIMIT 5";
-            } else {
-                $ip_sql = "SELECT ip_address, user_agent, login_time 
-                          FROM user_ips 
-                          WHERE user_id = $admin_id 
-                          ORDER BY login_time DESC LIMIT 5";
-            }
-            
-            $ip_result = $conn->query($ip_sql);
             $admin['ip_addresses'] = [];
             
-            if ($ip_result && $ip_result->num_rows > 0) {
-                $admin['ip_addresses'] = $ip_result->fetch_all(MYSQLI_ASSOC);
+            if ($admin_ips_exists) {
+                $ip_sql = "SELECT ip_address, user_agent, login_time 
+                          FROM admin_ips 
+                          WHERE admin_id = $admin_id 
+                          ORDER BY login_time DESC LIMIT 5";
+                
+                $ip_result = $conn->query($ip_sql);
+                
+                if ($ip_result && $ip_result->num_rows > 0) {
+                    $admin['ip_addresses'] = $ip_result->fetch_all(MYSQLI_ASSOC);
+                }
             }
         }
         unset($admin);
@@ -689,22 +706,39 @@ FROM admin WHERE id = 1;
         <?php if (isset($_GET['add_sample']) && $_GET['add_sample'] == '1'): ?>
         <?php
         // Add sample IP data for users
+        $id_query = $conn->query("SELECT MAX(id) AS max_id FROM user_ips");
+        $next_id = 1;
+        if ($id_query && $row = $id_query->fetch_assoc()) {
+            $next_id = ($row['max_id'] ?? 0) + 1;
+        }
+
         $sample_count = 0;
         $user_result = $conn->query("SELECT id FROM users LIMIT 10");
         if ($user_result) {
             while ($row = $user_result->fetch_assoc()) {
                 $ip = rand(1,255) . '.' . rand(1,255) . '.' . rand(1,255) . '.' . rand(1,255);
                 $days_ago = rand(0, 10);
-                $conn->query("INSERT INTO user_ips (user_id, ip_address, user_agent, login_time) 
-                             VALUES ({$row['id']}, '$ip', 'Mozilla/5.0 (Sample Browser)', DATE_SUB(NOW(), INTERVAL $days_ago DAY))");
+                $conn->query("INSERT INTO user_ips (id, user_id, ip_address, user_agent, login_time) 
+                             VALUES ($next_id, {$row['id']}, '$ip', 'Mozilla/5.0 (Sample Browser)', DATE_SUB(NOW(), INTERVAL $days_ago DAY))");
                 $sample_count++;
+                $next_id++;
             }
         }
         
         // Add sample IP for admin
         $admin_result = $conn->query("SELECT id FROM admin LIMIT 1");
         if ($admin_result && $admin_row = $admin_result->fetch_assoc()) {
-            $conn->query("INSERT INTO user_ips (user_id, ip_address, user_agent, login_time) 
+            // Check if admin_ips exists, if not create
+            $conn->query("CREATE TABLE IF NOT EXISTS `admin_ips` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                `admin_id` int(11) NOT NULL,
+                `ip_address` varchar(45) NOT NULL,
+                `user_agent` text DEFAULT NULL,
+                `login_time` timestamp NOT NULL DEFAULT current_timestamp(),
+                PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;");
+
+            $conn->query("INSERT INTO admin_ips (admin_id, ip_address, user_agent, login_time) 
                          VALUES ({$admin_row['id']}, '192.168.1.1', 'Admin Chrome Browser', NOW())");
             $sample_count++;
         }
