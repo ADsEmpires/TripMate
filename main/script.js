@@ -150,30 +150,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Check if user is logged in
   if (sessionStorage.getItem('user_id')) {
-      // Show user session float
       const userFloat = document.querySelector('.user-session-float');
       if (userFloat) {
           userFloat.style.display = 'flex';
-          const userName = userFloat.querySelector('.user-name');
-          if (userName) {
-              userName.textContent = sessionStorage.getItem('user_name') || 'User';
-          }
-      }
+          const userNameText = sessionStorage.getItem('user_name') || 'User';
+          userFloat.innerHTML = `
+              <i class="fas fa-user-circle"></i>
+              <span class="user-name">${userNameText}</span>
+              <div class="user-menu">
+                  <a href="../user/user_dashboard.php"><i class="fas fa-columns"></i> Dashboard</a>
+                  <a href="../user/user-profile.php"><i class="fas fa-user"></i> Profile</a>
+                  <a href="../auth/logout.php" onclick="return confirm('Are you sure you want to logout?')">
+                      <i class="fas fa-sign-out-alt"></i> Logout
+                  </a>
+              </div>
+          `;
 
-      // Add user menu content
-      const userMenu = document.querySelector('.user-session-float');
-      if (userMenu) {
-        userMenu.innerHTML = `
-            <i class="fas fa-user-circle"></i>
-            <span class="user-name">${sessionStorage.getItem('user_name') || 'User'}</span>
-            <div class="user-menu">
-                <a href="../user/user_dashboard.php"><i class="fas fa-columns"></i> Dashboard</a>
-                <a href="../user/user-profile.php"><i class="fas fa-user"></i> Profile</a>
-                <a href="../auth/logout.php" onclick="return confirm('Are you sure you want to logout?')">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        `;
+          const userMenu = userFloat.querySelector('.user-menu');
+          userFloat.addEventListener('click', (event) => {
+            event.stopPropagation();
+            userFloat.classList.toggle('active');
+          });
+          if (userMenu) {
+            userMenu.addEventListener('click', (event) => event.stopPropagation());
+          }
+          document.addEventListener('click', () => userFloat.classList.remove('active'));
       }
 
       // Hide register button if it exists

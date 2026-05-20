@@ -1,186 +1,488 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>TripMate - Travel Planning Made Easy</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="index.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TripMate · smart travel companion</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../loader/main_loder/loader.css">
+<link rel="stylesheet" href="../loader/admin_loder/admin_login_loader/login_loader.css">
 
-  <!-- Small overrides to make the navbar blue and ensure text/buttons contrast 
-  <style>
-    /* Force navbar background to blue and white text */
-    .navbar { background: #0078d4 !important; }
-    .navbar .logo, .navbar .logo span { color: #fff !important; }
-    .nav-links a { color: #fff !important; }
-    .nav-links a:hover { color: #e6f4ff !important; }
-    /* Make Sign In stand out as an orange pill on blue background */
-    .register-btn { background: #ff7a00 !important; color: #ffffff !important; font-weight:700 !important; border-radius: 999px; padding: 8px 14px; }
-    .register-btn:hover { background: #e66c00 !important; }
-  </style> -->
+<style>
+/* ==========================================================================
+   UNIFIED & COMPRESSED STYLES (Merged index.css, style.css, and inline CSS)
+   ========================================================================== */
+:root {
+  --bg-base: #f8fafc; --bg-surface: #ffffff; --text-main: #0f172a !important; --text-muted: #475569 !important;
+  --primary: #4f46e5; --secondary: #06b6d4; --nav-bg: rgba(255, 255, 255, 0.75);
+  --card-border: rgba(79, 70, 229, 0.15); --shadow-color: rgba(15, 23, 42, 0.08); --glow-color: rgba(6, 182, 212, 0.4);
+  --accent: #00c2cb; --light: #f5f7fa; --dark: #333; --white: #fff;
+}
+body.dark-mode {
+  --bg-base: #09090b; --bg-surface: #18181b; --text-main: #f8fafc !important; --text-muted: #cbd5e1 !important;
+  --primary: #818cf8; --secondary: #22d3ee; --nav-bg: rgba(24, 24, 27, 0.75);
+  --card-border: rgba(255, 255, 255, 0.1); --shadow-color: rgba(0, 0, 0, 0.6); --glow-color: rgba(34, 211, 238, 0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: var(--bg-base); color: var(--text-main); transition: background-color 0.4s ease, color 0.4s ease; line-height: 1.6; overflow-x: hidden; }
+h1, h2, h3, h4, h5, h6 { color: var(--text-main); font-weight: 800; letter-spacing: -0.5px; }
+p { color: var(--text-muted); }
+.widget-card, .features li, .app-feature-item, .review-card-expanded { color: var(--text-main); }
+.text-center { text-align: center; } .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
+
+/* Scroll Progress & Diagonal Track */
+.scroll-progress-bar { position: fixed; top: 0; left: 0; height: 4px; width: 0%; background: linear-gradient(90deg, var(--primary), var(--secondary)); z-index: 9999; box-shadow: 0 0 10px var(--glow-color); transition: width 0.1s ease-out; }
+.diagonal-scroll-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; pointer-events: none; opacity: 0; transition: opacity 0.5s ease-out; }
+.diagonal-track { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.track-thumb { position: absolute; top: 0; left: 0; width: 50px; height: 50px; margin: -25px 0 0 -25px; background: var(--bg-surface); border: 2px solid var(--card-border); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 6px 20px var(--shadow-color); will-change: transform; }
+.track-thumb i { color: var(--primary); font-size: 1.4rem; transform: rotate(90deg); background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.reveal { opacity: 0; transform: translateY(40px) scale(0.98); transition: all 1s cubic-bezier(0.25, 1, 0.5, 1); }
+.reveal.active { opacity: 1; transform: translateY(0) scale(1); }
+
+/* Floating Pill Navbar (Modernized) */
+.navbar { position: fixed; top: 20px; left: 5%; width: 90%; height: 70px; background: var(--nav-bg) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--card-border); border-radius: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; z-index: 1000; box-shadow: 0 10px 30px var(--shadow-color); transition: top 0.4s ease, transform 0.4s ease; }
+.navbar.hide-nav { top: -100px; }
+.logo { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; }
+.logo i { color: var(--primary); font-size: 1.5rem; transform: rotate(-10deg); transition: transform 0.3s; }
+.logo:hover i { transform: rotate(0deg) scale(1.1); }
+.brand-text .trip { color: var(--text-main); } .brand-text .mate { color: var(--secondary); }
+.nav-links { display: flex; align-items: center; gap: 20px; list-style: none; }
+.nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: color 0.2s; }
+.nav-links a:hover { color: var(--secondary); }
+.register-btn { background: linear-gradient(135deg, var(--primary), var(--secondary)) !important; color: white !important; padding: 10px 24px; border-radius: 30px; box-shadow: 0 4px 15px var(--glow-color); transition: all 0.3s !important; border: none; white-space: nowrap; }
+.register-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px var(--glow-color); }
+.theme-toggle { background: var(--bg-surface); border: 1px solid var(--card-border); color: var(--text-main); width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.3s; box-shadow: 0 4px 10px var(--shadow-color); }
+.theme-toggle:hover { transform: rotate(20deg) scale(1.1); color: var(--primary); border-color: var(--primary); }
+
+/* Hero Parallax Slideshow */
+.slideshow { position: relative; height: 100vh; overflow: hidden; background: #000; }
+.slides-container { position: absolute; inset: 0; z-index: 1; }
+.slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1s ease; }
+.slide.active { opacity: 1; }
+.slide img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; will-change: transform; }
+.overlay { position: absolute; inset: 0; z-index: 3; background: linear-gradient(to right, rgba(9,9,11,0.9) 0%, rgba(9,9,11,0.4) 50%, transparent 100%); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; padding: 0 10%; pointer-events: none; }
+.hero-content { max-width: 650px; pointer-events: auto; }
+.overlay h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -2px; margin-bottom: 20px; background: linear-gradient(to right, #ffffff, var(--secondary));  -webkit-background-clip:text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); line-height: 1.1; }
+.overlay p { font-size: clamp(1rem, 2vw, 1.25rem); color: #cbd5e1 !important; margin-bottom: 30px; font-weight: 300; }
+.get-started { background: var(--text-main); color: var(--bg-base); border: none; padding: 16px 45px; font-size: 1.1rem; font-weight: bold; border-radius: 50px; cursor: pointer; transition: all 0.3s cubic-bezier(0.25,1,0.5,1); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+.get-started:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 30px var(--glow-color); }
+.scroll-indicator { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 4; color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 600; letter-spacing: 2px; }
+.mouse { width: 26px; height: 40px; border: 2px solid rgba(255,255,255,0.7); border-radius: 20px; display: flex; justify-content: center; padding-top: 6px; }
+.wheel { width: 4px; height: 8px; background: var(--secondary); border-radius: 2px; animation: scrollBounce 1.5s infinite; }
+@keyframes scrollBounce { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(15px); opacity: 0; } }
+.prev, .next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
+.prev { left: 30px; } .next { right: 30px; }
+.prev:hover, .next:hover { background: var(--primary); transform: translateY(-50%) scale(1.1); border-color: var(--primary); }
+
+/* Widgets Section */
+.unique-widgets { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: -60px auto 40px; padding: 0 20px; position: relative; z-index: 20; }
+.widget-card { background: var(--bg-surface); flex: 1 1 300px; padding: 35px; border-radius: 24px; box-shadow: 0 20px 40px var(--shadow-color); border: 1px solid var(--card-border); transition: all 0.4s cubic-bezier(0.25,1,0.5,1); position: relative; overflow: hidden; }
+.widget-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: linear-gradient(90deg, var(--primary), var(--secondary)); opacity: 0.8; transition: opacity 0.3s; }
+.widget-card:hover { transform: translateY(-10px); box-shadow: 0 30px 60px var(--shadow-color); border-color: var(--secondary); }
+.widget-card:hover::before { opacity: 1; }
+.widget-card i.widget-icon { font-size: 2.8rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; display: inline-block; }
+.currency-row input { background: var(--bg-base); color: var(--text-main); border: 1px solid var(--card-border); padding: 10px 15px; border-radius: 12px; font-weight: bold; width: 100px; outline: none; transition: border 0.3s; }
+.currency-row input:focus { border-color: var(--secondary); box-shadow: 0 0 0 3px var(--glow-color); }
+
+/* Features & Sections */
+.features { padding: 100px 20px; max-width: 1200px; margin: 0 auto; text-align: center; }
+.features h2 { font-size: 3rem; margin-bottom: 60px; }
+.features ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; list-style: none; }
+.features li { background: var(--bg-surface); padding: 40px 30px; border-radius: 24px; text-align: left; border: 1px solid var(--card-border); box-shadow: 0 10px 30px var(--shadow-color); transition: all 0.4s; }
+.features li:hover { border-color: var(--primary); transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 40px var(--shadow-color); }
+.features li strong { display: flex; align-items: center; gap: 10px; color: var(--text-main); font-size: 1.4rem; margin-bottom: 12px; }
+.features li strong i { color: var(--secondary); }
+
+/* App Demo Section */
+.app-demo-section { background: var(--bg-surface); margin: 60px 5%; padding: 80px 5%; border-radius: 40px; border: 1px solid var(--card-border); box-shadow: 0 20px 60px var(--shadow-color); background-image: radial-gradient(circle at top right, rgba(6,182,212,0.05), transparent 40%), radial-gradient(circle at bottom left, rgba(79,70,229,0.05), transparent 40%); }
+.app-features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.app-feature-item { background: var(--bg-base); padding: 25px; border-radius: 20px; border: 1px solid var(--card-border); transition: all 0.3s; }
+.app-feature-item:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)); transform: scale(1.05); border-color: transparent; color: white !important; }
+.app-feature-item:hover h4, .app-feature-item:hover i, .app-feature-item:hover p { color: white !important; }
+.app-feature-item i { font-size: 2rem; color: var(--primary); margin-bottom: 15px; transition: color 0.3s; }
+.phone-frame { background: var(--text-main); padding: 12px; border-radius: 45px; display: inline-block; box-shadow: 0 30px 60px rgba(0,0,0,0.4); border: 2px solid var(--card-border); }
+.phone-screen { width: 270px; height: 580px; border-radius: 35px; background: url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80') center/cover; display: flex; align-items: flex-end; padding: 20px; }
+.phone-screen span { background: rgba(15, 23, 42, 0.8); color: white; padding: 12px 20px; border-radius: 20px; backdrop-filter: blur(10px); font-weight: bold; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+
+/* Reviews */
+.reviews-expanded { max-width: 1200px; margin: 100px auto; padding: 0 20px; }
+.reviews-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 50px; flex-wrap: wrap; gap: 20px; }
+.rating-summary { background: var(--bg-surface); padding: 15px 30px; border-radius: 50px; border: 1px solid var(--card-border); display: flex; align-items: center; gap: 15px; box-shadow: 0 10px 20px var(--shadow-color);}
+.rating-number { font-size: 2.8rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.stars { color: #f59e0b; font-size: 1.3rem; letter-spacing: 2px; }
+.reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+.review-card-expanded { background: var(--bg-surface); padding: 35px; border-radius: 24px; border: 1px solid var(--card-border); box-shadow: 0 15px 35px var(--shadow-color); transition: all 0.3s; }
+.review-card-expanded:hover { transform: translateY(-8px); border-color: var(--secondary); box-shadow: 0 25px 50px var(--shadow-color); }
+.review-card-expanded i.quote-icon { color: var(--secondary); opacity: 0.3; font-size: 2.5rem; margin-bottom: 20px; display: block; }
+.reviewer img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid var(--card-border); }
+.reviewer { display: flex; align-items: center; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 25px; }
+
+/* Call to Action */
+.call-to-action { margin: 80px 5%; padding: 100px 20px; border-radius: 40px; text-align: center; background: linear-gradient(135deg, var(--primary), #1e1b4b); color: white !important; box-shadow: 0 30px 60px var(--shadow-color); position: relative; overflow: hidden; }
+.call-to-action::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, var(--glow-color) 0%, transparent 60%); opacity: 0.5; pointer-events: none; }
+.call-to-action h2 { color: white; font-size: clamp(2rem, 4vw, 3.5rem); margin-bottom: 20px; position: relative; z-index: 2;}
+.call-to-action p { position: relative; z-index: 2; font-size: 1.2rem; color: #cbd5e1 !important; }
+.call-to-action button { background: white; color: #0f172a !important; margin-top: 40px; position: relative; z-index: 2; border: none; font-weight: bold; }
+.call-to-action button:hover { background: var(--secondary); color: white !important; }
+
+/* Footer & Floating Elements */
+.pro-footer-parallax { background: var(--bg-surface); border-top: 1px solid var(--card-border); padding-top: 80px; margin-top: 80px; }
+.footer-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.footer-content h4 { color: var(--text-main); margin-bottom: 25px; display: flex; align-items: center; gap: 10px; font-size: 1.2rem; }
+.footer-content h4 i { color: var(--primary); }
+.footer-content ul { list-style: none; }
+.footer-content a { color: var(--text-muted); text-decoration: none; transition: all 0.2s; display: block; margin-bottom: 12px; font-weight: 500;}
+.footer-content a:hover { color: var(--secondary); transform: translateX(5px); }
+.hidden { display: none !important; }
+.floating-admin-btn { position: fixed; bottom: 30px; left: 30px; background: var(--bg-surface); color: var(--text-main); padding: 15px 25px; border-radius: 50px; box-shadow: 0 10px 30px var(--shadow-color); border: 1px solid var(--card-border); text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; transition: all 0.3s; z-index: 100; }
+.floating-admin-btn:hover { background: var(--primary); color: white; transform: translateY(-5px); border-color: transparent; }
+
+/* User Session Float - Top Right Position */
+.user-session-float { position: fixed; top: 30px; right: 30px; background-color: var(--nav-bg); color: var(--text-main); padding: 14px 18px; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid var(--card-border); z-index: 10000; display: none; align-items: center; gap: 10px; transition: all 0.3s; }
+.user-session-float:hover { transform: translateY(3px); }
+.user-session-float .user-menu { display: none; position: absolute; top: calc(100% + 10px); right: 0; background-color: var(--bg-surface); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px 0; min-width: 220px; overflow: hidden; }
+.user-session-float:hover .user-menu,
+.user-session-float.active .user-menu { display: block; }
+.user-menu a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--text-main); text-decoration: none; transition: background-color 0.3s; z-index: 10; position: relative;}
+.user-menu a:hover { background-color: var(--card-border); color: var(--secondary); }
+
+/* Responsive Tweaks */
+@media (max-width: 768px) {
+  .navbar { width: 95%; left: 2.5%; padding: 0 20px; }
+  .nav-links { display: none; /* Auto-collapse links on mobile for cleaner UI */ }
+  .slideshow { height: 75vh; }
+}
+</style>
 </head>
 <body>
-  <nav class="navbar" role="navigation" aria-label="Main navigation">
-    <div class="logo" aria-hidden="false">
-      <i class="fas fa-compass"></i>
-      <span class="brand-text">TripMate</span>
-    </div>
+  
+  <div class="scroll-progress-bar" id="scrollBar"></div>
 
-    <ul class="nav-links" aria-label="Primary">
+  <div class="diagonal-scroll-container" id="diagonalContainer">
+    <svg class="diagonal-track" preserveAspectRatio="none" viewBox="0 0 100 100">
+      <line x1="0" y1="0" x2="100" y2="100" stroke="#06b6d4" stroke-width="0.3" stroke-dasharray="2, 3" opacity="0.5" />
+    </svg>
+    <div class="track-thumb" id="scrollThumb"><i class="fas fa-plane"></i></div>
+  </div>
+
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="logo">
+      <i class="fa-solid fa-paper-plane"></i>
+      <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
+    </div>
+    <ul class="nav-links">
       <li><a href="#features">Features</a></li>
-      <li><a href="#about">About</a></li>
-      <li><a href="#testimonials">Testimonials</a></li>
+      <li><a href="#reviews">Reviews</a></li>
+      <li><a href="../Contributor/contributor_login.php">Contributor</a></li>
+
       <li><a href="../auth/login.html" class="register-btn" id="signInBtn">Sign In</a></li>
+      <li><button class="theme-toggle" id="themeToggle" aria-label="Switch mode"><i class="fas fa-moon"></i></button></li>
     </ul>
   </nav>
 
-  <section class="slideshow" role="region" aria-label="Hero slideshow">
+  <section class="slideshow" id="parallax-slideshow">
+    <div id="lottie-loader" class="lottie-loader hidden"><div id="lottie-container"></div></div>
     <div class="slides-container">
-      <div class="slide active">
-        <img src="tour_image_06.jpg" alt="Travel Destination 1">
-        <div class="overlay">
-          <h1>Discover Your Perfect Destination</h1>
-          <p>Plan your dream vacation with TripMate - find the best destinations tailored to your preferences and budget</p>
-          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
-        </div>
-      </div>
-
-      <div class="slide">
-        <img src="tour_image_05.jpg" alt="Travel Destination 2">
-        <div class="overlay">
-          <h1>Discover Mountain Retreats</h1>
-          <p>"Not all those who wander are lost" - J.R.R. Tolkien</p>
-          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
-        </div>
-      </div>
-
-      <div class="slide">
-        <img src="tour_image_04.jpg" alt="Travel Destination 3">
-        <div class="overlay">
-          <h1>Experience Cultural Cities</h1>
-          <p>"Travel makes one modest. You see what a tiny place you occupy in the world." - Gustave Flaubert</p>
-          <button class="get-started" onclick="location.href='../search/search.html'">Get Started</button>
-        </div>
+      <div class="slide active"><img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" alt="Destination 1" class="parallax-bg"></div>
+      <div class="slide"><img src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" alt="Destination 2" class="parallax-bg"></div>
+      <div class="slide"><img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" alt="Destination 3" class="parallax-bg"></div>
+    </div>
+    <div class="overlay">
+      <div class="hero-content parallax-text">
+        <h1>Discover Your Perfect Destination</h1>
+        <p>Plan your dream vacation with TripMate - find the best destinations tailored to your preferences and budget in seconds.</p>
+        <button class="get-started" data-href="../search/search.html">Start Planning Free</button>
       </div>
     </div>
-
-    <button class="prev" onclick="changeSlide(-1)" aria-label="Previous slide">❮</button>
-    <button class="next" onclick="changeSlide(1)" aria-label="Next slide">❯</button>
+    <div class="scroll-indicator parallax-text">
+      <div class="mouse"><div class="wheel"></div></div>
+      SCROLL
+    </div>
+    <button class="prev" onclick="changeSlide(-1)">❮</button>
+    <button class="next" onclick="changeSlide(1)">❯</button>
   </section>
 
+  <div class="unique-widgets reveal">
+    <div class="widget-card">
+      <i class="fas fa-coins widget-icon"></i>
+      <h3>Live currency</h3>
+      <div class="currency-row" style="display:flex; align-items:center; gap:10px; margin-bottom: 15px;">
+        <span style="font-weight:600;">USD</span>
+        <input type="number" id="usdInput" value="100" step="1">
+        <span style="color:var(--text-muted);">→</span>
+        <span id="euroOutput" style="font-size:1.4rem; font-weight:800; color:var(--secondary);">€ 92.50</span>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted);">* live approximate rate</p>
+    </div>
+    <div class="widget-card">
+      <i class="fas fa-cloud-sun widget-icon"></i>
+      <h3>Destination weather</h3>
+      <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border);">
+        <i class="fas fa-sun" style="font-size:1.8rem; color:#f59e0b; margin:0;"></i>
+        <span style="font-size:1.1rem;"><strong>Barcelona</strong> <br><span style="color:var(--text-muted);">24°C Sunny</span></span>
+      </div>
+      <div style="display:flex; align-items:center; gap:15px;">
+        <i class="fas fa-cloud-rain" style="font-size:1.8rem; color:var(--primary); margin:0;"></i>
+        <span style="font-size:1.1rem;"><strong>Kyoto</strong> <br><span style="color:var(--text-muted);">18°C Light Rain</span></span>
+      </div>
+    </div>
+    <div class="widget-card">
+      <i class="fas fa-lightbulb widget-icon"></i>
+      <h3>Travel trivia</h3>
+      <p id="triviaText" style="margin-bottom: 25px; font-size: 1.1rem; font-style: italic;">"The shortest commercial flight is 2.8 km (UK)."</p>
+      <button class="get-started" style="padding:10px 24px; font-size:0.9rem;" id="newTriviaBtn">New fact</button>
+    </div>
+  </div>
+
   <section id="features" class="features">
-    <h2>Features</h2>
+    <h2 class="reveal">Why Choose TripMate?</h2>
     <ul>
-      <li><strong>Personalized Recommendations:</strong> Get tailored travel suggestions based on your preferences.</li>
-      <li><strong>Budget Planning:</strong> Easily manage your travel budget with our intuitive tools.</li>
-      <li><strong>Itinerary Builder:</strong> Create and customize your travel itinerary effortlessly.</li>
-      <li><strong>Community Reviews:</strong> Read reviews from fellow travelers to make informed decisions.</li>
-      <li><strong>24/7 Support:</strong> Our support team is available around the clock to assist you.</li>
+      <li class="reveal"><strong><i class="fas fa-magic"></i> Recommendations</strong> <p>Get tailored travel suggestions based on your exact preferences and style.</p></li>
+      <li class="reveal"><strong><i class="fas fa-wallet"></i> Budget Planning</strong> <p>Easily manage your travel budget with our intuitive, real-time tools.</p></li>
+      <li class="reveal"><strong><i class="fas fa-map-location-dot"></i> Itinerary Builder</strong> <p>Create and customize your daily travel itinerary effortlessly on a visual map.</p></li>
+      <li class="reveal"><strong><i class="fas fa-comments"></i> Community Reviews</strong> <p>Read authentic reviews from fellow travelers to make informed decisions.</p></li>
+      <li class="reveal"><strong><i class="fas fa-headset"></i> 24/7 Support</strong> <p>Travel with peace of mind knowing our support team is available around the clock.</p></li>
     </ul>
   </section>
 
-  <section id="about" class="about">
-    <h2>About TripMate</h2>
-    <p>TripMate is your ultimate travel companion, designed to simplify the travel planning process. Whether you're looking for a weekend getaway or a month-long adventure, we provide the tools and resources you need to make your journey unforgettable. Our mission is to empower travelers to explore the world with confidence and ease.</p>
-    <p>Join our community of explorers and start planning your next adventure today!</p>
-  </section>
-
-  <section id="testimonials" class="testimonials">
-    <h2>What Our Users Say</h2>
-    <div class="testimonial-container">
-      <div class="testimonial">
-        <p>"TripMate made planning my vacation so easy! I found the perfect destination and saved money on my trip!"</p>
-        <h4>- Sarah J.</h4>
+  <section class="app-demo-section reveal">
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:50px; justify-content:center;">
+      <div class="app-mockup reveal" style="flex: 1 1 300px; text-align:center;">
+        <div class="phone-frame"><div class="phone-screen"><span>TripMate OS</span></div></div>
       </div>
-      <div class="testimonial">
-        <p>"I love the personalized recommendations! I discovered places I never would have thought to visit."</p>
-        <h4>- Mark T.</h4>
-      </div>
-      <div class="testimonial">
-        <p>"The itinerary builder is a game changer! I was able to plan my entire trip in just a few clicks."</p>
-        <h4>- Emily R.</h4>
+      <div class="app-features-grid" style="flex: 2 1 500px;">
+        <div class="app-feature-item reveal"><i class="fas fa-map-marked-alt"></i><h4>Offline maps</h4><p>Access itineraries without internet.</p></div>
+        <div class="app-feature-item reveal"><i class="fas fa-wallet"></i><h4>Budget tracker</h4><p>Real-time expenses, currency converter.</p></div>
+        <div class="app-feature-item reveal"><i class="fas fa-camera-retro"></i><h4>Photo journals</h4><p>Create travel diaries with auto-tagging.</p></div>
+        <div class="app-feature-item reveal"><i class="fas fa-bell"></i><h4>Smart alerts</h4><p>Flight deals, weather updates.</p></div>
+        <div class="app-feature-item reveal"><i class="fas fa-users"></i><h4>Group planning</h4><p>Share itineraries and vote.</p></div>
+        <div class="app-feature-item reveal"><i class="fas fa-robot"></i><h4>AI assistant</h4><p>24/7 chat for travel tips.</p></div>
       </div>
     </div>
   </section>
 
-  <section class="call-to-action">
-    <h2>Ready to Start Your Adventure?</h2>
-    <p>Join thousands of satisfied travelers and make your travel dreams a reality with TripMate.</p>
-    <button class="get-started" onclick="location.href='../search/search.html'">Get Started Now</button>
+  <section class="reviews-expanded" id="reviews">
+    <div class="reviews-header reveal">
+      <h2 style="font-size: clamp(2rem, 4vw, 3rem);">Loved by travellers</h2>
+      <div class="rating-summary"><span class="rating-number">4.8</span><div class="stars">★★★★★</div></div>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card-expanded reveal">
+        <i class="fas fa-quote-left quote-icon"></i>
+        <p>"TripMate's itinerary builder saved us hours. We discovered hidden gems and stayed under budget!"</p>
+        <div class="reviewer"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="Sarah J."><div><h4>Sarah J.</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 2 trips</p></div></div>
+      </div>
+      <div class="review-card-expanded reveal">
+        <i class="fas fa-quote-left quote-icon"></i>
+        <p>"The app is incredibly intuitive. I planned a 10-day Europe trip in one evening. Love the offline maps!"</p>
+        <div class="reviewer"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="Michael Chen"><div><h4>Michael Chen</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 8 trips</p></div></div>
+      </div>
+      <div class="review-card-expanded reveal">
+        <i class="fas fa-quote-left quote-icon"></i>
+        <p>"Budget tracking feature helped me save $300 on my Japan trip. Real-time currency conversion is a blessing."</p>
+        <div class="reviewer"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="David Park"><div><h4>David Park</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 3 trips</p></div></div>
+      </div>
+    </div>
   </section>
 
-  <footer>
-    <p>&copy; 2023 TripMate. All rights reserved.</p>
-  </footer>
+  <section class="call-to-action reveal">
+    <h2>Ready to Start Your Adventure?</h2>
+    <p style="margin-bottom: 30px;">Join thousands of satisfied travelers and make your travel dreams a reality.</p>
+    <button class="get-started" data-href="../search/search.html">Create Free Account</button>
+  </section>
 
-  <!-- Floating Admin Login Button -->
-  <a href="../admin/admin_login.php" class="floating-admin-btn" aria-label="Admin login">
-    <i class="fas fa-user-shield"></i>
-    <span>Admin</span>
-  </a>
+  <div class="pro-footer-parallax reveal">
+    <div class="footer-content">
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:50px;">
+        <div><h4><i class="fas fa-headset"></i> Support</h4><ul><li><a href="#">Help Center</a></li><li><a href="#">Contact</a></li><li><a href="#">Live Chat</a></li></ul></div>
+        <div><h4><i class="fas fa-building"></i> Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Press</a></li><li><a href="#">Careers</a></li></ul></div>
+        <div><h4><i class="fas fa-lightbulb"></i> Travel Tips</h4><ul><li><a href="#">Visa Guide</a></li><li><a href="#">Safety</a></li><li><a href="#">Budget Hacks</a></li></ul></div>
+        <div><h4><i class="fas fa-mobile-alt"></i> Get the App</h4><div style="display:flex; flex-direction:column; gap:12px;"><a href="#" style="background:var(--text-main); color:var(--bg-base); padding:12px 20px; border-radius:30px; text-align:center; font-weight: bold;"><i class="fab fa-apple"></i> App Store</a><a href="#" style="background:var(--text-main); color:var(--bg-base); padding:12px 20px; border-radius:30px; text-align:center; font-weight: bold;"><i class="fab fa-google-play"></i> Google Play</a></div></div>
+      </div>
+      <div style="margin-top:80px; text-align:center; border-top:1px solid var(--card-border); padding:30px 0; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap: 20px;">
+        <span>© 2026 TripMate, Inc. · All rights reserved</span>
+        <div style="display:flex; gap: 20px; font-size: 1.2rem;">
+            <a href="#" style="color:var(--text-muted);"><i class="fab fa-twitter"></i></a>
+            <a href="#" style="color:var(--text-muted);"><i class="fab fa-instagram"></i></a>
+            <a href="#" style="color:var(--text-muted);"><i class="fab fa-linkedin"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <script src="script.js"></script>
+  <a href="../admin/admin_login.php" class="floating-admin-btn"><i class="fas fa-user-shield"></i> <span>Admin</span></a>
+  <div id="admin-lottie-loader" class="hidden"><div id="admin-lottie-container"></div></div>
 
-  <!--
-    Compatibility shim: user-profile.js checks for body.user-logged-in and sessionStorage 'userid'/'username'.
-    We set those values here *before* user-profile.js runs so the floating user button appears when a session is present.
-    This also preserves the unified keys (sessionStorage.user_id/user_name) while adding legacy keys expected by older scripts.
-  -->
+  <div class="user-session-float" id="userSessionObj"></div>
+
+  <script src="../loader/main_loder/loader.js"></script>
+  <script src="../loader/admin_loder/admin_login_loader/login_loader.js"></script>
+  
   <script>
-    (function () {
-      try {
-        // If there's a device-wide active user marker, copy it into the sessionStorage so pages load the profile.
-        const deviceId = localStorage.getItem('tripmate_active_user_id');
-        const deviceName = localStorage.getItem('tripmate_active_user_name');
+    /* ==========================================================================
+       UNIFIED & COMPRESSED JAVASCRIPT (Merged script.js and inline logic)
+       ========================================================================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      
+      // 1. Hardware Accelerated Diagonal Scroll Progress
+      const diagContainer = document.getElementById("diagonalContainer");
+      const diagThumb = document.getElementById("scrollThumb");
+      const scrollBar = document.getElementById("scrollBar");
+      let scrollTimeout, ticking = false;
 
-        // Existing session keys (preferred)
-        const sessId = sessionStorage.getItem('user_id');
-        const sessName = sessionStorage.getItem('user_name');
-
-        // If device marker exists but sessionStorage is empty, copy device marker into sessionStorage
-        if (deviceId && !sessId) {
-          sessionStorage.setItem('user_id', deviceId);
-          if (deviceName) sessionStorage.setItem('user_name', deviceName);
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          window.requestAnimationFrame(() => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100; 
+            if(scrollBar) scrollBar.style.width = scrolled + "%";
+            
+            if (diagContainer && diagThumb) {
+              diagContainer.style.opacity = "1";
+              diagThumb.style.transform = `translate3d(${scrolled}vw, ${scrolled}vh, 0)`;
+              window.clearTimeout(scrollTimeout);
+              scrollTimeout = setTimeout(() => diagContainer.style.opacity = "0", 500); 
+            }
+            ticking = false;
+          });
+          ticking = true;
         }
+      });
 
-        // Backwards compatibility for older user-profile.js which checks 'userid' and 'username'
-        const finalId = sessionStorage.getItem('user_id');
-        const finalName = sessionStorage.getItem('user_name');
+      // 2. Enhanced 3D Parallax Effort Integration
+      const bgs = document.querySelectorAll('.parallax-bg');
+      const textLayers = document.querySelectorAll('.parallax-text');
+      window.addEventListener('scroll', () => {
+        const scrollY = window.scrollY;
+        bgs.forEach(bg => bg.style.transform = `scale(1.1) translateY(${scrollY * 0.4}px)`);
+        textLayers.forEach(text => {
+          text.style.transform = `translateY(${scrollY * 0.15}px)`;
+          text.style.opacity = Math.max(0, 1 - (scrollY / 500));
+        });
+      }, { passive: true });
 
-        if (finalId) {
-          sessionStorage.setItem('userid', finalId);
-          if (finalName) sessionStorage.setItem('username', finalName);
+      // 3. Slideshow Logic
+      let currentSlide = 0;
+      const slides = document.querySelectorAll('.slide');
+      window.changeSlide = function(d) { 
+        currentSlide = (currentSlide + d + slides.length) % slides.length; 
+        slides.forEach((s,i) => s.classList.toggle('active', i === currentSlide)); 
+      };
+      setInterval(() => window.changeSlide(1), 5500);
 
-          // Add the class the user-profile.js checks for
-          document.body.classList.add('user-logged-in');
+      // 4. Scroll Reveal Observer
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-          // Hide Sign In button (if present)
-          const signInBtn = document.getElementById('signInBtn') || document.querySelector('.register-btn');
-          if (signInBtn) signInBtn.style.display = 'none';
-        } else {
-          // Ensure Sign In button visible when not logged in
-          const signInBtn = document.getElementById('signInBtn') || document.querySelector('.register-btn');
-          if (signInBtn) signInBtn.style.display = '';
-        }
-      } catch (e) {
-        // ignore errors to avoid breaking the page
-        console.error('Session shim error:', e);
+      // 5. Dark Mode Toggle
+      const toggleBtn = document.getElementById('themeToggle');
+      const icon = toggleBtn ? toggleBtn.querySelector('i') : null;
+      if (localStorage.getItem('tripmate-theme') === 'dark' && icon) {
+        document.body.classList.add('dark-mode');
+        icon.className = 'fas fa-sun';
       }
-    })();
+      if(toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          document.body.classList.toggle('dark-mode');
+          const isDark = document.body.classList.contains('dark-mode');
+          icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+          localStorage.setItem('tripmate-theme', isDark ? 'dark' : 'light');
+        });
+      }
+
+      // 6. Navbar Hide on Scroll
+      const navbar = document.querySelector('.navbar');
+      let lastScroll = 0;
+      window.addEventListener('scroll', () => {
+        const currentY = window.scrollY;
+        if (currentY > 120 && currentY > lastScroll) navbar.classList.add('hide-nav');
+        else navbar.classList.remove('hide-nav');
+        lastScroll = currentY;
+      });
+
+      // 7. Interactive Widgets (Currency & Trivia)
+      const usdInput = document.getElementById('usdInput');
+      const euroOut = document.getElementById('euroOutput');
+      if (usdInput) usdInput.addEventListener('input', function() { euroOut.innerText = '€ ' + ((parseFloat(this.value)||0) * 0.925).toFixed(2); });
+
+      const triviaArr = ['Shortest flight: 2.8 km (UK)', 'Japan has over 6,800 islands', 'Finland has 187,888 lakes', 'Maldives is the flattest', 'Antarctica has active volcanoes'];
+      const triviaP = document.getElementById('triviaText');
+      const triviaBtn = document.getElementById('newTriviaBtn');
+      if (triviaBtn) triviaBtn.addEventListener('click', () => triviaP.innerText = triviaArr[Math.floor(Math.random() * triviaArr.length)]);
+
+      // 8. Session Management & Floating User UI
+      if (sessionStorage.getItem('user_id')) {
+        const userFloat = document.getElementById('userSessionObj');
+        const signInBtn = document.getElementById('signInBtn');
+        if(signInBtn) signInBtn.style.display = 'none';
+        
+        if (userFloat) {
+          userFloat.style.display = 'flex';
+          const pic = sessionStorage.getItem('user_pic');
+          const email = sessionStorage.getItem('user_email');
+          const dpHtml = pic ? `<img src="${pic}" style="width:35px;height:35px;border-radius:50%;object-fit:cover; border:2px solid white;">` : `<i class="fas fa-user-circle" style="font-size: 1.5rem;"></i>`;
+          
+          userFloat.innerHTML = `
+              ${dpHtml}
+              <div style="display:flex; flex-direction:column; line-height:1.1;">
+                  <span class="user-name" style="font-weight:bold; font-size: 0.95rem;">${sessionStorage.getItem('user_name') || 'User'}</span>
+                  ${email ? `<span style="font-size:0.7rem; opacity:0.8;">${email}</span>` : ''}
+              </div>
+              <div class="user-menu">
+                  <a href="../user/user-profile.php"><i class="fas fa-user"></i> Profile</a>
+                  <a href="../auth/logout.php" onclick="return confirm('Logout?')"><i class="fas fa-sign-out-alt"></i> Logout</a>
+              </div>
+          `;
+
+          const userMenu = userFloat.querySelector('.user-menu');
+          userFloat.addEventListener('click', (event) => {
+            event.stopPropagation();
+            userFloat.classList.toggle('active');
+          });
+          if (userMenu) {
+            userMenu.addEventListener('click', (event) => event.stopPropagation());
+          }
+          document.addEventListener('click', () => userFloat.classList.remove('active'));
+        }
+      }
+
+      // 9. Button Loaders
+      document.querySelectorAll('.get-started[data-href]').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          let loader = document.getElementById('lottie-loader');
+          if(loader) loader.classList.remove('hidden');
+          setTimeout(() => { if(this.dataset.href) window.location.href = this.dataset.href; }, 600);
+        });
+      });
+      document.addEventListener('click', e => {
+        let el = e.target.closest('.floating-admin-btn');
+        if(!el) return;
+        e.preventDefault();
+        let admLoader = document.getElementById('admin-lottie-loader');
+        if(admLoader) admLoader.classList.remove('hidden');
+        setTimeout(() => { if(el.getAttribute('href')) window.location.href = el.getAttribute('href'); }, 180);
+      });
+    });
   </script>
-
+  
+  <script src="page_time_tracker.js"></script>
+  <script src="../user/session-sync.js"></script>
+  <script src="../user/session-keepalive.js"></script>
+  <script src="../user/auto-logout.js"></script>
   <script src="../user/user-profile.js"></script>
-
-  <!-- Structured data JSON-LD -->
-    <script type="application/ld+json">
-        <?php echo json_encode($structured_data, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
-    </script>
-
-    <!-- Session Synchronization -->
-    <script src="../user/session-sync.js"></script>
-
-    <!-- Auto-Logout System -->
-    <script src="../user/auto-logout.js"></script>
+  <script>window.ANALYTICS_BASE = '../actions/';</script>
+  <script src="analytics.js"></script>
 </body>
 </html>
+
+9474915908
