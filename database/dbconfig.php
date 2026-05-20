@@ -1,18 +1,30 @@
 <?php
 
 // Database connection details
-$host = 'localhost';
+// Use 127.0.0.1 to force TCP (avoids common localhost/socket issues in XAMPP setups)
+$host = '127.0.0.1'; // Hostname only (no port)
+$port = 3306; // Change if your MySQL uses a different port (e.g. 3307)
 $dbname = 'tripmate';
 $username = 'root';
 $password = ''; // Use your actual MySQL password
 
+// Backward-compat: if someone sets host like "localhost:3306", split it safely
+if (strpos($host, ':') !== false) {
+    [$h, $p] = array_pad(explode(':', $host, 2), 2, null);
+    if (!empty($h)) $host = $h;
+    if (is_numeric($p)) $port = (int)$p;
+}
+
 // Create connection
-$conn = new mysqli($host, $username, $password, $dbname);
+$conn = new mysqli($host, $username, $password, $dbname, $port);
 
 // Check connection
 if ($conn->connect_error) {
-    die(json_encode(['status' => 'error', 'message' => 'Database connection failed: ' . $conn->connect_error]));
+    // IMPORTANT: don't echo/print JSON here; this file is included by both HTML and JSON endpoints.
+    // Any output would corrupt API responses and break redirects/headers.
+    die('Database connection failed: ' . $conn->connect_error);
 }
+
 
 // Set charset
 $conn->set_charset("utf8mb4");
