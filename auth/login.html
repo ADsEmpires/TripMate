@@ -5,97 +5,446 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Sign In to TripMate</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../main/style.css">
-    <!-- Local page styles -->
-    <link rel="stylesheet" href="login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        /* ========================================================
+           ULTRA-PREMIUM "HERO PARALLAX" AUTH THEME (Light & Dark)
+           ======================================================== */
+        :root {
+            --bg-base: #f1f5f9;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --primary: #4f46e5; 
+            --secondary: #06b6d4; 
+            --nav-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(79, 70, 229, 0.2);
+            --shadow-color: rgba(15, 23, 42, 0.1);
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --overlay-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(241, 245, 249, 0.5) 100%);
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body.dark-mode {
+            --bg-base: #020617;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #818cf8; 
+            --secondary: #22d3ee; 
+            --nav-bg: rgba(15, 23, 42, 0.85);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.6);
+            --glass-bg: rgba(15, 23, 42, 0.5);
+            --input-bg: rgba(0, 0, 0, 0.3);
+            --overlay-bg: linear-gradient(135deg, rgba(2, 6, 23, 0.9) 0%, rgba(79, 70, 229, 0.4) 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .parallax-bg-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100vh;
+            z-index: -2;
+            overflow: hidden;
+        }
+        .parallax-bg {
+            width: 100%; height: 120%;
+            object-fit: cover;
+            transform: scale(1.1);
+            will-change: transform;
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--overlay-bg);
+            z-index: -1;
+            transition: background 0.3s ease;
+        }
+
+        .navbar {
+            position: fixed; top: 20px; left: 5%; width: 90%; height: 70px;
+            background: var(--nav-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border); border-radius: 50px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 30px; z-index: 1000; box-shadow: 0 10px 30px var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; text-decoration: none; color: var(--text-main);}
+        .logo i { color: var(--primary); font-size: 1.5rem; transform: rotate(-10deg); transition: transform 0.3s; }
+        .logo:hover i { transform: rotate(0deg) scale(1.1); }
+        .brand-text .mate { color: var(--secondary); }
+
+        .nav-right { display: flex; align-items: center; gap: 15px; }
+
+        .back-btn {
+            background: var(--glass-bg); color: var(--text-main);
+            border: 1px solid var(--card-border); padding: 8px 20px; border-radius: 30px;
+            text-decoration: none; font-weight: 700; transition: all 0.3s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .back-btn:hover { background: var(--primary); color: white; border-color: var(--primary); transform: translateY(-2px); }
+
+        .theme-toggle {
+            background: var(--glass-bg); border: 1px solid var(--card-border);
+            color: var(--text-main); width: 44px; height: 44px; border-radius: 50%;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            transition: all 0.3s; box-shadow: 0 4px 10px var(--shadow-color);
+        }
+        .theme-toggle:hover { transform: rotate(20deg) scale(1.1); color: var(--primary); border-color: var(--primary); }
+
+        .container {
+            width: 100%; max-width: 440px;
+            background: var(--glass-bg); 
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border-radius: 28px; padding: 40px; margin-top: 80px; margin-bottom: 40px;
+            box-shadow: 0 25px 60px var(--shadow-color);
+            text-align: center; border: 1px solid var(--card-border);
+            animation: fadeInPop 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10; position: relative;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes fadeInPop {
+            from { opacity: 0; transform: scale(0.95) translateY(30px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        h1 {
+            font-size: 2.2rem; margin-bottom: 25px; font-weight: 800;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-text-fill-color: transparent;
+        }
+
+        .social-buttons { display: flex; gap: 15px; justify-content: center; margin-bottom: 25px; flex-direction: column; align-items: center; }
+        .social-btn {
+            width: 100%; max-width: 250px; height: 55px; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+            border-radius: 16px; text-decoration: none; font-size: 16px; font-weight: 600;
+            background: var(--input-bg); border: 1px solid var(--card-border);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            box-shadow: 0 4px 10px var(--shadow-color); color: var(--text-main);
+            cursor: pointer;
+        }
+        .social-btn.google { color: #EA4335; }
+        .social-btn i { font-size: 22px; }
+        .social-btn:hover { transform: translateY(-4px); background: var(--bg-surface); border-color: var(--secondary); box-shadow: 0 10px 25px rgba(6,182,212,0.3);}
+
+        .divider { display: flex; align-items: center; gap: 15px; color: var(--text-muted); font-weight: 700; font-size: 0.9rem; margin: 25px 0; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--card-border); }
+
+        form { display: flex; flex-direction: column; gap: 18px; }
+        .form-group { position: relative; width: 100%; }
+        .input-icon-wrapper i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--primary); font-size: 1.1rem; }
+        
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%; padding: 15px 16px 15px 48px;
+            border: 2px solid var(--card-border); border-radius: 14px;
+            background: var(--input-bg); color: var(--text-main);
+            font-family: inherit; font-size: 1rem; font-weight: 600; transition: all 0.3s;
+        }
+        input::placeholder { color: var(--text-muted); opacity: 0.8; font-weight: 500;}
+        input:focus { outline: none; border-color: var(--secondary); background: var(--bg-surface); box-shadow: 0 0 15px rgba(6, 182, 212, 0.2); }
+
+        input[type="submit"] {
+            background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white;
+            border: none; padding: 16px 20px; border-radius: 14px; cursor: pointer;
+            font-weight: 800; font-size: 1.05rem; letter-spacing: 0.5px; transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(6, 182, 212, 0.3); margin-top: 10px;
+        }
+        input[type="submit"]:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(6, 182, 212, 0.5); }
+
+        #message { margin-top: 15px; font-size: 0.95rem; min-height: 20px; font-weight: 700; text-align: center; }
+        .register-link { display: inline-block; margin-top: 20px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: color 0.3s; }
+        .register-link span { color: var(--primary); font-weight: 800; }
+        .register-link:hover span { color: var(--secondary); }
+        
+        .setup-guide {
+            background: rgba(79, 70, 229, 0.1);
+            border-left: 4px solid var(--warning);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 12px;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+        .setup-guide h4 {
+            color: var(--warning);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .setup-guide p, .setup-guide li {
+            margin: 5px 0;
+            color: var(--text-muted);
+        }
+        .setup-guide code {
+            background: var(--input-bg);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 500px) {
+            .navbar { left: 2.5%; width: 95%; padding: 0 20px; }
+            .container { padding: 30px 20px; margin: 100px 20px 20px 20px; width: auto;}
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="logo">
-            <i class="fas fa-compass"></i>
-            <span>TripMate</span>
-        </div>
+    
+    <div class="parallax-bg-container">
+        <img src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" class="parallax-bg" id="parallaxBg" alt="Background">
+    </div>
+    <div class="overlay"></div>
+
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+        <a href="../main/index.html" class="logo">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
+        </a>
         <div class="nav-right">
-            <a href="../main/index.html" class="back-btn">Back to Home</a>
+            <a href="../main/index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Home</a>
+            <button class="theme-toggle" id="themeToggle" aria-label="Switch dark/light mode"><i class="fas fa-moon"></i></button>
         </div>
     </nav>
 
     <div class="container">
-        <h1>Sign In to TripMate</h1>
+        <h1>Welcome Back</h1>
 
-        <!-- Social buttons: icons only (no visible text) -->
         <div class="social-buttons" role="group" aria-label="Social sign-in">
-            <a href="#" class="social-btn google" aria-label="Continue with Google" title="Continue with Google">
-                <i class="fab fa-google" aria-hidden="true"></i>
-            </a>
-            <a href="#" class="social-btn facebook" aria-label="Continue with Facebook" title="Continue with Facebook">
-                <i class="fab fa-facebook-f" aria-hidden="true"></i>
-            </a>
-            <a href="#" class="social-btn instagram" aria-label="Continue with Instagram" title="Continue with Instagram">
-                <i class="fab fa-instagram" aria-hidden="true"></i>
-            </a>
+            <button class="social-btn google" id="customGoogleBtn">
+                <i class="fab fa-google"></i> Sign in with Google
+            </button>
         </div>
 
-        <div class="divider">OR Sign In with Email</div>
+        <div class="divider">OR SIGN IN WITH EMAIL</div>
 
         <form id="loginForm" method="POST">
-            <input type="email" name="email" id="email" placeholder="Email" required>
-            <input type="password" name="password" id="password" placeholder="Password" required>
-            <input type="submit" value="Sign In">
+            <div class="form-group">
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" name="email" id="email" placeholder="Email Address" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="password" id="password" placeholder="Password" required>
+                </div>
+            </div>
+
+            <input type="submit" value="Sign In Securely">
         </form>
 
         <div id="message"></div>
-        <a href="register.html" class="register-link">Don't have an account? Register</a>
+        <a href="register.html" class="register-link">Don't have an account? <span>Register Now</span></a>
     </div>
 
     <script>
-        const form = document.getElementById('loginForm');
-        const messageDiv = document.getElementById('message');
+        // ------------------------------
+        // THEME & PARALLAX
+        // ------------------------------
+        const toggleBtn = document.getElementById('themeToggle');
+        const body = document.body;
+        const icon = toggleBtn.querySelector('i');
+        
+        if (localStorage.getItem('tripmate-theme') === 'dark') {
+            body.classList.add('dark-mode');
+            icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+        }
 
-        form.addEventListener('submit', async function (event) {
-            event.preventDefault();
-            messageDiv.textContent = '';
+        toggleBtn.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                icon.classList.remove('fa-moon'); icon.classList.add('fa-sun');
+                localStorage.setItem('tripmate-theme', 'dark');
+            } else {
+                icon.classList.remove('fa-sun'); icon.classList.add('fa-moon');
+                localStorage.setItem('tripmate-theme', 'light');
+            }
+        });
 
-            // If a user is already active on this device, block another login attempt
+        window.addEventListener('scroll', () => {
+            const bg = document.getElementById('parallaxBg');
+            if (bg) {
+                const scrollY = window.scrollY;
+                bg.style.transform = `translateY(${scrollY * 0.4}px) scale(1.1)`;
+            }
+        });
+
+        // ------------------------------
+        // GOOGLE SIGN-IN (Fixed with error handling)
+        // ------------------------------
+        const GOOGLE_CLIENT_ID = "654305564843-tthici1aegauq5s87871ok2ds72oh5j4.apps.googleusercontent.com";
+        let isGoogleInitialized = false;
+
+        function showMessage(msg, isError = true, customColor = null) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = msg;
+            if (customColor) msgDiv.style.color = customColor;
+            else msgDiv.style.color = isError ? 'var(--danger)' : '#10b981';
+            setTimeout(() => {
+                if (msgDiv.textContent === msg) msgDiv.textContent = '';
+            }, 5000);
+        }
+
+        async function handleGoogleCredentialResponse(response) {
+            const idToken = response.credential;
+            if (!idToken) {
+                showMessage("Google authentication failed. Please try again.", true);
+                return;
+            }
+
             const activeId = localStorage.getItem('tripmate_active_user_id');
             if (activeId) {
-                messageDiv.textContent = 'A user is already logged in on this device. Please logout first to switch accounts.';
-                messageDiv.style.color = 'red';
+                showMessage("A user is already logged in. Please logout first.", true);
+                return;
+            }
+
+            try {
+                showMessage("Authenticating with Google...", false, '#f59e0b');
+                
+                const backendRes = await fetch('google_auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_token: idToken })
+                });
+                
+                if (!backendRes.ok) {
+                    throw new Error(`Server responded with ${backendRes.status}`);
+                }
+                
+                const data = await backendRes.json();
+                
+                if (data.status === 'success') {
+                    sessionStorage.setItem('user_id', data.user_id);
+                    sessionStorage.setItem('user_name', data.user_name);
+                    localStorage.setItem('tripmate_active_user_id', data.user_id);
+                    localStorage.setItem('tripmate_active_user_name', data.user_name);
+                    
+                    if (data.email) sessionStorage.setItem('user_email', data.email);
+                    if (data.profile_pic) sessionStorage.setItem('user_pic', data.profile_pic);
+                    if (data.auth_provider) sessionStorage.setItem('auth_provider', data.auth_provider);
+                    
+                    showMessage("Google Sign-In successful! Redirecting...", false, '#10b981');
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '../main/index.html';
+                    }, 1000);
+                } else {
+                    showMessage(data.message || "Google authentication failed on server.", true);
+                }
+            } catch (err) {
+                console.error("Google auth error:", err);
+                showMessage("Backend endpoint 'google_auth.php' not found. Please implement Google auth on server.", true);
+                document.getElementById('setupGuide').style.display = 'block';
+            }
+        }
+
+        function initGoogleSignIn() {
+            if (typeof google === 'undefined' || !google.accounts) {
+                console.log("Waiting for Google SDK to load...");
+                setTimeout(initGoogleSignIn, 300);
+                return;
+            }
+            
+            try {
+                google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: handleGoogleCredentialResponse,
+                    auto_select: false,
+                    cancel_on_tap_outside: true,
+                });
+                
+                // Render the official Google Sign-In button 
+                // This replaces the custom button with the more reliable iframe implementation
+                const btnContainer = document.getElementById('customGoogleBtn');
+                if (btnContainer) {
+                    btnContainer.innerHTML = ''; // clear the custom contents
+                    btnContainer.style.border = 'none';
+                    btnContainer.style.background = 'transparent';
+                    btnContainer.style.boxShadow = 'none';
+
+                    google.accounts.id.renderButton(
+                        btnContainer,
+                        { theme: "outline", size: "large", width: 250, text: "signin_with" }
+                    );
+                }
+                
+                isGoogleInitialized = true;
+                console.log("Google Sign-In initialized successfully");
+            } catch (err) {
+                console.error("Google init error:", err);
+            }
+        }
+
+        // Start initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            initGoogleSignIn();
+        });
+
+        // ------------------------------
+        // TRADITIONAL LOGIN
+        // ------------------------------
+        const form = document.getElementById('loginForm');
+        
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = '';
+
+            const activeId = localStorage.getItem('tripmate_active_user_id');
+            if (activeId) {
+                messageDiv.textContent = 'A user is already logged in on this device. Please logout first.';
+                messageDiv.style.color = 'var(--danger)';
                 return;
             }
 
             try {
                 const formData = new FormData(form);
-                const response = await fetch('login.php', {
-                    method: 'POST',
-                    body: formData
-                });
+                const response = await fetch('login.php', { method: 'POST', body: formData });
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    // Persist user data in session for this tab and device-wide active marker
                     sessionStorage.setItem('user_id', result.user_id);
                     sessionStorage.setItem('user_name', result.user_name);
                     localStorage.setItem('tripmate_active_user_id', result.user_id);
                     localStorage.setItem('tripmate_active_user_name', result.user_name);
-
-                    // Redirect or to dashboard
-                    window.location.href = result.redirect || '../user/user_dashboard.php';
+                    
+                    window.location.href = result.redirect || '../main/index.html';
                 } else {
                     messageDiv.textContent = result.message || 'Login failed';
-                    messageDiv.style.color = 'red';
+                    messageDiv.style.color = 'var(--danger)';
                 }
             } catch (error) {
                 messageDiv.textContent = 'Error submitting form. Please try again.';
-                messageDiv.style.color = 'red';
+                messageDiv.style.color = 'var(--danger)';
             }
         });
 
-        // If already logged in (device-wide active), mark the body (optional)
         if (localStorage.getItem('tripmate_active_user_id')) {
             document.body.classList.add('user-logged-in');
         }
     </script>
-    <script src="../user/user-profile.js"></script>
 </body>
 </html>

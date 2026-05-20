@@ -1,133 +1,206 @@
 <?php
-session_start();
-include '../database/dbconfig.php';
+/**
+ * Login Handler
+ * File: auth/login.php
+ * 
+ * Handles traditional email/password login
+ * Creates proper PHP session + returns JSON for frontend
+ * CRITICAL: This file sets up the session that everything else depends on
+ */
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
+// ============================================
+// CRITICAL: Configure session BEFORE session_start()
+// ============================================
+if (session_status() === PHP_SESSION_NONE) {
+    // Session security configuration
+    ini_set('session.cookie_lifetime', 0); // Browser session only
+    ini_set('session.gc_maxlifetime', 86400); // 24 hours server-side
+    ini_set('session.cookie_httponly', 1); // No JavaScript access
+    ini_set('session.cookie_samesite', 'Lax'); // CSRF protection
+    
+    // Secure flag for HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+    }
+    
+    session_start();
+}
 
-    $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
+// Set JSON header immediately
+header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
+
+// Error handling
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+// Include database config
+require_once __DIR__ . '/../database/dbconfig.php';
+
+// ============================================
+// Prevent double login
+// ============================================
+if (isset($_SESSION['user_id'])) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'User already logged in. Please logout first.'
+    ]);
+    http_response_code(400);
+    exit;
+}
+
+// ============================================
+// Only handle POST requests
+// ============================================
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid request method'
+    ]);
+    http_response_code(405);
+    exit;
+}
+
+// ============================================
+// Get and validate credentials
+// ============================================
+$email = isset($_POST['email']) ? trim($_POST['email']) : '';
+$password = isset($_POST['password']) ? $_POST['password'] : '';
+$redirect = isset($_POST['redirect']) ? trim($_POST['redirect']) : '../user/user_dashboard.php';
+
+// Validate input
+if (empty($email) || empty($password)) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Email and password are required'
+    ]);
+    http_response_code(400);
+    exit;
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid email format'
+    ]);
+    http_response_code(400);
+    exit;
+}
+
+try {
+    // ============================================
+    // Query database for user
+    // ============================================
+    $stmt = $conn->prepare("SELECT id, name, email, password, profile_pic, user_level FROM users WHERE email = ?");
+    
+    if (!$stmt) {
+        throw new Exception("Database prepare error: " . $conn->error);
+    }
+    
     $stmt->bind_param("s", $email);
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Database execute error: " . $stmt->error);
+    }
+    
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
-
-    if ($user && password_verify($password, $user['password'])) {
-        // Set PHP session
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_name'] = $user['name'];
-
-        // Return JSON to frontend
-        echo json_encode([
-            'status' => 'success',
-            'user_id' => $user['id'],
-            'user_name' => $user['name'],
-            'redirect' => $_POST['redirect'] ?? ''
-        ]);
-        exit;
-    } else {
+    $stmt->close();
+    
+    // ============================================
+    // Verify credentials
+    // ============================================
+    if (!$user) {
+        // User not found - don't reveal this for security
+        http_response_code(401);
         echo json_encode([
             'status' => 'error',
             'message' => 'Invalid email or password'
         ]);
         exit;
     }
+    
+    if (!password_verify($password, $user['password'])) {
+        // Password mismatch
+        http_response_code(401);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Invalid email or password'
+        ]);
+        exit;
+    }
+    
+    // ============================================
+    // CRITICAL: Create proper session
+    // ============================================
+    // Regenerate session ID for security (prevents session fixation)
+    session_regenerate_id(true);
+    
+    // Set session variables - STANDARDIZED KEYS
+    $_SESSION['user_id'] = (int)$user['id'];
+    $_SESSION['userid'] = (int)$user['id']; // Backward compatibility
+    $_SESSION['user_name'] = $user['name'];
+    $_SESSION['username'] = $user['name']; // Backward compatibility
+    $_SESSION['user_email'] = $user['email'];
+    $_SESSION['user_pic'] = $user['profile_pic'] ?? '';
+    $_SESSION['profile_pic'] = $user['profile_pic'] ?? ''; // Backward compatibility
+    $_SESSION['user_level'] = $user['user_level'] ?? 'normal';
+    
+    // Session metadata for validation
+    $_SESSION['created_at'] = time();
+    $_SESSION['last_activity'] = time();
+    $_SESSION['session_created'] = time();
+    $_SESSION['auth_provider'] = 'manual';
+    $_SESSION['_regenerated'] = true;
+    $_SESSION['last_validation'] = time();
+    
+    // Save session to ensure it's written
+    if (!session_write_close()) {
+        throw new Exception("Failed to write session");
+    }
+    
+    // ============================================
+    // Track login activity (optional)
+    // ============================================
+    if (file_exists(__DIR__ . '/../admin/ip_tracking.php')) {
+        require_once __DIR__ . '/../admin/ip_tracking.php';
+        if (function_exists('trackUserIP')) {
+            trackUserIP($user['id'], $conn, 'login');
+        }
+    }
+    
+    // ============================================
+    // Close database connection
+    // ============================================
+    if (isset($conn) && $conn) {
+        $conn->close();
+    }
+    
+    // ============================================
+    // Return success response
+    // ============================================
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Login successful',
+        'user_id' => (int)$user['id'],
+        'user_name' => $user['name'],
+        'user_email' => $user['email'],
+        'redirect' => $redirect ?: '../user/user_dashboard.php'
+    ]);
+    exit;
+    
+} catch (Exception $e) {
+    // Log error but don't expose details to client
+    error_log('Login error: ' . $e->getMessage());
+    
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'An error occurred during login. Please try again.'
+    ]);
+    exit;
 }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Login</title>
-    <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
-    <div class="login-container">
-        <form id="loginForm" method="POST" action="">
-            <h2>User Login</h2>
-            <div class="form-group">
-                <label for="email_field">Email:</label>
-                <input type="email" id="email_field" name="email" required>
-            </div>
-            <div class="form-group">
-                <label for="password_field">Password:</label>
-                <input type="password" id="password_field" name="password" required>
-            </div>
-            <button type="submit">Login</button>
-            <div class="error-message" id="errorMessage"></div>
-        </form>
-    </div>
-
-    <script>
-        document.getElementById('loginForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const messageDiv = document.getElementById('errorMessage');
-
-            // If a user is already active on this device, block login attempts until logout
-            const activeId = localStorage.getItem('tripmate_active_user_id');
-            if (activeId) {
-                messageDiv.textContent = 'A user is already logged in on this device. Please logout before attempting to log in with a different account.';
-                messageDiv.style.color = 'red';
-                return;
-            }
-
-            try {
-                const formData = new FormData(this);
-                const response = await fetch('login.php', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    // Persist user data across tab (session) and device (localStorage)
-                    sessionStorage.setItem('user_id', data.user_id);
-                    sessionStorage.setItem('user_name', data.user_name);
-                    localStorage.setItem('tripmate_active_user_id', data.user_id);
-                    localStorage.setItem('tripmate_active_user_name', data.user_name);
-
-                    // If opened as popup and opener exists, notify opener and close
-                    if (window.opener && !window.opener.closed) {
-                        try {
-                            window.opener.postMessage({
-                                type: 'user-login',
-                                user_id: data.user_id,
-                                user_name: data.user_name
-                            }, window.location.origin || '*');
-                        } catch (e) {
-                            // ignore cross-origin issues
-                        }
-                        window.close();
-                        return;
-                    }
-
-                    if (data.redirect && data.redirect.length) {
-                        window.location.href = data.redirect;
-                    } else {
-                        window.location.href = '../user/user_dashboard.php';
-                    }
-                } else {
-                    messageDiv.textContent = data.message || 'Login failed';
-                    messageDiv.style.color = 'red';
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                messageDiv.textContent = 'Error submitting form. Please try again.';
-                messageDiv.style.color = 'red';
-            }
-        });
-
-        // If already logged in (device-wide), optionally redirect or mark UI
-        if (localStorage.getItem('tripmate_active_user_id')) {
-            // keep on page, but mark
-            document.body.classList.add('user-logged-in');
-        }
-    </script>
-</body>
-</html>
