@@ -1,4 +1,7 @@
 <?php
+// Session initialization with proper configuration
+require_once __DIR__ . '/../user/session_init.php';
+
 header('Content-Type: application/json');
 require_once '../database/dbconfig.php';
 
@@ -6,22 +9,23 @@ require_once '../database/dbconfig.php';
 $startTime = microtime(true);
 
 // Function to fetch weather data from OpenWeatherMap API
-function fetchWeather($location) {
+function fetchWeather($location)
+{
     try {
         $apiKey = 'b4fe517a83b0e5679af65062c7fd92cd';
         $url = "https://api.openweathermap.org/data/2.5/weather?q=" . urlencode($location) . "&appid=" . $apiKey . "&units=metric";
-        
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 3);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
         curl_setopt($ch, CURLOPT_FAILONERROR, false);
-        
+
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        
+
         if ($httpCode === 200 && $response) {
             $data = json_decode($response, true);
             if ($data && isset($data['main']) && isset($data['weather']) && isset($data['wind'])) {
@@ -40,7 +44,71 @@ function fetchWeather($location) {
     return null;
 }
 
-function fetchDestinations($conn, $params) {
+function decodeJsonArray($value)
+{
+    if (is_array($value)) {
+        return array_values($value);
+    }
+    if ($value === null || $value === '' || $value === 'null') {
+        return [];
+    }
+    if (is_string($value)) {
+        $decoded = json_decode($value, true);
+        if (is_array($decoded)) {
+            return array_values($decoded);
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return [];
+        }
+        if (strpos($value, ',') !== false) {
+            return array_values(array_filter(array_map('trim', explode(',', $value)), function ($item) {
+                return $item !== '';
+            }));
+        }
+        return [$value];
+    }
+    return [];
+}
+
+function mergeDestinationImages($row)
+{
+    $images = decodeJsonArray($row['images'] ?? null);
+    $imageUrls = decodeJsonArray($row['image_urls'] ?? null);
+    $row['images'] = $images;
+    $row['image_urls'] = $imageUrls;
+    $row['all_images'] = array_values(array_unique(array_filter(array_merge($images, $imageUrls), function ($item) {
+        return trim((string)$item) !== '';
+    })));
+    if (empty($row['all_images']) && !empty($row['profile_pic'])) {
+        $row['all_images'] = [trim($row['profile_pic'])];
+    }
+    return $row;
+}
+
+function fetchHotelNamesByDestinationIds($conn, $destinationIds)
+{
+    if (empty($destinationIds)) {
+        return [];
+    }
+
+    $destinationIds = array_map('intval', array_unique($destinationIds));
+    $idList = implode(',', $destinationIds);
+    $query = "SELECT destination_id, hotel_name FROM hotels WHERE destination_id IN ($idList) ORDER BY destination_id, price_per_night ASC";
+    $result = $conn->query($query);
+    if (!$result) {
+        return [];
+    }
+
+    $hotels = [];
+    while ($row = $result->fetch_assoc()) {
+        $hotels[$row['destination_id']][] = $row['hotel_name'];
+    }
+    return $hotels;
+}
+
+function fetchDestinations($conn, $params)
+{
     $sql = "SELECT * FROM destinations WHERE 1";
     $values = [];
 
@@ -60,19 +128,19 @@ function fetchDestinations($conn, $params) {
     }
     if (!empty($params['people'])) {
         $sql .= " AND people LIKE ?";
-        $values[] = '%'.$params['people'].'%';
+        $values[] = '%' . $params['people'] . '%';
     }
     if (!empty($params['season'])) {
         $sql .= " AND (season LIKE ? OR best_season LIKE ?)";
-        $values[] = '%'.$params['season'].'%';
-        $values[] = '%'.$params['season'].'%';
+        $values[] = '%' . $params['season'] . '%';
+        $values[] = '%' . $params['season'] . '%';
     }
 
     $stmt = $conn->prepare($sql);
-    
+
     // SAFETY CHECK: Prevents the Javascript from crashing if DB has an error
     if (!$stmt) {
-        return []; 
+        return [];
     }
 
     if ($values) {
@@ -83,20 +151,33 @@ function fetchDestinations($conn, $params) {
     $result = $stmt->get_result();
 
     $destinations = [];
+    $destinationIds = [];
     while ($row = $result->fetch_assoc()) {
-        foreach (['image_urls', 'attractions', 'hotels', 'people', 'tips', 'cuisines', 'cuisine_images', 'language'] as $jcol) {
+        foreach (['image_urls', 'images', 'attractions', 'hotels', 'people', 'tips', 'cuisines', 'cuisine_images', 'language'] as $jcol) {
             if (isset($row[$jcol]) && $row[$jcol] !== null) {
                 $decoded = json_decode($row[$jcol], true);
                 $row[$jcol] = $decoded === null ? $row[$jcol] : $decoded;
             }
         }
+        $row = mergeDestinationImages($row);
         $destinations[] = $row;
+        $destinationIds[] = intval($row['id']);
     }
+
+    $hotelsByDestination = fetchHotelNamesByDestinationIds($conn, $destinationIds);
+    foreach ($destinations as &$destination) {
+        if (!empty($hotelsByDestination[$destination['id']])) {
+            $destination['hotels'] = $hotelsByDestination[$destination['id']];
+        }
+    }
+    unset($destination);
+
     return $destinations;
 }
 
 // Helper to read user id from GET/POST
-function readUserIdFromRequest() {
+function readUserIdFromRequest()
+{
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($_POST['user_id'])) return $_POST['user_id'];
         if (!empty($_POST['userid'])) return $_POST['userid'];
@@ -179,4 +260,3 @@ echo json_encode([
     'server_time' => date('Y-m-d H:i:s'),
     'count' => count($destinations)
 ]);
-?>
