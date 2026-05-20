@@ -1,0 +1,42 @@
+/* Admin loader styles */
+#admin-lottie-loader {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.6);
+  z-index: 2000;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+#admin-lottie-loader.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#admin-lottie-container {
+  width: 220px;
+  height: 220px;
+}
+
+/* Fallback spinner used when Lottie fails to load */
+.fallback-spinner {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 6px solid rgba(255,255,255,0.2);
+  border-top-color: #38bdf8;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 6px 20px rgba(2,6,23,0.2);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* keep the loader content centered on small viewports */
+@media (max-width: 400px) {
+  #admin-lottie-container { width: 160px; height: 160px; }
+}
