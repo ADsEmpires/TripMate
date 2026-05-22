@@ -1,8 +1,15 @@
 <?php
 
 /**
- * Session Refresh & Validation Endpoint
+ * Session Refresh & Validation Endpoint - FIXED VERSION
  * File: user/session_refresh.php
+ * 
+ * FIXES:
+ * - Proper session initialization
+ * - Better error handling
+ * - Clear status codes
+ * - Prevent premature session destruction
+ * - Proper error logging
  * 
  * Purpose:
  * - Keep sessions alive with periodic pings
@@ -10,7 +17,7 @@
  * - Validate session status
  * - Return JSON responses for AJAX calls
  * 
- * IMPORTANT: This is an API endpoint - return JSON only
+ * IMPORTANT: This is an API endpoint - return JSON only, no HTML
  */
 
 // ============================================
@@ -20,23 +27,45 @@ header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
+header('Access-Control-Allow-Credentials: true');
 
 // ============================================
-// Error handling
+// Error handling - DO NOT DISPLAY ERRORS
 // ============================================
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 // ============================================
-// Start/resume session
+// Start/resume session BEFORE anything else
 // ============================================
 if (session_status() === PHP_SESSION_NONE) {
+    // Configure session BEFORE starting
+    ini_set('session.gc_maxlifetime', 7200);
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.cookie_samesite', 'Lax');
+    
     session_start();
 }
 
-// Include session initialization to validate
+// ============================================
+// Include session initialization
+// ============================================
 require_once __DIR__ . '/session_init.php';
+
+// ============================================
+// Load database config
+// ============================================
+if (!file_exists(__DIR__ . '/../database/dbconfig.php')) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database config not found',
+        'status' => 'error'
+    ]);
+    exit;
+}
+
 require_once __DIR__ . '/../database/dbconfig.php';
 
 // ============================================
@@ -58,6 +87,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_id'] === null) {
 $action = $_GET['action'] ?? $_POST['action'] ?? 'keepalive';
 $user_id = $_SESSION['user_id'];
 
+// Log the action for debugging
+error_log('[SessionRefresh] Action: ' . $action . ', User: ' . $user_id . ', Timestamp: ' . date('Y-m-d H:i:s'));
+
 try {
     switch ($action) {
         case 'refresh':
@@ -72,7 +104,8 @@ try {
             echo json_encode([
                 'success' => true,
                 'message' => 'Session kept alive',
-                'status' => 'ok'
+                'status' => 'ok',
+                'timestamp' => time()
             ]);
             break;
 
@@ -93,15 +126,16 @@ try {
             http_response_code(400);
             echo json_encode([
                 'success' => false,
-                'message' => 'Invalid action',
+                'message' => 'Invalid action: ' . $action,
                 'status' => 'error'
             ]);
     }
 } catch (Exception $e) {
+    error_log('[SessionRefresh] Exception: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Server error: ' . $e->getMessage(),
+        'message' => 'Server error',
         'status' => 'error'
     ]);
 }
@@ -122,7 +156,7 @@ function refreshUserSession($conn, $user_id)
         $user = null;
         
         // Try users table first
-        $stmt = $conn->prepare("SELECT id, name, email, profile_pic, created_at FROM users WHERE id = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, name, email, profile_pic, user_level, created_at FROM users WHERE id = ? LIMIT 1");
         if ($stmt) {
             $stmt->bind_param("i", $user_id);
             $stmt->execute();
@@ -135,7 +169,7 @@ function refreshUserSession($conn, $user_id)
         
         // If not found, try users_google table
         if (!$user) {
-            $stmt = $conn->prepare("SELECT id, name, email, profile_pic, created_at FROM users_google WHERE id = ? LIMIT 1");
+            $stmt = $conn->prepare("SELECT id, name, email, profile_pic, user_level, created_at FROM users_google WHERE id = ? LIMIT 1");
             if ($stmt) {
                 $stmt->bind_param("i", $user_id);
                 $stmt->execute();
@@ -148,14 +182,16 @@ function refreshUserSession($conn, $user_id)
         }
         
         if (!$user) {
+            error_log('[SessionRefresh] User ' . $user_id . ' not found in database');
             return [
                 'success' => false,
                 'message' => 'User not found',
-                'status' => 'user_not_found'
+                'status' => 'user_not_found',
+                'is_valid' => false
             ];
         }
         
-        // Update session variables
+        // Update session variables - CRITICAL for persistence
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['userid'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
@@ -163,15 +199,20 @@ function refreshUserSession($conn, $user_id)
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_pic'] = $user['profile_pic'];
         $_SESSION['profile_pic'] = $user['profile_pic'];
+        $_SESSION['user_level'] = $user['user_level'] ?? 'normal';
         $_SESSION['_last_activity'] = time();
         
-        // Update activity timestamp
-        $_SESSION['_last_activity'] = time();
+        // Force write session to disk immediately
+        session_write_close();
+        session_start();
+
+        error_log('[SessionRefresh] Session refreshed for user ' . $user_id);
 
         return [
             'success' => true,
             'message' => 'Session refreshed',
             'status' => 'ok',
+            'is_valid' => true,
             'user' => [
                 'id' => (int)$user['id'],
                 'name' => $user['name'],
@@ -181,10 +222,12 @@ function refreshUserSession($conn, $user_id)
             'session_expires_in' => 7200 // 2 hours in seconds
         ];
     } catch (Exception $e) {
+        error_log('[SessionRefresh] Exception in refreshUserSession: ' . $e->getMessage());
         return [
             'success' => false,
-            'message' => 'Error refreshing session: ' . $e->getMessage(),
-            'status' => 'error'
+            'message' => 'Error refreshing session',
+            'status' => 'error',
+            'is_valid' => false
         ];
     }
 }
@@ -197,7 +240,7 @@ function keepSessionAlive($user_id)
     $_SESSION['user_id'] = $user_id;
     $_SESSION['_last_activity'] = time();
     
-    // Reset cookie to extend expiration
+    // Reset cookie to extend expiration - CRITICAL
     $cookieParams = session_get_cookie_params();
     setcookie(
         session_name(),
@@ -208,6 +251,8 @@ function keepSessionAlive($user_id)
         $cookieParams['secure'],
         $cookieParams['httponly']
     );
+    
+    error_log('[SessionRefresh] Keep-alive: User ' . $user_id . ' at ' . date('Y-m-d H:i:s'));
 }
 
 /**
@@ -216,7 +261,7 @@ function keepSessionAlive($user_id)
 function checkSessionValidity($conn, $user_id)
 {
     try {
-        // Check if user still exists
+        // Check if user still exists in users table
         $stmt = $conn->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
         $user_found = false;
         
@@ -244,6 +289,7 @@ function checkSessionValidity($conn, $user_id)
         
         if ($user_found) {
             $_SESSION['_last_activity'] = time();
+            error_log('[SessionRefresh] Session valid for user ' . $user_id);
             return [
                 'success' => true,
                 'message' => 'Session valid',
@@ -251,6 +297,7 @@ function checkSessionValidity($conn, $user_id)
                 'is_valid' => true
             ];
         } else {
+            error_log('[SessionRefresh] User ' . $user_id . ' not found in database');
             return [
                 'success' => false,
                 'message' => 'User not found',
@@ -259,9 +306,10 @@ function checkSessionValidity($conn, $user_id)
             ];
         }
     } catch (Exception $e) {
+        error_log('[SessionRefresh] Exception in checkSessionValidity: ' . $e->getMessage());
         return [
             'success' => false,
-            'message' => 'Error checking session: ' . $e->getMessage(),
+            'message' => 'Error checking session',
             'status' => 'error',
             'is_valid' => false
         ];
