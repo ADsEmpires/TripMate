@@ -1,6 +1,13 @@
 /**
- * Session Keep-Alive System - PRODUCTION VERSION
+ * Session Keep-Alive System - FIXED PRODUCTION VERSION
  * File: user/session-keepalive.js
+ * 
+ * FIXES:
+ * - Improved session state detection
+ * - Better error handling
+ * - Fixed race conditions
+ * - Prevent unnecessary redirects
+ * - Clear logging for debugging
  * 
  * Features:
  * - Periodic session keep-alive pings (every 5 minutes)
@@ -21,36 +28,50 @@ class SessionKeepAlive {
         this.keepAliveTimer = null;
         this.sessionCheckTimer = null;
         this.sessionLostWarning = false;
+        this.lastKnownState = null;
+        
+        // Log initialization
+        console.log('🔄 SessionKeepAlive: Constructing...', {
+            baseUrl: this.baseUrl,
+            keepAliveInterval: this.keepAliveInterval / 1000 + 's',
+            sessionCheckInterval: this.sessionCheckInterval / 1000 + 's'
+        });
         
         // Check if user is logged in before initializing
         if (this.isUserLoggedIn()) {
+            console.log('✅ SessionKeepAlive: User is logged in, initializing');
             this.init();
         } else {
-            console.log('SessionKeepAlive: User not logged in, skipping');
+            console.log('ℹ️ SessionKeepAlive: User not logged in, skipping');
         }
     }
     
     /**
-     * Check if user is logged in from multiple sources
+     * Check if user is logged in from multiple sources (in order of reliability)
      */
     isUserLoggedIn() {
-        // Check meta tags (PHP-side validation - most reliable)
+        // MOST RELIABLE: Check meta tags (PHP-side validation)
         const metaUserId = document.querySelector('meta[name="user-id"]')?.getAttribute('content');
-        if (metaUserId) {
+        if (metaUserId && metaUserId !== '' && metaUserId !== 'null') {
             console.log('SessionKeepAlive: User confirmed via meta tag:', metaUserId);
             return true;
         }
         
-        // Check body class
+        // RELIABLE: Check body class
         if (document.body.classList.contains('user-logged-in')) {
+            console.log('SessionKeepAlive: User confirmed via body class');
             return true;
         }
         
-        // Check storage
-        if (localStorage.getItem('tripmate_active_user_id') || sessionStorage.getItem('user_id')) {
+        // FALLBACK: Check storage (can be out of sync)
+        const localId = localStorage.getItem('tripmate_active_user_id');
+        const sessionId = sessionStorage.getItem('user_id');
+        if (localId || sessionId) {
+            console.log('SessionKeepAlive: User found in storage (local:', localId, 'session:', sessionId, ')');
             return true;
         }
         
+        console.log('SessionKeepAlive: No user found');
         return false;
     }
     
@@ -71,7 +92,9 @@ class SessionKeepAlive {
         path = path.replace(/\/(user|auth|main|search|bookings|admin|dashboard|Contributor|database|config|actions|image|uploads|css|js|scripts)(\/.*)?$/, '');
         path = path.replace(/\/$/, '');
 
-        return window.location.origin + path;
+        const result = window.location.origin + path;
+        console.log('SessionKeepAlive: Detected base URL:', result);
+        return result;
     }
     
     /**
@@ -80,6 +103,7 @@ class SessionKeepAlive {
     init() {
         console.log('🔄 SessionKeepAlive: Initialized');
         console.log('📍 Base URL:', this.baseUrl);
+        console.log('🔗 Keep-alive URL:', this.keepAliveUrl);
         
         // Start timers
         this.startKeepAliveTimer();
@@ -95,11 +119,13 @@ class SessionKeepAlive {
         
         // Listen for storage changes (multi-tab support)
         window.addEventListener('storage', (e) => {
-            if (e.key === 'tripmate_session_lost') {
+            if (e.key === 'tripmate_session_lost' && e.newValue === 'true') {
                 console.log('SessionKeepAlive: Session lost in another tab');
-                if (e.newValue === 'true') {
-                    this.handleSessionLoss();
-                }
+                this.handleSessionLoss();
+            }
+            else if (e.key === 'tripmate_active_user_id' && !e.newValue) {
+                console.log('SessionKeepAlive: User logged out in another tab');
+                this.handleSessionLoss();
             }
         });
     }
@@ -108,16 +134,18 @@ class SessionKeepAlive {
      * Start the keep-alive timer
      */
     startKeepAliveTimer() {
-        // Send initial keep-alive
+        // Send initial keep-alive immediately
         this.sendKeepAlive();
         
         this.keepAliveTimer = setInterval(() => {
             if (this.isUserLoggedIn()) {
                 this.sendKeepAlive();
+            } else {
+                console.log('SessionKeepAlive: User not logged in, skipping keep-alive');
             }
         }, this.keepAliveInterval);
         
-        console.log('SessionKeepAlive: Keep-alive timer started (interval: ' + this.keepAliveInterval / 1000 + 's)');
+        console.log('✅ SessionKeepAlive: Keep-alive timer started (interval: ' + this.keepAliveInterval / 1000 + 's)');
     }
     
     /**
@@ -126,9 +154,11 @@ class SessionKeepAlive {
     async sendKeepAlive() {
         try {
             const url = `${this.keepAliveUrl}?action=keepalive&t=${Date.now()}`;
+            console.log('🔄 SessionKeepAlive: Sending keep-alive to', url);
+            
             const response = await fetch(url, {
                 method: 'GET',
-                credentials: 'include',
+                credentials: 'include', // CRITICAL: Include cookies
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate'
                 }
@@ -146,7 +176,7 @@ class SessionKeepAlive {
                     return false;
                 }
             } else if (response.status === 401) {
-                console.error('❌ SessionKeepAlive: Unauthorized (401)');
+                console.error('❌ SessionKeepAlive: Unauthorized (401) - Session invalid');
                 this.handleSessionLoss();
                 return false;
             } else {
@@ -155,7 +185,8 @@ class SessionKeepAlive {
             }
         } catch (error) {
             console.warn('⚠️ SessionKeepAlive: Network error -', error.message);
-            return false;
+            // Don't treat network errors as session loss - could be temporary
+            return null;
         }
     }
     
@@ -167,7 +198,7 @@ class SessionKeepAlive {
             this.checkSessionStatus();
         }, this.sessionCheckInterval);
         
-        console.log('SessionKeepAlive: Session check timer started (interval: ' + this.sessionCheckInterval / 1000 + 's)');
+        console.log('✅ SessionKeepAlive: Session check timer started (interval: ' + this.sessionCheckInterval / 1000 + 's)');
     }
     
     /**
@@ -176,6 +207,8 @@ class SessionKeepAlive {
     async checkSessionStatus() {
         try {
             const url = `${this.keepAliveUrl}?action=check&t=${Date.now()}`;
+            console.log('🔍 SessionKeepAlive: Checking session status...');
+            
             const response = await fetch(url, {
                 method: 'GET',
                 credentials: 'include',
@@ -186,7 +219,7 @@ class SessionKeepAlive {
             
             if (!response.ok) {
                 if (response.status === 401) {
-                    console.warn('SessionKeepAlive: Session check failed - unauthorized');
+                    console.warn('❌ SessionKeepAlive: Session check failed - unauthorized (401)');
                     this.handleSessionLoss();
                 }
                 return false;
@@ -200,7 +233,7 @@ class SessionKeepAlive {
                 localStorage.removeItem('tripmate_session_lost');
                 return true;
             } else {
-                console.warn('SessionKeepAlive: Session validation failed');
+                console.warn('⚠️ SessionKeepAlive: Session validation failed:', data.message);
                 if (!this.sessionLostWarning) {
                     this.handleSessionLoss();
                 }
@@ -218,6 +251,7 @@ class SessionKeepAlive {
      */
     handleSessionLoss() {
         if (this.sessionLostWarning) {
+            console.log('SessionKeepAlive: Already handling session loss, skipping');
             return; // Already handling
         }
         
@@ -246,17 +280,24 @@ class SessionKeepAlive {
      * Clear all session data
      */
     clearSessionData() {
+        console.log('🗑️ SessionKeepAlive: Clearing session data');
+        
         localStorage.removeItem('tripmate_active_user_id');
         localStorage.removeItem('tripmate_active_user_name');
-        localStorage.removeItem('tripmate_user_email');
+        localStorage.removeItem('tripmate_active_user_email');
+        localStorage.removeItem('tripmate_active_user_pic');
         
         sessionStorage.removeItem('user_id');
         sessionStorage.removeItem('userid');
         sessionStorage.removeItem('user_name');
         sessionStorage.removeItem('username');
+        sessionStorage.removeItem('user_email');
+        sessionStorage.removeItem('user_pic');
+        sessionStorage.removeItem('auth_provider');
         
         document.body.classList.remove('user-logged-in');
         document.body.removeAttribute('data-user-id');
+        document.body.removeAttribute('data-user-name');
     }
     
     /**
@@ -327,6 +368,7 @@ class SessionKeepAlive {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 Document loaded, initializing SessionKeepAlive');
     window.sessionKeepAlive = new SessionKeepAlive();
 });
 
