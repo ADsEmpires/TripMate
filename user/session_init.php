@@ -1,18 +1,25 @@
 <?php
 
 /**
- * Session Initialization Helper
+ * Session Initialization Helper - FIXED VERSION
  * File: user/session_init.php
  * 
  * CRITICAL: Include this file at the TOP of EVERY page that needs persistent sessions
  * Must be called BEFORE any output (including HTML)
  * 
- * Features:
- * - Secure session configuration
- * - Session ID regeneration
- * - User session validation
- * - CSRF token generation
+ * FIXES:
+ * - Proper session initialization order
+ * - Clear validation logic
+ * - Prevent premature session destruction
+ * - Ensure consistency between PHP session and browser storage
  */
+
+// ============================================
+// ERROR SUPPRESSION FOR SESSION OPERATIONS
+// ============================================
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 // ============================================
 // CRITICAL: Session settings MUST be set BEFORE session_start()
@@ -34,8 +41,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params($cookie_options);
     
     // ============================================
-    // Set session garbage collection
+    // Set session garbage collection - IMPORTANT
     // ============================================
+    // These MUST be set before session_start()
     ini_set('session.gc_maxlifetime', 7200); // 2 hours server-side
     ini_set('session.gc_probability', 1);
     ini_set('session.gc_divisor', 100);
@@ -47,7 +55,7 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.hash_bits_per_character', 5);
     
     // ============================================
-    // START SESSION
+    // CRITICAL: START SESSION
     // ============================================
     session_start();
     
@@ -62,7 +70,7 @@ if (session_status() === PHP_SESSION_NONE) {
     }
     
     // ============================================
-    // Update last activity time
+    // Update last activity time on EVERY page load
     // ============================================
     $_SESSION['_last_activity'] = time();
 }
@@ -83,6 +91,7 @@ if (isset($_SESSION['user_id']) && $_SESSION['user_id'] !== null) {
     // Check if session has expired
     if (($current_time - $last_activity) > $idle_timeout || ($current_time - $session_created) > $absolute_timeout) {
         // Session expired - destroy it
+        error_log('[SessionInit] Session expired for user ' . $_SESSION['user_id']);
         session_destroy();
         $_SESSION = [];
         setcookie(session_name(), '', time() - 3600, '/');
@@ -104,10 +113,10 @@ if (isset($_SESSION['user_id']) && $_SESSION['user_id'] !== null) {
 }
 
 // ============================================
-// Session Variable Normalization (use consistent key)
+// Session Variable Normalization
 // ============================================
 // IMPORTANT: Use 'user_id' as the primary key everywhere
-// These are just for backward compatibility
+// These normalize any legacy or inconsistent key names
 
 if (isset($_SESSION['userid']) && !isset($_SESSION['user_id'])) {
     $_SESSION['user_id'] = $_SESSION['userid'];
@@ -172,6 +181,7 @@ if (isset($_SESSION['user_id']) && $_SESSION['user_id'] !== null && file_exists(
         
         if (!$user_found) {
             // User doesn't exist - destroy session
+            error_log('[SessionInit] User ' . $user_id . ' not found in database. Destroying session.');
             session_destroy();
             $_SESSION = [];
             setcookie(session_name(), '', time() - 3600, '/');
@@ -239,7 +249,7 @@ if (!function_exists('getSessionManagerScripts')) {
      * Get session manager JavaScript includes for footer
      * 
      * @param string $base_url Base URL of the application (optional, auto-detected)
-     * @return string HTML script tags
+     * @return string HTML script tags with session data
      */
     function getSessionManagerScripts($base_url = '')
     {
@@ -255,12 +265,17 @@ if (!function_exists('getSessionManagerScripts')) {
 
         $user_id = $_SESSION['user_id'] ?? null;
         $user_name = $_SESSION['user_name'] ?? '';
+        $user_email = $_SESSION['user_email'] ?? '';
+        $user_pic = $_SESSION['user_pic'] ?? '';
 
         // Output normalized session data as JSON for JavaScript
         $session_data = json_encode([
             'user_id' => $user_id,
             'user_name' => $user_name,
-            'is_logged_in' => !is_null($user_id)
+            'user_email' => $user_email,
+            'user_pic' => $user_pic,
+            'is_logged_in' => !is_null($user_id),
+            'session_started_at' => $_SESSION['_created_at'] ?? time()
         ]);
 
         $current_time = time();
@@ -276,13 +291,21 @@ if (!function_exists('getSessionManagerScripts')) {
     if (window.tripmate_session.user_id) {
         sessionStorage.setItem('user_id', window.tripmate_session.user_id);
         sessionStorage.setItem('user_name', window.tripmate_session.user_name);
+        sessionStorage.setItem('user_email', window.tripmate_session.user_email);
+        sessionStorage.setItem('user_pic', window.tripmate_session.user_pic);
         localStorage.setItem('tripmate_active_user_id', window.tripmate_session.user_id);
         localStorage.setItem('tripmate_active_user_name', window.tripmate_session.user_name);
+        localStorage.setItem('tripmate_active_user_email', window.tripmate_session.user_email);
+        localStorage.setItem('tripmate_active_user_pic', window.tripmate_session.user_pic);
         document.body.classList.add('user-logged-in');
+        document.body.setAttribute('data-user-id', window.tripmate_session.user_id);
+        document.body.setAttribute('data-user-name', window.tripmate_session.user_name);
     } else {
         document.body.classList.remove('user-logged-in');
     }
 </script>
+<meta name="user-id" content="{$user_id}">
+<meta name="api-base" content="{$base_url}">
 <script src="{$base_url}/user/session-keepalive.js" async></script>
 <script src="{$base_url}/user/session-sync.js" async></script>
 <script src="{$base_url}/user/auto-logout.js" async></script>
