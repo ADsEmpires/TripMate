@@ -73,72 +73,86 @@ if ($is_admin) {
 .weather-wrapper { max-width:1300px; margin:auto; }
 
 .weather-hero {
-    background:linear-gradient(135deg,#1e3c72,#2a5298);
-    padding:35px;
-    border-radius:20px;
-    color:white;
-    text-align:center;
-    margin-bottom:30px;
+    background: linear-gradient(135deg, var(--primary, #1e3c72), var(--secondary, #2a5298));
+    padding: 35px;
+    border-radius: 20px;
+    color: white;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 25px var(--shadow-color, rgba(0,0,0,0.08));
 }
 
 .weather-hero input {
-    padding:12px 20px;
-    width:280px;
-    border-radius:50px;
-    border:none;
-    outline:none;
+    padding: 12px 20px;
+    width: 280px;
+    border-radius: 50px;
+    border: 1px solid var(--card-border, transparent);
+    outline: none;
+    background: var(--bg-surface, white);
+    color: var(--text-main, #333);
 }
 
 .weather-hero button {
-    padding:12px 25px;
-    border-radius:50px;
-    border:none;
-    background:white;
-    color:#1e3c72;
-    cursor:pointer;
-    margin-left:10px;
-    font-weight:bold;
+    padding: 12px 25px;
+    border-radius: 50px;
+    border: none;
+    background: var(--bg-surface, white);
+    color: var(--primary, #1e3c72);
+    cursor: pointer;
+    margin-left: 10px;
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.weather-hero button:hover {
+    background: var(--bg-base, #f1f5f9);
+    transform: translateY(-2px);
 }
 
 .weather-card {
-    background:linear-gradient(145deg,#ffffff,#f8fafc);
-    padding:30px;
-    border-radius:20px;
-    box-shadow:0 8px 25px rgba(0,0,0,0.08);
-    border:1px solid #e2e8f0;
+    background: var(--bg-surface, #ffffff);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px var(--shadow-color, rgba(0,0,0,0.08));
+    border: 1px solid var(--card-border, #e2e8f0);
+    color: var(--text-main, #000);
 }
 
 .weather-main {
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    flex-wrap:wrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
 }
 
 .weather-temp {
-    font-size:60px;
-    font-weight:bold;
-    color:#1e3c72;
+    font-size: 60px;
+    font-weight: bold;
+    color: var(--primary, #1e3c72);
 }
 
 .details-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-    gap:15px;
-    margin-top:30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 15px;
+    margin-top: 30px;
 }
 
 .detail-box {
-    background:linear-gradient(145deg,#f1f5f9,#e2e8f0);
-    padding:18px;
-    border-radius:15px;
-    text-align:center;
-    font-weight:500;
-    transition:0.3s;
+    background: var(--bg-base, #f1f5f9);
+    padding: 18px;
+    border-radius: 15px;
+    text-align: center;
+    font-weight: 500;
+    transition: 0.3s;
+    border: 1px solid var(--card-border, transparent);
+    color: var(--text-main, #333);
 }
 
 .detail-box:hover {
-    background:#e2e8f0;
+    background: var(--bg-surface, #e2e8f0);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px var(--shadow-color, rgba(0,0,0,0.05));
 }
 </style>
 
@@ -218,8 +232,8 @@ function processWeather(data){
     box.innerHTML = `
         <div class="weather-main">
             <div>
-                <h3>${c.name}, ${c.sys.country}</h3>
-                <p style="text-transform:capitalize;font-size:18px;">
+                <h3 style="color: var(--text-main); margin-bottom: 5px;">${c.name}, ${c.sys.country}</h3>
+                <p style="text-transform:capitalize; font-size:18px; color: var(--text-muted); margin-top: 0;">
                     ${c.weather[0].description}
                 </p>
                 <div class="weather-temp">${Math.round(c.main.temp)}°C</div>
@@ -238,6 +252,7 @@ function processWeather(data){
             font-weight:bold;
             text-align:center;
             font-size:18px;
+            box-shadow: 0 4px 15px var(--shadow-color, rgba(0,0,0,0.1));
         ">
             ${trip.status}
         </div>

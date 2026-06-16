@@ -18,23 +18,25 @@ include 'admin_header.php';
 
 <style>
 .log-container {
-    background: white;
+    background: var(--bg-surface, white);
+    border: 1px solid var(--card-border, transparent);
     border-radius: 10px;
     padding: 1.5rem;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 3px 15px var(--shadow-color, rgba(0,0,0,0.05));
     margin-bottom: 2rem;
 }
 
 .log-entry {
     padding: 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--card-border, #eee);
     font-family: 'Courier New', monospace;
     font-size: 0.9rem;
     line-height: 1.6;
+    color: var(--text-main);
 }
 
 .log-entry:hover {
-    background: #f8f9fa;
+    background: var(--bg-base, #f8f9fa);
 }
 
 .email-sent {
@@ -53,24 +55,31 @@ include 'admin_header.php';
     align-items: center;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--card-border, #eee);
+}
+
+.log-header h1 {
+    color: var(--text-main);
+    margin: 0;
 }
 
 .log-date {
-    color: #666;
+    color: var(--text-muted, #666);
     font-size: 0.85rem;
 }
 
 .log-info {
     margin: 5px 0;
+    color: var(--text-main);
 }
 
 .log-reason {
-    background: #f8f9fa;
+    background: var(--bg-base, #f8f9fa);
     padding: 10px;
     border-radius: 5px;
     margin: 10px 0;
     border-left: 3px solid #007bff;
+    color: var(--text-main);
 }
 
 .btn {
@@ -102,8 +111,9 @@ include 'admin_header.php';
 .no-logs {
     text-align: center;
     padding: 3rem 2rem;
-    color: #6c757d;
-    background: #f9f9f9;
+    color: var(--text-muted, #6c757d);
+    background: var(--bg-base, #f9f9f9);
+    border: 1px dashed var(--card-border, #eee);
     border-radius: 8px;
     margin-top: 1.5rem;
 }
@@ -129,15 +139,15 @@ include 'admin_header.php';
         
         <?php if (empty($logs)): ?>
             <div class="no-logs">
-                <i class="fas fa-history" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                <h3>No Removal Logs Found</h3>
-                <p>No users have been removed yet.</p>
+                <i class="fas fa-history" style="font-size: 48px; color: var(--text-muted, #ccc); margin-bottom: 15px;"></i>
+                <h3 style="color: var(--text-main);"> this model update soon......</h3>
+                <p>thanks.</p>
             </div>
         <?php else: ?>
-            <div style="margin-bottom: 1rem; color: #6c757d; font-size: 0.9rem;">
+            <div style="margin-bottom: 1rem; color: var(--text-muted, #6c757d); font-size: 0.9rem;">
                 <i class="fas fa-info-circle"></i> Showing <?= count($logs) ?> removal log entries (newest first)
             </div>
-            <div style="max-height: 600px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+            <div style="max-height: 600px; overflow-y: auto; border: 1px solid var(--card-border, #dee2e6); border-radius: 8px;">
                 <?php foreach ($logs as $log): ?>
                     <?php
                     // Parse log entry
@@ -184,7 +194,7 @@ include 'admin_header.php';
                 <?php endforeach; ?>
             </div>
             
-            <div style="margin-top: 1rem; text-align: center; color: #6c757d; font-size: 0.85rem;">
+            <div style="margin-top: 1rem; text-align: center; color: var(--text-muted, #6c757d); font-size: 0.85rem;">
                 <i class="fas fa-database"></i> Log file: <?= basename($logfile) ?> 
                 (Last modified: <?= file_exists($logfile) ? date('Y-m-d H:i:s', filemtime($logfile)) : 'N/A' ?>)
             </div>

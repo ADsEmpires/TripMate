@@ -156,8 +156,7 @@ include 'admin_header.php';
 
 <style>
     :root {
-        --bg: #f5f7ff; --card: rgba(255,255,255,0.9); --text: #1a1a2e; --primary: #4361ee; --success: #28a745; --warning: #ffc107; --danger: #dc3545;
-        --shadow: 0 8px 32px rgba(0,0,0,0.08); --border: rgba(255,255,255,0.2);
+        --primary: #4361ee; --success: #28a745; --warning: #ffc107; --danger: #dc3545;
     }
    
     /* Fixed Layout – Proper Spacing */
@@ -167,6 +166,7 @@ include 'admin_header.php';
         min-height: 100vh;
         padding: 70px 20px 50px; /* Increased top padding */
         transition: all 0.3s;
+        background: var(--bg-base);
     }
     .analytics-container { max-width: 1600px; margin: 0 auto; }
 
@@ -175,11 +175,11 @@ include 'admin_header.php';
         background: linear-gradient(120deg, #4361ee, #7c3aed, #ec4899);
         background-size: 300%; color: white; padding: 30px 30px; border-radius: 20px;
         margin-bottom: 35px; position: relative; overflow: hidden; animation: gradient 8s ease infinite;
-        backdrop-filter: blur(10px); box-shadow: var(--shadow);
+        box-shadow: 0 8px 32px var(--shadow-color);
     }
     @keyframes gradient { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
-    .analytics-header h1 { font-size: 36px; font-weight: 800; display: flex; align-items: center; gap: 15px; }
-    .analytics-header p { font-size: 17px; opacity: 0.9; margin-top: 8px; }
+    .analytics-header h1 { font-size: 36px; font-weight: 800; display: flex; align-items: center; gap: 15px; margin: 0; }
+    .analytics-header p { font-size: 17px; opacity: 0.9; margin-top: 8px; margin-bottom: 0; }
 
     /* Dark Mode Toggle */
     .dark-toggle {
@@ -191,27 +191,29 @@ include 'admin_header.php';
 
     /* Filters */
     .filters-card {
-        background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border);
-        padding: 10px; border-radius: 16px; margin-bottom: 35px; box-shadow: var(--shadow);
+        background: var(--bg-surface); border: 1px solid var(--card-border);
+        padding: 20px; border-radius: 16px; margin-bottom: 35px; box-shadow: 0 4px 15px var(--shadow-color);
     }
     .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: end; }
-    .filter-item label { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 8px; display: block; }
+    .filter-item label { font-weight: 600; font-size: 14px; color: var(--text-main); margin-bottom: 8px; display: block; }
     .filter-item input, .filter-item select {
-        width: 100%; padding: 12px 16px; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px;
-        background: rgba(255,255,255,0.7); font-size: 14px; transition: all 0.3s;
+        width: 100%; padding: 12px 16px; border: 1px solid var(--card-border); border-radius: 10px;
+        background: var(--bg-base); color: var(--text-main); font-size: 14px; transition: all 0.3s;
+        box-sizing: border-box;
     }
     .filter-item input:focus, .filter-item select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(67,97,238,0.15); }
     .filter-btn {
         padding: 12px 24px; background: var(--primary); color: white; border: none; border-radius: 10px;
-        font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.3s;
+        font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;
+        height: 45px;
     }
     .filter-btn:hover { background: #3056c7; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(67,97,238,0.3); }
 
     /* Stats Cards */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 40px; }
     .stat-card {
-        background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border);
-        padding: 28px 24px; border-radius: 16px; text-align: center; box-shadow: var(--shadow);
+        background: var(--bg-surface); border: 1px solid var(--card-border);
+        padding: 28px 24px; border-radius: 16px; text-align: center; box-shadow: 0 4px 15px var(--shadow-color);
         transition: all 0.4s; position: relative; overflow: hidden;
     }
     .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: var(--primary); }
@@ -219,39 +221,40 @@ include 'admin_header.php';
     .stat-card.time::before   { background: var(--success); }
     .stat-card.clicks::before { background: var(--warning); }
     .stat-card.dbs::before    { background: var(--danger); }
-    .stat-card:hover { transform: translateY(-8px); box-shadow: 0 16px 40px rgba(0,0,0,0.15); }
-    .stat-card h3 { font-size: 14px; color: #777; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-    .stat-value { font-size: 36px; font-weight: 800; color: var(--text); }
-    .stat-unit { font-size: 14px; color: #888; margin-top: 6px; }
+    .stat-card:hover { transform: translateY(-8px); box-shadow: 0 16px 40px var(--shadow-color); }
+    .stat-card h3 { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; margin-top: 0;}
+    .stat-value { font-size: 36px; font-weight: 800; color: var(--text-main); }
+    .stat-unit { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
 
     /* Chart */
     .chart-container {
-        background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border);
-        border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 40px;
+        background: var(--bg-surface); border: 1px solid var(--card-border);
+        border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px var(--shadow-color); margin-bottom: 40px;
         padding: 28px;
     }
-    .chart-title { font-size: 20px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .chart-title { font-size: 20px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
     .chart-wrapper { position: relative; height: 360px; }
 
     /* Table */
     .table-container {
-        background: var(--card); backdrop-filter: blur(12px); border: 1px solid var(--border);
-        border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 40px;
+        background: var(--bg-surface); border: 1px solid var(--card-border);
+        border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px var(--shadow-color); margin-bottom: 40px;
         position: relative; /* Added for scroll button positioning */
     }
     .table-header {
-        padding: 20px 28px; background: rgba(67,97,238,0.05); display: flex; justify-content: space-between; align-items: center;
+        padding: 20px 28px; background: var(--bg-base); display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid var(--card-border);
     }
-    .table-title { font-size: 20px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 10px; }
+    .table-title { font-size: 20px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
     .table-actions button {
-        background: transparent; border: none; color: var(--text); font-size: 16px; cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.3s;
+        background: transparent; border: 1px solid var(--card-border); color: var(--text-main); font-size: 14px; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.3s;
     }
-    .table-actions button:hover { background: rgba(0,0,0,0.05); }
+    .table-actions button:hover { background: var(--bg-surface); color: var(--primary); border-color: var(--primary); }
 
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th { padding: 16px 20px; text-align: left; font-weight: 600; color: #555; background: #f8f9fa; cursor: pointer; }
-    td { padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.05); }
-    tr:hover { background: rgba(67,97,238,0.03); }
+    th { padding: 16px 20px; text-align: left; font-weight: 600; color: var(--text-muted); background: var(--bg-base); cursor: pointer; border-bottom: 1px solid var(--card-border); }
+    td { padding: 16px 20px; border-bottom: 1px solid var(--card-border); color: var(--text-main); }
+    tr:hover td { background: var(--bg-base); }
     .badge { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
     .badge-primary { background: var(--primary); color: white; }
     .badge-success { background: var(--success); color: white; }
@@ -262,16 +265,16 @@ include 'admin_header.php';
         z-index: 10; /* Ensure buttons are above other content */
     }
     .scroll-btn {
-        width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.7);
+        width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface);
         display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.3s; backdrop-filter: blur(8px);
-        border: 1px solid rgba(0,0,0,0.1); /* Added border for better visibility */
+        box-shadow: 0 4px 12px var(--shadow-color); transition: all 0.3s; 
+        border: 1px solid var(--card-border); color: var(--text-main);
     }
-    .scroll-btn:hover { background: white; transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+    .scroll-btn:hover { background: var(--bg-base); transform: translateY(-3px); color: var(--primary); }
 
     /* No Data */
-    .no-data { text-align: center; padding: 60px 20px; color: #6c757d; font-size: 16px; }
-    .no-data i { font-size: 64px; opacity: 0.2; margin-bottom: 20px; display: block; }
+    .no-data { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 16px; }
+    .no-data i { font-size: 64px; opacity: 0.5; margin-bottom: 20px; display: block; }
 
     /* Responsive */
     @media (max-width: 1200px) {
@@ -289,7 +292,6 @@ include 'admin_header.php';
     body.sidebar-collapsed .analytics-wrapper { margin-left: 70px; width: calc(100% - 70px); }
 </style>
 
-<!-- HTML -->
 <div class="analytics-wrapper">
     <div class="analytics-container">
 
@@ -304,8 +306,16 @@ include 'admin_header.php';
             </div>
         <?php else: ?>
 
-            <!-- Filters -->
             <div class="filters-card">
+                <form method="GET" class="filter-grid">
+                    <div class="filter-item">
+                        <label>Date From</label>
+                        <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>">
+                    </div>
+                    <div class="filter-item">
+                        <label>Date To</label>
+                        <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>">
+                    </div>
                     <div class="filter-item">
                         <label>Page</label>
                         <select name="page"><option value="">All Pages</option>
@@ -328,7 +338,6 @@ include 'admin_header.php';
                 </form>
             </div>
 
-            <!-- Stats -->
             <div class="stats-grid">
                 <div class="stat-card visits">
                     <h3>Total Visits</h3>
@@ -352,7 +361,6 @@ include 'admin_header.php';
                 </div>
             </div>
 
-            <!-- Daily Trend Chart -->
             <?php if (!empty($daily_data)): ?>
             <div class="chart-container">
                 <div class="chart-title">Daily Activity Trend</div>
@@ -361,12 +369,12 @@ include 'admin_header.php';
             <?php else: ?>
             <div class="chart-container">
                 <div class="no-data">
+                    <i class="fas fa-chart-line" style="font-size: 40px; margin-bottom: 10px; display: inline-block;"></i>
                     <p>No daily data available</p>
                 </div>
             </div>
             <?php endif; ?>
 
-            <!-- Page Performance Table (Moved Below Chart) -->
             <div class="table-container" id="pagePerformanceSection">
                 <div class="table-header">
                     <div class="table-title">Page Performance</div>
@@ -417,7 +425,6 @@ include 'admin_header.php';
                 <?php endif; ?>
             </div>
 
-            <!-- Top Users -->
             <div class="table-container" id="topUsersSection">
                 <div class="table-header">
                     <div class="table-title">Top 10 Users</div>
@@ -457,6 +464,13 @@ include 'admin_header.php';
 </div>
 
 <script>
+// Configure Chart.js global settings for Dark Mode
+const rootStyle = getComputedStyle(document.documentElement);
+const textColor = rootStyle.getPropertyValue('--text-muted').trim() || '#6c757d';
+const gridColor = rootStyle.getPropertyValue('--card-border').trim() || '#e9ecef';
+Chart.defaults.color = textColor;
+Chart.defaults.borderColor = gridColor;
+
 // Counter Animation
 document.querySelectorAll('.stat-value').forEach(el => {
     const target = +el.getAttribute('data-target');
@@ -481,16 +495,14 @@ function scrollToSection(id, direction) {
         let pos;
         
         if (direction === 'up') {
-            // Scroll up to the previous section
             const currentSection = document.querySelector('.table-container:target, .table-container.active') || el;
             const prevSection = currentSection.previousElementSibling;
             if (prevSection && prevSection.classList.contains('table-container')) {
                 pos = prevSection.getBoundingClientRect().top + window.pageYOffset - offset;
             } else {
-                pos = 0; // Scroll to top if no previous section
+                pos = 0;
             }
         } else {
-            // Scroll down to the next section
             pos = el.getBoundingClientRect().top + window.pageYOffset - offset;
         }
         

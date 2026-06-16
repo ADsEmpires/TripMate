@@ -184,7 +184,6 @@ if ($check_location && $check_location->num_rows > 0) {
 
 <?php include 'admin_header.php'; ?>
 
-        <!-- Main Content -->
         <div class="main-content">
             <h1 class="section-title"><i class="fas fa-user-chart"></i> User Growth Analytics</h1>
             
@@ -192,7 +191,6 @@ if ($check_location && $check_location->num_rows > 0) {
                 <i class="fas fa-calendar-alt"></i> Showing data for last 30 days
             </div>
             
-            <!-- Enhanced Stats Overview Cards -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <h3>Total Users (30 days)</h3>
@@ -211,11 +209,10 @@ if ($check_location && $check_location->num_rows > 0) {
                     <p class="value"><?= $today_growth ?></p>
                 </div>
                 
-                <!-- NEW: Additional Stats Cards -->
                 <div class="stat-card">
                     <h3>Weekly Growth</h3>
                     <p class="value"><?= number_format($weekly_growth) ?></p>
-                    <small style="color: <?= $weekly_growth_rate >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                    <small style="color: <?= $weekly_growth_rate >= 0 ? '#10b981' : '#ef4444' ?>;">
                         <i class="fas fa-arrow-<?= $weekly_growth_rate >= 0 ? 'up' : 'down' ?>"></i>
                         <?= abs($weekly_growth_rate) ?>%
                     </small>
@@ -223,7 +220,7 @@ if ($check_location && $check_location->num_rows > 0) {
                 <div class="stat-card">
                     <h3>Monthly Growth</h3>
                     <p class="value"><?= number_format($monthly_growth) ?></p>
-                    <small style="color: <?= $monthly_growth_rate >= 0 ? 'var(--success)' : 'var(--danger)' ?>;">
+                    <small style="color: <?= $monthly_growth_rate >= 0 ? '#10b981' : '#ef4444' ?>;">
                         <i class="fas fa-arrow-<?= $monthly_growth_rate >= 0 ? 'up' : 'down' ?>"></i>
                         <?= abs($monthly_growth_rate) ?>%
                     </small>
@@ -231,12 +228,12 @@ if ($check_location && $check_location->num_rows > 0) {
                 <div class="stat-card">
                     <h3>Peak Day</h3>
                     <p class="value"><?= number_format($max_users) ?></p>
-                    <small><?= $max_date ?></small>
+                    <small style="color: var(--text-muted);"><?= $max_date ?></small>
                 </div>
                 <div class="stat-card">
                     <h3>Active Days</h3>
                     <p class="value"><?= count(array_filter($counts)) ?></p>
-                    <small>Days with signups</small>
+                    <small style="color: var(--text-muted);">Days with signups</small>
                 </div>
             </div>
 
@@ -246,11 +243,10 @@ if ($check_location && $check_location->num_rows > 0) {
                     <p>No user data available for the last 30 days</p>
                 </div>
             <?php else: ?>
-                <!-- Main Charts Section -->
                 <div class="card">
                     <div class="card-header">
                         <h2><i class="fas fa-chart-line"></i> User Growth Over Time (30 days)</h2>
-                        <span class="status-badge" style="background:#c6f6d5;color:#2f855a;">Current Data</span>
+                        <span class="status-badge" style="background: rgba(47, 133, 90, 0.15); color: #38a169; border: 1px solid rgba(47, 133, 90, 0.2);">Current Data</span>
                     </div>
                     <div class="chart-container">
                         <canvas id="growthChart"></canvas>
@@ -261,7 +257,7 @@ if ($check_location && $check_location->num_rows > 0) {
                     <div class="card">
                         <div class="card-header">
                             <h2><i class="fas fa-chart-pie"></i> Signups Distribution</h2>
-                            <span class="status-badge" style="background:#bee3f8;color:#2b6cb0;">Last 30 days</span>
+                            <span class="status-badge" style="background: rgba(43, 108, 176, 0.15); color: #63b3ed; border: 1px solid rgba(43, 108, 176, 0.2);">Last 30 days</span>
                         </div>
                         <div class="chart-container">
                             <canvas id="pieChart"></canvas>
@@ -270,7 +266,7 @@ if ($check_location && $check_location->num_rows > 0) {
                     <div class="card">
                         <div class="card-header">
                             <h2><i class="fas fa-chart-bar"></i> Daily Signups</h2>
-                            <span class="status-badge" style="background:#fed7d7;color:#c53030;">Details</span>
+                            <span class="status-badge" style="background: rgba(197, 48, 48, 0.15); color: #fc8181; border: 1px solid rgba(197, 48, 48, 0.2);">Details</span>
                         </div>
                         <div class="chart-container">
                             <canvas id="barChart"></canvas>
@@ -278,13 +274,12 @@ if ($check_location && $check_location->num_rows > 0) {
                     </div>
                 </div>
 
-                <!-- NEW: Additional Analytics Sections -->
                 <?php if (!empty($age_groups)): ?>
                 <div class="chart-grid">
                     <div class="card">
                         <div class="card-header">
                             <h2><i class="fas fa-users"></i> User Age Demographics</h2>
-                            <span class="status-badge" style="background:#e9d8fd;color:#6b46c1;">Age Groups</span>
+                            <span class="status-badge" style="background: rgba(107, 70, 193, 0.15); color: #b794f4; border: 1px solid rgba(107, 70, 193, 0.2);">Age Groups</span>
                         </div>
                         <div class="chart-container">
                             <canvas id="ageChart"></canvas>
@@ -293,7 +288,7 @@ if ($check_location && $check_location->num_rows > 0) {
                     <div class="card">
                         <div class="card-header">
                             <h2><i class="fas fa-map-marker-alt"></i> Top User Locations</h2>
-                            <span class="status-badge" style="background:#fed7d7;color:#c53030;">Top 10</span>
+                            <span class="status-badge" style="background: rgba(197, 48, 48, 0.15); color: #fc8181; border: 1px solid rgba(197, 48, 48, 0.2);">Top 10</span>
                         </div>
                         <div class="chart-container">
                             <canvas id="locationChart"></canvas>
@@ -302,39 +297,38 @@ if ($check_location && $check_location->num_rows > 0) {
                 </div>
                 <?php endif; ?>
 
-                <!-- NEW: Data Summary Table -->
                 <div class="card">
                     <div class="card-header">
                         <h2><i class="fas fa-table"></i> Growth Summary</h2>
-                        <span class="status-badge" style="background:#c6f6d5;color:#2f855a;">Key Metrics</span>
+                        <span class="status-badge" style="background: rgba(47, 133, 90, 0.15); color: #38a169; border: 1px solid rgba(47, 133, 90, 0.2);">Key Metrics</span>
                     </div>
                     <div style="padding: 1.5rem;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                            <div style="text-align: center; padding: 1rem; background: #f7fafc; border-radius: 8px;">
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-base); border: 1px solid var(--card-border); border-radius: 8px;">
                                 <h3 style="color: var(--primary); margin: 0 0 0.5rem 0;">Best Day</h3>
-                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0;"><?= $max_date ?></p>
-                                <small><?= $max_users ?> users</small>
+                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--text-main);"><?= $max_date ?></p>
+                                <small style="color: var(--text-muted);"><?= $max_users ?> users</small>
                             </div>
-                            <div style="text-align: center; padding: 1rem; background: #f7fafc; border-radius: 8px;">
-                                <h3 style="color: var(--success); margin: 0 0 0.5rem 0;">Weekly Trend</h3>
-                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0;">
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-base); border: 1px solid var(--card-border); border-radius: 8px;">
+                                <h3 style="color: #10b981; margin: 0 0 0.5rem 0;">Weekly Trend</h3>
+                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--text-main);">
                                     <?= $weekly_growth_rate >= 0 ? '+' : '' ?><?= $weekly_growth_rate ?>%
                                 </p>
-                                <small>vs previous week</small>
+                                <small style="color: var(--text-muted);">vs previous week</small>
                             </div>
-                            <div style="text-align: center; padding: 1rem; background: #f7fafc; border-radius: 8px;">
-                                <h3 style="color: var(--info); margin: 0 0 0.5rem 0;">Monthly Trend</h3>
-                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0;">
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-base); border: 1px solid var(--card-border); border-radius: 8px;">
+                                <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">Monthly Trend</h3>
+                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--text-main);">
                                     <?= $monthly_growth_rate >= 0 ? '+' : '' ?><?= $monthly_growth_rate ?>%
                                 </p>
-                                <small>vs previous month</small>
+                                <small style="color: var(--text-muted);">vs previous month</small>
                             </div>
-                            <div style="text-align: center; padding: 1rem; background: #f7fafc; border-radius: 8px;">
-                                <h3 style="color: var(--warning); margin: 0 0 0.5rem 0;">Active Rate</h3>
-                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0;">
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-base); border: 1px solid var(--card-border); border-radius: 8px;">
+                                <h3 style="color: #f59e0b; margin: 0 0 0.5rem 0;">Active Rate</h3>
+                                <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: var(--text-main);">
                                     <?= count($dates) > 0 ? round((count(array_filter($counts)) / count($dates)) * 100, 1) : 0 ?>%
                                 </p>
-                                <small>days with signups</small>
+                                <small style="color: var(--text-muted);">days with signups</small>
                             </div>
                         </div>
                     </div>
@@ -342,6 +336,16 @@ if ($check_location && $check_location->num_rows > 0) {
 
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
+                    // Get CSS variables for Dark Mode compatibility in Charts
+                    const rootStyle = getComputedStyle(document.documentElement);
+                    const textColor = rootStyle.getPropertyValue('--text-muted').trim() || '#666';
+                    const gridColor = rootStyle.getPropertyValue('--card-border').trim() || '#eee';
+                    const surfaceColor = rootStyle.getPropertyValue('--bg-surface').trim() || '#fff';
+
+                    // Set Chart.js global defaults
+                    Chart.defaults.color = textColor;
+                    Chart.defaults.borderColor = gridColor;
+
                     // Data from PHP for charts
                     const dates = <?= json_encode($dates) ?>;
                     const counts = <?= json_encode($counts) ?>;
@@ -365,7 +369,7 @@ if ($check_location && $check_location->num_rows > 0) {
                     // Common tooltip formatter for charts
                     const tooltipFormatter = (context) => {
                         const label = context.label || '';
-                        const value = context.parsed?.y || context.raw;
+                        const value = (context.parsed && context.parsed.y !== undefined) ? context.parsed.y : context.raw;
                         const percent = percentages[context.dataIndex];
                         return `${label}: ${value} users (${percent}%)`;
                     };
@@ -427,7 +431,7 @@ if ($check_location && $check_location->num_rows > 0) {
                             datasets: [{
                                 data: counts,
                                 backgroundColor: generateColors(dates.length),
-                                borderColor: '#fff',
+                                borderColor: surfaceColor,
                                 borderWidth: 1
                             }]
                         },
@@ -512,7 +516,7 @@ if ($check_location && $check_location->num_rows > 0) {
                             datasets: [{
                                 data: ageCounts,
                                 backgroundColor: ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6'],
-                                borderColor: '#fff',
+                                borderColor: surfaceColor,
                                 borderWidth: 2
                             }]
                         },
@@ -589,17 +593,18 @@ if ($check_location && $check_location->num_rows > 0) {
         }
 
         .card {
-            background: white;
+            background: var(--bg-surface, white);
+            border: 1px solid var(--card-border, transparent);
             border-radius: 10px;
             padding: 1.5rem;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 3px 15px var(--shadow-color, rgba(0,0,0,0.05));
             margin-bottom: 2rem;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 20px var(--shadow-color, rgba(0,0,0,0.1));
         }
 
         .card-header {
@@ -608,7 +613,7 @@ if ($check_location && $check_location->num_rows > 0) {
             align-items: center;
             margin-bottom: 1.5rem;
             padding-bottom: 1rem;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--card-border, #eee);
         }
 
         .card-header h2 {
@@ -640,10 +645,11 @@ if ($check_location && $check_location->num_rows > 0) {
         }
 
         .stat-card {
-            background: white;
+            background: var(--bg-surface, white);
             border-radius: 8px;
             padding: 1.5rem;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            box-shadow: 0 3px 10px var(--shadow-color, rgba(0,0,0,0.08));
+            border: 1px solid var(--card-border, transparent);
             border-left: 4px solid var(--accent);
             transition: transform 0.3s ease;
         }
@@ -654,7 +660,7 @@ if ($check_location && $check_location->num_rows > 0) {
 
         .stat-card h3 {
             margin: 0 0 0.5rem 0;
-            color: var(--gray);
+            color: var(--text-muted, var(--gray));
             font-size: 0.9rem;
             font-weight: 600;
             text-transform: uppercase;
@@ -691,7 +697,9 @@ if ($check_location && $check_location->num_rows > 0) {
         }
 
         .date-range-info {
-            background: rgba(22, 3, 79, 0.05);
+            background: var(--bg-base, rgba(22, 3, 79, 0.05));
+            border: 1px solid var(--card-border, transparent);
+            color: var(--text-main);
             padding: 0.8rem 1rem;
             border-radius: 6px;
             margin-bottom: 1.5rem;
@@ -702,7 +710,7 @@ if ($check_location && $check_location->num_rows > 0) {
         .no-data {
             text-align: center;
             padding: 2rem;
-            color: var(--gray);
+            color: var(--text-muted, var(--gray));
             font-size: 1.2rem;
         }
 
@@ -713,6 +721,4 @@ if ($check_location && $check_location->num_rows > 0) {
         }
     </style>
 
-</div> <!-- End main-content -->
-
-<?php include 'admin_footer.php'; ?>
+</div> <?php include 'admin_footer.php'; ?>

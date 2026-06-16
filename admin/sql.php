@@ -382,7 +382,8 @@ if ($table && in_array($table, $tables)) {
             }, 600);
         }
 
-        document.getElementById('recordForm')?.addEventListener('submit', e => {
+        var recordForm = document.getElementById('recordForm');
+        if (recordForm) recordForm.addEventListener('submit', e => {
             const invalid = document.querySelectorAll('.invalid');
             if (invalid.length > 0) {
                 e.preventDefault();

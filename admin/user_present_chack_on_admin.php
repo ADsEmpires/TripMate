@@ -7,6 +7,32 @@ if (!isset($_SESSION['admin_logged_in'])) {
 
 include '../database/dbconfig.php';
 
+// --- NEW: AJAX Admin Password Verification ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_admin'])) {
+    header('Content-Type: application/json');
+    $admin_password = $_POST['admin_password'] ?? '';
+    // Assuming admin ID is stored in session upon login
+    $admin_id = $_SESSION['admin_id'] ?? null; 
+    
+    if ($admin_id) {
+        $stmt = $conn->prepare("SELECT password FROM admin WHERE id = ?");
+        $stmt->bind_param("i", $admin_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($row = $result->fetch_assoc()) {
+            // Check password (supports both hashed and plain text depending on how your DB is set up)
+            if (password_verify($admin_password, $row['password']) || $admin_password === $row['password']) {
+                echo json_encode(['success' => true]);
+                exit();
+            }
+        }
+    }
+    echo json_encode(['success' => false, 'message' => 'Incorrect Admin Password.']);
+    exit();
+}
+// ---------------------------------------------
+
 ///////////////////////////////////////////////////////////////////////////////
 // Developer helper: enable errors on localhost while debugging (remove in prod)
 if (php_sapi_name() === 'cli' || in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'])) {
@@ -104,10 +130,11 @@ include 'admin_header.php';
 <style>
 /* User Management Styles - Table Layout */
 .user-management-container {
-    background: white;
+    background: var(--bg-surface, white);
+    border: 1px solid var(--card-border, transparent);
     border-radius: 10px;
     padding: 1.5rem;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 3px 15px var(--shadow-color, rgba(0,0,0,0.05));
     margin-bottom: 2rem;
 }
 
@@ -117,7 +144,7 @@ include 'admin_header.php';
     align-items: center;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--card-border, #eee);
 }
 
 .page-header h1 {
@@ -151,11 +178,12 @@ include 'admin_header.php';
 }
 
 .stat-card {
-    background: white;
+    background: var(--bg-surface, white);
     padding: 1.5rem;
     border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    box-shadow: 0 2px 10px var(--shadow-color, rgba(0,0,0,0.08));
     text-align: center;
+    border: 1px solid var(--card-border, transparent);
     border-left: 4px solid var(--primary);
 }
 
@@ -167,17 +195,17 @@ include 'admin_header.php';
 }
 
 .stat-label {
-    color: var(--gray);
+    color: var(--text-muted, var(--gray));
     font-size: 0.9rem;
 }
 
 /* Filters Section */
 .filters-section {
-    background: #f8f9fa;
+    background: var(--bg-base, #f8f9fa);
     padding: 1.5rem;
     border-radius: 10px;
     margin-bottom: 2rem;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--card-border, #e9ecef);
 }
 
 .filter-group {
@@ -196,13 +224,15 @@ include 'admin_header.php';
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
-    color: var(--dark);
+    color: var(--text-main, var(--dark));
 }
 
 .filter-item input, .filter-item select {
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--card-border, #ddd);
+    background: var(--bg-surface, white);
+    color: var(--text-main, black);
     border-radius: 6px;
     font-size: 0.9rem;
 }
@@ -232,12 +262,12 @@ include 'admin_header.php';
 }
 
 .users-table tbody tr {
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--card-border, #eee);
     transition: background 0.2s ease;
 }
 
 .users-table tbody tr:hover {
-    background: #f9f9f9;
+    background: var(--bg-base, #f9f9f9);
 }
 
 .users-table td {
@@ -246,24 +276,24 @@ include 'admin_header.php';
 }
 
 .user-id {
-    color: var(--gray);
+    color: var(--text-muted, var(--gray));
     font-family: monospace;
     font-size: 0.9rem;
 }
 
 .user-name {
     font-weight: 600;
-    color: var(--dark);
+    color: var(--text-main, var(--dark));
 }
 
 .user-email {
-    color: var(--gray);
+    color: var(--text-muted, var(--gray));
     font-size: 0.9rem;
 }
 
 .user-date {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--text-muted, #666);
 }
 
 .action-buttons {
@@ -333,15 +363,16 @@ include 'admin_header.php';
 }
 
 .confirm-content {
-    background: white;
+    background: var(--bg-surface, white);
     padding: 2rem;
     border-radius: 12px;
-    max-width: 400px;
+    max-width: 450px;
     text-align: center;
+    border: 1px solid var(--card-border, transparent);
     border-top: 4px solid #dc3545;
 }
 
-.confirm-content i {
+.confirm-content i.fa-user-times {
     font-size: 3rem;
     color: #dc3545;
     margin-bottom: 1rem;
@@ -358,8 +389,9 @@ include 'admin_header.php';
 .no-users {
     text-align: center;
     padding: 3rem 2rem;
-    color: var(--gray);
-    background: #f9f9f9;
+    color: var(--text-muted, var(--gray));
+    background: var(--bg-base, #f9f9f9);
+    border: 1px dashed var(--card-border, #eee);
     border-radius: 8px;
     margin-top: 1.5rem;
 }
@@ -372,15 +404,16 @@ include 'admin_header.php';
     gap: 1rem;
     margin-top: 2rem;
     padding-top: 2rem;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--card-border, #eee);
 }
 
 .pagination a, .pagination span {
     padding: 0.5rem 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--card-border, #ddd);
     border-radius: 5px;
     text-decoration: none;
-    color: var(--dark);
+    color: var(--text-main, var(--dark));
+    background: var(--bg-surface, white);
 }
 
 .pagination a:hover {
@@ -421,7 +454,6 @@ include 'admin_header.php';
 }
 </style>
 
-<!-- Main Content -->
 <div class="main-content">
     <div class="user-management-container">
         <div class="page-header">
@@ -437,7 +469,6 @@ include 'admin_header.php';
             </div>
         </div>
 
-        <!-- Statistics Cards -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number"><?= $stats['total_users'] ?></div>
@@ -457,7 +488,6 @@ include 'admin_header.php';
             </div>
         </div>
 
-        <!-- Filters Section -->
         <div class="filters-section">
             <form method="GET" action="">
                 <div class="filter-group">
@@ -490,12 +520,11 @@ include 'admin_header.php';
             </form>
         </div>
 
-        <!-- Users Table -->
         <div class="users-table-container">
             <?php if (empty($users)): ?>
                 <div class="no-users">
-                    <i class="fas fa-users-slash" style="font-size: 48px; color: #ccc; margin-bottom: 15px;"></i>
-                    <h3>No Users Found</h3>
+                    <i class="fas fa-users-slash" style="font-size: 48px; color: var(--text-muted, #ccc); margin-bottom: 15px;"></i>
+                    <h3 style="color: var(--text-main);">No Users Found</h3>
                     <p><?= $search || isset($_GET['date_from']) ? 'Try adjusting your search filters.' : 'There are no users registered in the system yet.' ?></p>
                 </div>
             <?php else: ?>
@@ -537,7 +566,6 @@ include 'admin_header.php';
             <?php endif; ?>
         </div>
 
-        <!-- Pagination -->
         <?php if ($total_pages > 1): ?>
         <div class="pagination">
             <?php if ($page > 1): ?>
@@ -546,7 +574,7 @@ include 'admin_header.php';
                 </a>
             <?php endif; ?>
 
-            <span>Page <?= $page ?> of <?= $total_pages ?></span>
+            <span style="background: var(--bg-surface, white); color: var(--text-main, var(--dark));">Page <?= $page ?> of <?= $total_pages ?></span>
 
             <?php if ($page < $total_pages): ?>
                 <a href="?page=<?= $page+1 ?>&search=<?= urlencode($search) ?>&sort=<?= urlencode($sort) ?>&date_from=<?= urlencode($_GET['date_from'] ?? '') ?>&date_to=<?= urlencode($_GET['date_to'] ?? '') ?>">
@@ -558,22 +586,28 @@ include 'admin_header.php';
     </div>
 </div>
 
-<!-- Simple Confirmation Dialog -->
 <div id="confirmDialog" class="confirm-dialog">
     <div class="confirm-content">
-        <i class="fas fa-exclamation-triangle"></i>
-        <h3 style="margin-bottom: 0.5rem;">Remove User?</h3>
-        <p id="confirmUserInfo" style="color: #666; margin-bottom: 1rem;"></p>
-        <p style="color: #dc3545; font-size: 0.9rem;">This will redirect to email page. User will be deleted after sending email.</p>
+        <i class="fas fa-user-times"></i>
+        <h3 style="margin-bottom: 0.5rem; color: var(--text-main);">Remove User?</h3>
+        <p id="confirmUserInfo" style="color: var(--text-muted, #666); margin-bottom: 1rem;"></p>
+        
+        <div style="text-align: left; margin-bottom: 1rem;">
+            <label for="adminPasswordVerify" style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 600;">Enter Admin Password to Confirm:</label>
+            <input type="password" id="adminPasswordVerify" class="form-control" placeholder="Admin Password" required style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 6px;">
+            <div id="passwordErrorMsg" style="color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem; display: none; font-weight: 600;"></div>
+        </div>
+
+        <p style="color: #dc3545; font-size: 0.9rem;">You will be redirected to email this user. They will be removed from the database after the email is sent.</p>
+        
         <div class="confirm-buttons">
             <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
-            <button class="btn btn-danger" id="confirmRemoveBtn">Continue</button>
+            <button class="btn btn-danger" id="confirmRemoveBtn">Verify & Continue</button>
         </div>
     </div>
 </div>
 
 <script>
-// Simple confirmation function
 let currentUserId = null;
 let currentUserEmail = null;
 let currentUserName = null;
@@ -586,6 +620,10 @@ function confirmRemove(userId, userName, userEmail) {
     document.getElementById('confirmUserInfo').innerHTML = 
         '<strong>' + userName + '</strong><br>' + userEmail;
     
+    // Reset password field
+    document.getElementById('adminPasswordVerify').value = '';
+    document.getElementById('passwordErrorMsg').style.display = 'none';
+    
     document.getElementById('confirmDialog').style.display = 'flex';
 }
 
@@ -593,19 +631,57 @@ function closeConfirm() {
     document.getElementById('confirmDialog').style.display = 'none';
 }
 
-// Handle confirm button
+// NEW: Handle confirm button with AJAX Password Check
 document.getElementById('confirmRemoveBtn').addEventListener('click', function() {
-    if (currentUserId && currentUserEmail) {
-        // Redirect to email page with pre-filled data
-        const redirectUrl = 'send_user_email.php?' + 
-            'user_id=' + encodeURIComponent(currentUserId) + 
-            '&email=' + encodeURIComponent(currentUserEmail) + 
-            '&subject=' + encodeURIComponent('Removed from Website') + 
-            '&sender_name=' + encodeURIComponent('TRIPMATE ADMIN');
-        
-        window.location.href = redirectUrl;
+    const passwordInput = document.getElementById('adminPasswordVerify').value;
+    const errorMsg = document.getElementById('passwordErrorMsg');
+    
+    if (!passwordInput) {
+        errorMsg.textContent = "Please enter your admin password.";
+        errorMsg.style.display = "block";
+        return;
     }
-    closeConfirm();
+
+    // Visual feedback
+    const originalText = this.innerHTML;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    this.disabled = true;
+
+    // Prepare AJAX request to check password
+    const formData = new FormData();
+    formData.append('verify_admin', '1');
+    formData.append('admin_password', passwordInput);
+
+    fetch('', { // POST to the same page
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Password is correct, redirect with the delete action flag
+            const redirectUrl = 'send_user_email.php?' + 
+                'user_id=' + encodeURIComponent(currentUserId) + 
+                '&email=' + encodeURIComponent(currentUserEmail) + 
+                '&subject=' + encodeURIComponent('Notice of Account Removal') + 
+                '&sender_name=' + encodeURIComponent('TRIPMATE ADMIN') +
+                '&action=delete_user'; // This tells the email page to delete them!
+            
+            window.location.href = redirectUrl;
+        } else {
+            // Password incorrect
+            errorMsg.textContent = data.message;
+            errorMsg.style.display = "block";
+            this.innerHTML = originalText;
+            this.disabled = false;
+        }
+    })
+    .catch(error => {
+        errorMsg.textContent = "An error occurred. Please try again.";
+        errorMsg.style.display = "block";
+        this.innerHTML = originalText;
+        this.disabled = false;
+    });
 });
 
 // Close dialog when clicking outside
@@ -624,7 +700,4 @@ document.addEventListener('keydown', function(event) {
 });
 </script>
 
-<?php
-// Include footer
-include 'admin_footer.php';
-?>
+<?php include 'admin_footer.php'; ?>

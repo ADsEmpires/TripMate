@@ -146,8 +146,7 @@ function getRecentEmails($conn, $limit = 20) {
         // Check if email_log table exists
         $table_check = $conn->query("SHOW TABLES LIKE 'email_log'");
         if ($table_check && $table_check->num_rows > 0) {
-            $query = "SELECT el.* 
-                      FROM email_log el 
+            $query = "SELECT el.* FROM email_log el 
                       ORDER BY el.sent_at DESC 
                       LIMIT ?";
             
@@ -444,15 +443,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = "Please select a user, enter an email address, or choose 'Send to All Users'";
             }
-            
-            if (empty($error) && !empty($emails_to_send)) {
+           if (empty($error) && !empty($emails_to_send)) {
                 $success_count = 0;
                 $fail_count = 0;
+                $deleted_count = 0; 
                 
                 foreach ($emails_to_send as $recipient) {
                     if (sendUserEmail($recipient['email'], $recipient['name'], $subject, $message, $sender_name)) {
                         logEmail($conn, $recipient['id'], $recipient['email'], $subject, $message, 1);
                         $success_count++;
+                        
+                        // If the URL contains the delete action, remove the user from the database
+                        if (isset($_GET['action']) && $_GET['action'] === 'delete_user' && $recipient['id'] > 0) {
+                            $delete_id = (int)$recipient['id'];
+                            $del_stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+                            if ($del_stmt) {
+                                $del_stmt->bind_param("i", $delete_id);
+                                if ($del_stmt->execute()) {
+                                    $deleted_count++;
+                                }
+                                $del_stmt->close();
+                            }
+                        }
+                        
                     } else {
                         logEmail($conn, $recipient['id'], $recipient['email'], $subject, $message, 0, 'SMTP Error');
                         $fail_count++;
@@ -460,6 +473,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 
                 if ($success_count > 0) {
+                    // NEW: If a user was successfully deleted, show an alert and redirect back!
+                    if ($deleted_count > 0) {
+                        echo "<script>
+                            alert('Success! The email was sent and the user has been removed.');
+                            window.location.href = 'user_present_chack_on_admin.php';
+                        </script>";
+                        exit(); // Stop loading the rest of the email page
+                    }
+                    
+                    // Normal behavior if you were JUST sending an email (not deleting)
                     $success = "Successfully sent " . $success_count . " email(s)";
                     if ($fail_count > 0) {
                         $warning = $fail_count . " email(s) failed to send";
@@ -515,11 +538,9 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* [Keep all the existing CSS styles from your original file] */
-        /* I'm keeping the CSS section identical to your original file for brevity */
         :root {
             --primary: #4361ee;
-            --primary-light: #e0e7ff;
+            --primary-light: rgba(67, 97, 238, 0.1);
             --secondary: #3f37c9;
             --success: #4cc9f0;
             --danger: #f72585;
@@ -536,7 +557,7 @@ try {
             margin-top: 64px;
             padding: 1.5rem;
             min-height: calc(100vh - 64px);
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            background: var(--bg-base);
         }
         
         @media (max-width: 768px) {
@@ -547,13 +568,13 @@ try {
         }
         
         .content-card {
-            background: white;
+            background: var(--bg-surface);
             border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(67, 97, 238, 0.15);
+            box-shadow: 0 10px 30px var(--shadow-color);
             padding: 2rem;
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(67, 97, 238, 0.1);
+            border: 1px solid var(--card-border);
             margin-bottom: 1.5rem;
         }
         
@@ -568,7 +589,7 @@ try {
         }
         
         h1, h2, h3 {
-            color: #0b1220;
+            color: var(--text-main);
             font-weight: 700;
         }
         
@@ -593,11 +614,11 @@ try {
         h3 {
             font-size: 1.25rem;
             margin: 1rem 0;
-            color: #0b1220;
+            color: var(--text-main);
         }
         
         .subtitle {
-            color: #64748b;
+            color: var(--text-muted);
             margin-bottom: 2rem;
             font-size: 1rem;
         }
@@ -623,8 +644,8 @@ try {
         }
         
         .alert-success {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
             border-left: 4px solid #28a745;
         }
         
@@ -634,8 +655,8 @@ try {
         }
         
         .alert-error {
-            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-            color: #721c24;
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
             border-left: 4px solid #dc3545;
         }
         
@@ -645,8 +666,8 @@ try {
         }
         
         .alert-warning {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            color: #856404;
+            background: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
             border-left: 4px solid #ffc107;
         }
         
@@ -662,7 +683,7 @@ try {
         label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #0b1220;
+            color: var(--text-main);
             font-weight: 600;
             font-size: 0.9rem;
         }
@@ -673,13 +694,13 @@ try {
         textarea {
             width: 100%;
             padding: 0.875rem 1rem;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--card-border);
             border-radius: 10px;
             font-size: 0.95rem;
             font-family: inherit;
             transition: all 0.3s ease;
-            background: white;
-            color: #0b1220;
+            background: var(--bg-base);
+            color: var(--text-main);
         }
         
         input[type="text"]:focus,
@@ -737,13 +758,13 @@ try {
         }
         
         .btn-secondary {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            color: #475569;
-            border: 2px solid #cbd5e1;
+            background: var(--bg-base);
+            color: var(--text-main);
+            border: 2px solid var(--card-border);
         }
         
         .btn-secondary:hover {
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            background: var(--bg-surface);
             transform: translateY(-2px);
         }
         
@@ -823,17 +844,17 @@ try {
         }
         
         .stat-card {
-            background: white;
+            background: var(--bg-surface);
             border-radius: 12px;
             padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            border: 1px solid rgba(67, 97, 238, 0.1);
+            box-shadow: 0 4px 12px var(--shadow-color);
+            border: 1px solid var(--card-border);
             transition: transform 0.3s ease;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 8px 20px var(--shadow-color);
         }
         
         .stat-value {
@@ -848,7 +869,7 @@ try {
         .stat-users .stat-value { color: var(--warning); }
         
         .stat-label {
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 0.9rem;
             margin-top: 0.5rem;
         }
@@ -865,32 +886,32 @@ try {
         }
         
         .stat-email .stat-icon { 
-            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            background: rgba(67, 97, 238, 0.1);
             color: var(--primary);
         }
         
         .stat-today .stat-icon { 
-            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            background: rgba(76, 201, 240, 0.1);
             color: var(--success);
         }
         
         .stat-failed .stat-icon { 
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            background: rgba(247, 37, 133, 0.1);
             color: var(--danger);
         }
         
         .stat-users .stat-icon { 
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            background: rgba(248, 150, 30, 0.1);
             color: var(--warning);
         }
         
         /* Chart Container */
         .chart-container {
-            background: white;
+            background: var(--bg-surface);
             border-radius: 12px;
             padding: 1.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            border: 1px solid rgba(67, 97, 238, 0.1);
+            box-shadow: 0 4px 12px var(--shadow-color);
+            border: 1px solid var(--card-border);
             margin-bottom: 2rem;
             height: 300px;
         }
@@ -903,7 +924,7 @@ try {
         }
         
         .email-history th {
-            background: var(--primary-light);
+            background: var(--bg-base);
             color: var(--primary);
             padding: 1rem;
             text-align: left;
@@ -914,12 +935,13 @@ try {
         
         .email-history td {
             padding: 0.875rem 1rem;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--card-border);
             font-size: 0.9rem;
+            color: var(--text-main);
         }
         
         .email-history tr:hover td {
-            background: #f8fafc;
+            background: var(--bg-base);
         }
         
         .status-badge {
@@ -931,13 +953,13 @@ try {
         }
         
         .status-sent {
-            background: #dcfce7;
-            color: #166534;
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
         }
         
         .status-failed {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
         }
         
         /* Checkbox */
@@ -947,7 +969,7 @@ try {
             gap: 0.5rem;
             margin: 1rem 0;
             padding: 0.5rem;
-            background: #f8fafc;
+            background: var(--bg-base);
             border-radius: 8px;
         }
         
@@ -963,7 +985,7 @@ try {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.7);
             display: none;
             align-items: center;
             justify-content: center;
@@ -978,7 +1000,7 @@ try {
         .sending-spinner {
             width: 60px;
             height: 60px;
-            border: 4px solid #e0e7ff;
+            border: 4px solid var(--card-border);
             border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -995,7 +1017,7 @@ try {
             align-items: center;
             margin-bottom: 1rem;
             padding-bottom: 1rem;
-            border-bottom: 2px solid #e2e8f0;
+            border-bottom: 2px solid var(--card-border);
         }
         
         .preview-avatar {
@@ -1033,7 +1055,8 @@ try {
             align-items: center;
             cursor: pointer;
             padding: 1rem;
-            background: var(--primary-light);
+            background: var(--bg-base);
+            border: 1px solid var(--card-border);
             border-radius: 10px;
             margin-bottom: 1rem;
         }
@@ -1067,7 +1090,7 @@ try {
         
         /* Pre-filled notification */
         .prefilled-notice {
-            background: #e0f2fe;
+            background: rgba(2, 132, 199, 0.1);
             border-left: 4px solid #0284c7;
             padding: 1rem;
             border-radius: 8px;
@@ -1075,12 +1098,11 @@ try {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            color: #0369a1;
+            color: #0ea5e9;
         }
     </style>
 </head>
 <body>
-    <!-- Include Header -->
     <?php 
     if (file_exists('admin_header.php')) {
         include 'admin_header.php'; 
@@ -1093,17 +1115,16 @@ try {
     ?>
     
     <div class="page-container">
-        <!-- Show pre-filled notification if user_id is set -->
         <?php if ($user_id > 0 && !empty($email)): ?>
         <div class="prefilled-notice">
             <i class="fas fa-info-circle"></i>
             <div>
-                <strong>Email form pre-filled:</strong> Ready to send email to <strong><?php echo htmlspecialchars($email); ?></strong>
+                <strong style="color: var(--text-main);">Email form pre-filled:</strong> Ready to send email to <strong style="color: var(--text-main);"><?php echo htmlspecialchars($email); ?></strong>
                 <?php if (strpos($subject, 'Account Removed') !== false): ?>
                     with account removal notification.
                 <?php endif; ?>
                 <span style="margin-left: 1rem;">
-                    <a href="user_present_chack_on_admin.php" style="color: #0284c7; text-decoration: underline;">
+                    <a href="user_present_chack_on_admin.php" style="color: #0ea5e9; text-decoration: underline;">
                         <i class="fas fa-arrow-left"></i> Back to User Management
                     </a>
                 </span>
@@ -1111,7 +1132,6 @@ try {
         </div>
         <?php endif; ?>
         
-        <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card stat-email">
                 <div class="stat-icon">
@@ -1146,17 +1166,16 @@ try {
             </div>
         </div>
         
-        <!-- Analytics Section -->
         <div class="analytics-grid">
-            <!-- Chart -->
             <div class="chart-container">
-                <h3>Email Analytics (Last 7 Days)</h3>
-                <canvas id="emailChart"></canvas>
+                <h3 style="margin-top:0;">Email Analytics (Last 7 Days)</h3>
+                <div style="height: calc(100% - 30px);">
+                    <canvas id="emailChart"></canvas>
+                </div>
             </div>
             
-            <!-- Success Rate Card -->
             <div class="content-card">
-                <h3>Performance</h3>
+                <h3 style="margin-top:0;">Performance</h3>
                 <?php
                 $total = $stats['total_sent'] + $stats['failed'];
                 $success_rate = $total > 0 ? round(($stats['total_sent'] / $total) * 100, 1) : 0;
@@ -1166,8 +1185,8 @@ try {
                     <div style="font-size: 3rem; font-weight: 700; color: <?php echo $rate_color; ?>; margin-bottom: 1rem;">
                         <?php echo $success_rate; ?>%
                     </div>
-                    <div style="color: #64748b; font-size: 1rem;">Success Rate</div>
-                    <div style="margin-top: 1.5rem;">
+                    <div style="color: var(--text-muted); font-size: 1rem;">Success Rate</div>
+                    <div style="margin-top: 1.5rem; color: var(--text-main);">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                             <span>Successful</span>
                             <span style="font-weight: 600;"><?php echo number_format($stats['total_sent']); ?></span>
@@ -1181,7 +1200,6 @@ try {
             </div>
         </div>
         
-        <!-- Alerts -->
         <?php if ($success): ?>
             <div class="alert alert-success"><?php echo $success; ?></div>
         <?php endif; ?>
@@ -1194,11 +1212,10 @@ try {
             <div class="alert alert-warning"><?php echo htmlspecialchars($warning); ?></div>
         <?php endif; ?>
         
-        <!-- Collapsible Send Email Form -->
         <div class="content-card">
             <div class="collapsible-header" onclick="toggleEmailForm()">
                 <h2>Send New Email</h2>
-                <button class="toggle-btn" id="toggleBtn">
+                <button type="button" class="toggle-btn" id="toggleBtn">
                     <i class="fas fa-chevron-down"></i>
                 </button>
             </div>
@@ -1222,7 +1239,7 @@ try {
                     <div class="form-group">
                         <label for="message"><i class="fas fa-edit"></i> Message</label>
                         <textarea name="message" id="message" placeholder="Enter your message here..." required><?php echo htmlspecialchars($message); ?></textarea>
-                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: #64748b;">
+                        <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
                             Characters: <span id="charCount"><?php echo strlen($message); ?></span>
                         </div>
                     </div>
@@ -1257,7 +1274,7 @@ try {
                     
                     <div class="checkbox-group">
                         <input type="checkbox" name="send_to_all" id="send_to_all" value="1">
-                        <label for="send_to_all" style="font-weight: 600; color: var(--primary);">
+                        <label for="send_to_all" style="font-weight: 600; color: var(--primary); margin: 0;">
                             <i class="fas fa-users"></i> Send to All Users (<?php echo $total_users; ?> users)
                         </label>
                     </div>
@@ -1287,29 +1304,27 @@ try {
                     </div>
                 </form>
                 
-                <!-- Email Preview -->
                 <div class="content-card" id="emailPreview" style="display: none; margin-top: 2rem;">
                     <h3>Email Preview</h3>
                     <div class="preview-header">
                         <div class="preview-avatar" id="previewAvatar">R</div>
                         <div>
-                            <div id="previewSender" style="font-weight: 600;"><?php echo htmlspecialchars($sender_name); ?></div>
-                            <div style="font-size: 0.875rem; color: #64748b;" id="previewRecipient">to User</div>
+                            <div id="previewSender" style="font-weight: 600; color: var(--text-main);"><?php echo htmlspecialchars($sender_name); ?></div>
+                            <div style="font-size: 0.875rem; color: var(--text-muted);" id="previewRecipient">to User</div>
                         </div>
                     </div>
-                    <div id="previewSubject" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;"></div>
-                    <div id="previewMessage" style="white-space: pre-wrap; line-height: 1.6; padding: 1rem; background: #f8fafc; border-radius: 8px;"></div>
+                    <div id="previewSubject" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main);"></div>
+                    <div id="previewMessage" style="white-space: pre-wrap; line-height: 1.6; padding: 1rem; background: var(--bg-base); color: var(--text-main); border-radius: 8px; border: 1px solid var(--card-border);"></div>
                 </div>
             </div>
         </div>
         
-        <!-- Email History -->
         <div class="content-card">
             <h2>Recent Email History</h2>
             <p class="subtitle">Last 20 sent emails</p>
             
             <?php if (empty($recent_emails)): ?>
-                <div style="text-align: center; padding: 3rem; color: #64748b;">
+                <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
                     <i class="fas fa-history" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                     <p>No email history found.</p>
                 </div>
@@ -1339,11 +1354,11 @@ try {
                                         </span>
                                     </td>
                                     <td>
-                                        <button class="btn btn-secondary" onclick="viewEmail(<?php echo $email_item['id']; ?>)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                        <button type="button" class="btn btn-secondary" onclick="viewEmail(<?php echo $email_item['id']; ?>)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-bottom:0;">
                                             <i class="fas fa-eye"></i> View
                                         </button>
                                         <?php if (!$email_item['sent_status']): ?>
-                                            <button class="btn btn-success" onclick="resendEmail(<?php echo $email_item['id']; ?>)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                            <button type="button" class="btn btn-success" onclick="resendEmail(<?php echo $email_item['id']; ?>)" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-bottom:0;">
                                                 <i class="fas fa-redo"></i> Resend
                                             </button>
                                         <?php endif; ?>
@@ -1357,15 +1372,13 @@ try {
         </div>
     </div>
     
-    <!-- Sending Overlay -->
     <div class="sending-overlay" id="sendingOverlay">
         <div class="sending-spinner"></div>
-        <div style="color: var(--primary); font-weight: 600; font-size: 1.1rem;" id="overlayMessage">
+        <div style="color: var(--bg-surface); font-weight: 600; font-size: 1.1rem;" id="overlayMessage">
             Sending Email...
         </div>
     </div>
     
-    <!-- Include Footer -->
     <?php 
     if (file_exists('admin_footer.php')) {
         include 'admin_footer.php'; 
@@ -1375,6 +1388,14 @@ try {
     ?>
     
     <script>
+        // Get CSS variables for Dark Mode compatibility in Charts
+        const rootStyle = getComputedStyle(document.documentElement);
+        const textColor = rootStyle.getPropertyValue('--text-muted').trim() || '#64748b';
+        const gridColor = rootStyle.getPropertyValue('--card-border').trim() || '#e2e8f0';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize chart
@@ -1544,7 +1565,7 @@ try {
             
             if (recipientSelect) {
                 const selectedOption = recipientSelect.options[recipientSelect.selectedIndex];
-                if (selectedOption) {
+                if (selectedOption && selectedOption.value !== '0') {
                     recipientName = selectedOption.getAttribute('data-name') || 'User';
                 }
             }
@@ -1561,7 +1582,7 @@ try {
             if (previewMessage) previewMessage.textContent = message;
             if (previewSender) previewSender.textContent = sender;
             if (previewRecipient) previewRecipient.textContent = 'to ' + recipientName;
-            if (previewAvatar) previewAvatar.textContent = sender.charAt(0).toUpperCase();
+            if (previewAvatar) previewAvatar.textContent = sender ? sender.charAt(0).toUpperCase() : 'R';
             if (emailPreview) emailPreview.style.display = 'block';
         }
         

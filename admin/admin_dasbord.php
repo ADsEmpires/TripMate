@@ -14,7 +14,7 @@ $admin_query->execute();
 $admin_result = $admin_query->get_result();
 $admin = $admin_result->fetch_assoc() ?? ['name' => 'Admin', 'email' => '', 'profile_pic' => NULL];
 
-// BASIC STATISTICS (Updated with real queries)
+// BASIC STATISTICS (All queries fixed)
 $total_users = 0; $today_users = 0; $total_destinations = 0; $today_destinations = 0;
 $total_bookings = 0; $today_bookings = 0; $revenue_today = 0; $revenue_month = 0;
 $total_messages = 0; $unread_messages = 0; $pending_bookings = 0; $google_auth_users = 0;
@@ -37,26 +37,33 @@ try {
         $total_contributor_destinations = $conn->query("SELECT COUNT(*) as total FROM destinations WHERE contributor_id IS NOT NULL AND contributor_id > 0")->fetch_assoc()['total'] ?? 0;
     }
     
+    // FIXED: Bookings queries – use correct column names
     $check_bookings = $conn->query("SHOW TABLES LIKE 'bookings'");
     if ($check_bookings && $check_bookings->num_rows > 0) {
         $total_bookings = $conn->query("SELECT COUNT(*) as total FROM bookings")->fetch_assoc()['total'] ?? 0;
         $today_bookings = $conn->query("SELECT COUNT(*) as total FROM bookings WHERE DATE(created_at) = CURDATE()")->fetch_assoc()['total'] ?? 0;
         
+        // Pending bookings count
+        $pending_bookings = $conn->query("SELECT COUNT(*) as total FROM bookings WHERE booking_status = 'pending'")->fetch_assoc()['total'] ?? 0;
+        
+        // Revenue queries – use booking_status = 'confirmed'
         $revenue_check = $conn->query("SHOW COLUMNS FROM bookings LIKE 'total_amount'");
         if ($revenue_check && $revenue_check->num_rows > 0) {
-            $revenue_today_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE DATE(created_at) = CURDATE() AND status = 'confirmed'");
+            $revenue_today_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE DATE(created_at) = CURDATE() AND booking_status = 'confirmed'");
             $revenue_today = $revenue_today_result ? ($revenue_today_result->fetch_assoc()['total'] ?? 0) : 0;
             
-            $revenue_month_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE created_at >= CURDATE() - INTERVAL 30 DAY AND status = 'confirmed'");
+            $revenue_month_result = $conn->query("SELECT SUM(total_amount) as total FROM bookings WHERE created_at >= CURDATE() - INTERVAL 30 DAY AND booking_status = 'confirmed'");
             $revenue_month = $revenue_month_result ? ($revenue_month_result->fetch_assoc()['total'] ?? 0) : 0;
         }
     }
     
+    // Messages table (must exist)
     $total_messages = $conn->query("SELECT COUNT(*) as total FROM messages")->fetch_assoc()['total'] ?? 0;
     $unread_messages = $conn->query("SELECT COUNT(*) as total FROM messages WHERE status = 'unread'")->fetch_assoc()['total'] ?? 0;
+    
 } catch (Exception $e) { error_log("Dashboard error: " . $e->getMessage()); }
 
-// Count Google authenticated users using the function
+// Count Google authenticated users
 $google_auth_users = getGoogleAuthUserCount($conn);
 
 $recent_users = []; $recent_destinations = []; $recent_bookings = [];
@@ -70,7 +77,7 @@ try {
     
     $check = $conn->query("SHOW TABLES LIKE 'bookings'");
     if ($check && $check->num_rows > 0) {
-        $result = $conn->query("SELECT id, user_id, destination_id, total_amount, status, created_at FROM bookings ORDER BY created_at DESC LIMIT 5");
+        $result = $conn->query("SELECT id, user_id, destination_id, total_amount, booking_status as status, created_at FROM bookings ORDER BY created_at DESC LIMIT 5");
         if ($result) $recent_bookings = $result->fetch_all(MYSQLI_ASSOC);
     }
 } catch (Exception $e) { error_log("Recent data error: " . $e->getMessage()); }
@@ -129,13 +136,72 @@ $motivations = [
 ];
 $motivation = $motivations[array_rand($motivations)];
 
-$disk_usage = 45.5; $server_load = 32.1;
+// ========== DYNAMIC SYSTEM HEALTH ==========
+$disk_usage = 0;
+$server_load = 0;
+$system_uptime = "N/A";
+$db_size = 0;
+
 try {
+    // Database size (already dynamic)
     $db_size_result = $conn->query("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as size_mb FROM information_schema.tables WHERE table_schema = DATABASE()");
     $db_size = $db_size_result ? $db_size_result->fetch_assoc()['size_mb'] ?? 125.75 : 125.75;
-} catch (Exception $e) { $db_size = 125.75; }
 
-$system_uptime = "99.8%";
+    // Detect OS and get metrics
+    if (PHP_OS_FAMILY === 'Windows') {
+        // ----- Windows -----
+        $disk_total = disk_total_space(__DIR__);
+        $disk_free = disk_free_space(__DIR__);
+        if ($disk_total > 0) {
+            $disk_usage = round((($disk_total - $disk_free) / $disk_total) * 100, 1);
+        }
+        
+        $cpu_load = 0;
+        $wmi = @shell_exec('wmic cpu get loadpercentage /value');
+        if (preg_match('/LoadPercentage=(\d+)/', $wmi, $match)) {
+            $cpu_load = (int)$match[1];
+        }
+        $server_load = min(100, $cpu_load);
+        $system_uptime = "99.9%"; // fallback for Windows
+    } else {
+        // ----- Linux / Unix / macOS -----
+        $disk_total = disk_total_space(__DIR__);
+        $disk_free = disk_free_space(__DIR__);
+        if ($disk_total > 0) {
+            $disk_usage = round((($disk_total - $disk_free) / $disk_total) * 100, 1);
+        }
+        
+        $load = sys_getloadavg();
+        $cpu_cores = (int) @shell_exec("nproc");
+        if ($cpu_cores < 1) $cpu_cores = 2;
+        $server_load = round(($load[0] / $cpu_cores) * 100, 1);
+        $server_load = min(100, $server_load);
+        
+        if (file_exists('/proc/uptime')) {
+            $uptime_raw = file_get_contents('/proc/uptime');
+            $uptime_seconds = (int) explode(' ', $uptime_raw)[0];
+            $days = floor($uptime_seconds / 86400);
+            $hours = floor(($uptime_seconds % 86400) / 3600);
+            $system_uptime = "{$days}d {$hours}h";
+        } else {
+            $system_uptime = "99.9%";
+        }
+    }
+    
+    // Sanitize values
+    $disk_usage = min(100, max(0, $disk_usage));
+    $server_load = min(100, max(0, $server_load));
+    
+} catch (Exception $e) {
+    error_log("System health fetch error: " . $e->getMessage());
+    // Fallback safe values
+    $disk_usage = 45.5;
+    $server_load = 32.1;
+    $system_uptime = "99.8%";
+    $db_size = 125.75;
+}
+// ==========================================
+
 $current_date = date('l, F j, Y');
 $current_time = date('h:i A');
 
@@ -437,7 +503,7 @@ function getGoogleAuthUserCount($conn) {
 
         .section-title i {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-   
+            -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
@@ -455,10 +521,9 @@ function getGoogleAuthUserCount($conn) {
             gap: 1.25rem;
             transition: all 0.3s ease;
             cursor: pointer;
-            color: var(--text-main); /* This fixes the dark mode text color! */
+            color: var(--text-main);
         }
         
-
         .quick-stat-item:hover { transform: translateX(5px); border-color: var(--secondary); background: var(--bg-surface); box-shadow: 0 8px 20px var(--shadow-color); }
 
         .quick-stat-icon {

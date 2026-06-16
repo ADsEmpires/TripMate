@@ -11,7 +11,8 @@ $success = '';
 $showOTPField = false;
 $otpGenerated = false;
 
-// Include PHPMailer
+require_once 'smtp_config.php';
+
 $phpmailer_path = 'smtp/PHPMailerAutoload.php';
 if (!file_exists($phpmailer_path)) {
     die("PHPMailer not found at: $phpmailer_path");
@@ -19,7 +20,8 @@ if (!file_exists($phpmailer_path)) {
 include($phpmailer_path);
 
 function debugLog($message) {
-    file_put_contents('debug.log', date('Y-m-d H:i:s') . " - " . $message . "\n", FILE_APPEND);
+    error_log("TripMate Admin: " . $message);
+    @file_put_contents(__DIR__ . '/debug.log', date('Y-m-d H:i:s') . " - " . $message . "\n", FILE_APPEND);
 }
 
 function generateOTP() {
@@ -30,54 +32,81 @@ function looksLikeMd5($hash) {
     return is_string($hash) && preg_match('/^[a-f0-9]{32}$/i', $hash);
 }
 
-/**
- * Verify admin password supporting legacy MD5 rows.
- * If legacy MD5 matches, automatically upgrade to bcrypt.
- */
-function verifyAdminPasswordAndUpgradeIfNeeded(PDO $pdo, int $adminId, string $plainPassword, string $storedHash): bool {
-    // Standard bcrypt (or any password_hash supported) verification
+// ============================================
+// FIXED: Universal password verifier
+// Handles: bcrypt, MD5, plain text, SHA256
+// ============================================
+function verifyAdminPassword(PDO $pdo, int $adminId, string $plainPassword, string $storedHash): bool {
+    debugLog("Verifying password for admin ID: $adminId");
+    debugLog("Stored hash length: " . strlen($storedHash));
+    debugLog("Stored hash starts with: " . substr($storedHash, 0, 10));
+    
+    // 1. Check if it's a valid bcrypt hash (starts with $2y$ or $2a$)
     if (password_verify($plainPassword, $storedHash)) {
-        // Optional: rehash if algorithm/cost changed
+        debugLog("Password verified with bcrypt");
+        // Rehash if needed
         if (password_needs_rehash($storedHash, PASSWORD_BCRYPT)) {
             $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
             $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
             $up->execute([$newHash, $adminId]);
+            debugLog("Password rehashed to new bcrypt");
         }
         return true;
     }
 
-    // Legacy MD5 support (some rows in tripmate dump use MD5)
-    if (looksLikeMd5($storedHash) && hash_equals(strtolower($storedHash), md5($plainPassword))) {
+    // 2. Check if it's MD5 (32 hex chars)
+    if (looksLikeMd5($storedHash)) {
+        if (hash_equals(strtolower($storedHash), md5($plainPassword))) {
+            debugLog("Password verified with MD5 - upgrading to bcrypt");
+            $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+            $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
+            $up->execute([$newHash, $adminId]);
+            return true;
+        }
+    }
+
+    // 3. Check if it's plain text (stored directly)
+    if ($storedHash === $plainPassword) {
+        debugLog("Password verified as plain text - upgrading to bcrypt");
         $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
         $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
         $up->execute([$newHash, $adminId]);
         return true;
     }
 
+    // 4. Check if it's SHA256 (64 hex chars)
+    if (strlen($storedHash) === 64 && ctype_xdigit($storedHash)) {
+        if (hash_equals(strtolower($storedHash), hash('sha256', $plainPassword))) {
+            debugLog("Password verified with SHA256 - upgrading to bcrypt");
+            $newHash = password_hash($plainPassword, PASSWORD_BCRYPT);
+            $up = $pdo->prepare("UPDATE admin SET password = ? WHERE id = ?");
+            $up->execute([$newHash, $adminId]);
+            return true;
+        }
+    }
+
+    debugLog("Password verification FAILED");
     return false;
 }
 
-// Send OTP function with better error handling
+// ============================================
+// FIXED sendOTP with smtp_config.php
+// ============================================
 function sendOTP($receiverEmail, $otp) {
-    debugLog("Attempting to send OTP to: $receiverEmail");
+    debugLog("Sending OTP to: $receiverEmail");
     
     try {
         $mail = new PHPMailer(true);
         
-        // Server settings
         $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
-        $mail->SMTPAuth = true;
-        $mail->Username = 'ranajitbarik071@gmail.com';
-        $mail->Password = 'orjp uexj udjt garu'; // Your app password
-        
-        // Try TLS first (more reliable for Gmail)
-        $mail->SMTPSecure = 'tls';
-        $mail->Port = 587;
-        
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = SMTP_AUTH;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_SECURE;
+        $mail->Port = SMTP_PORT;
         $mail->CharSet = 'UTF-8';
         
-        // Disable SSL verification for local testing (REMOVE in production)
         $mail->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -86,7 +115,8 @@ function sendOTP($receiverEmail, $otp) {
             )
         );
         
-        $mail->setFrom('ranajitbarik071@gmail.com', 'TripMate Security');
+        $mail->setFrom(SMTP_FROM, SMTP_FROM_NAME);
+        $mail->addReplyTo(SMTP_REPLY_TO, SMTP_FROM_NAME);
         $mail->addAddress($receiverEmail);
         
         $mail->isHTML(true);
@@ -99,30 +129,34 @@ function sendOTP($receiverEmail, $otp) {
                 <p>Your login verification code is:</p>
                 <h1 style="color: #4f46e5; letter-spacing: 5px;">' . $otp . '</h1>
                 <p style="color: #777; font-size: 12px;">This code expires in 10 minutes.</p>
+                <p style="color: #777; font-size: 12px;">Sent to: ' . htmlspecialchars($receiverEmail) . '</p>
             </div>
         </div>';
         
-        // Alternative plain text version
         $mail->AltBody = "Your TripMate OTP is: $otp. Valid for 10 minutes.";
         
         if ($mail->send()) {
-            debugLog("OTP sent successfully to: $receiverEmail");
+            debugLog("OTP sent successfully");
             return true;
         } else {
-            $errorInfo = $mail->ErrorInfo;
-            debugLog("PHPMailer error: $errorInfo");
-            return "Mailer Error: " . $errorInfo;
+            debugLog("OTP send failed: " . $mail->ErrorInfo);
+            return "Mailer Error: " . $mail->ErrorInfo;
         }
     } catch (phpmailerException $e) {
         debugLog("PHPMailer Exception: " . $e->errorMessage());
-        return "PHPMailer Exception: " . $e->errorMessage();
+        return "PHPMailer Error: " . $e->errorMessage();
     } catch (Exception $e) {
-        debugLog("General Exception: " . $e->getMessage());
+        debugLog("Exception: " . $e->getMessage());
         return "Error: " . $e->getMessage();
     }
 }
 
+// ============================================
+// MAIN LOGIN LOGIC
+// ============================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // --- OTP VERIFICATION ---
     if (isset($_POST['verify_otp'])) {
         $enteredOTP = trim($_POST['otp'] ?? '');
         $storedOTP = $_SESSION['login_otp'] ?? '';
@@ -154,47 +188,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $showOTPField = true;
         }
     }
+    
+    // --- USERNAME/PASSWORD LOGIN ---
     elseif (isset($_POST['username'])) {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
+        
+        debugLog("=== Login attempt ===");
+        debugLog("Username entered: $username");
         
         if ($username && $password) {
             try {
                 $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $db_username, $db_password);
                 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+                // Try to find admin by name OR email
                 $stmt = $pdo->prepare("SELECT id, name, email, password FROM admin WHERE name = ? OR email = ? LIMIT 1");
                 $stmt->execute([$username, $username]);
                 $admin = $stmt->fetch();
 
-                if ($admin && verifyAdminPasswordAndUpgradeIfNeeded($pdo, (int)$admin['id'], $password, (string)$admin['password'])) {
-                    $otp = generateOTP();
-                    $_SESSION['temp_admin_id'] = $admin['id'];
-                    $_SESSION['temp_admin_name'] = $admin['name'];
-                    $_SESSION['temp_admin_email'] = $admin['email'];
-                    $_SESSION['login_otp'] = $otp;
-                    $_SESSION['otp_time'] = time();
+                debugLog("Admin found: " . ($admin ? "YES - ID:" . $admin['id'] . " Name:" . $admin['name'] . " Email:" . $admin['email'] : "NO"));
+
+                if ($admin) {
+                    // Try to verify password with all methods
+                    $passwordValid = verifyAdminPassword($pdo, (int)$admin['id'], $password, (string)$admin['password']);
                     
-                    $sendResult = sendOTP($admin['email'], $otp);
-                    
-                    if ($sendResult === true) {
-                        $success = "✓ Verification code sent to: " . maskEmail($admin['email']);
-                        $showOTPField = true;
-                        $otpGenerated = true;
+                    if ($passwordValid) {
+                        debugLog("Password VERIFIED for: " . $admin['email']);
+                        
+                        // Generate and send OTP
+                        $otp = generateOTP();
+                        $_SESSION['temp_admin_id'] = $admin['id'];
+                        $_SESSION['temp_admin_name'] = $admin['name'];
+                        $_SESSION['temp_admin_email'] = $admin['email'];
+                        $_SESSION['login_otp'] = $otp;
+                        $_SESSION['otp_time'] = time();
+
+                        debugLog("Generated OTP: $otp for email: " . $admin['email']);
+
+                        $sendResult = sendOTP($admin['email'], $otp);
+
+                       if ($sendResult === true) {
+    $success = "✓ Verification code sent to: " . maskEmail($admin['email']);
+    $showOTPField = true;
+    $otpGenerated = true;
+} else {
+    debugLog("Email failed, NOT showing OTP to user");
+    $error = "⚠️ Unable to send email. Please contact support or try again later.";
+    // Don't show OTP - hide it completely
+    unset($_SESSION['login_otp']); // Remove OTP so they can't login
+    $showOTPField = false; // Don't show OTP input
+    $otpGenerated = false;
+}
                     } else {
-                        // Log the error but show user-friendly message
-                        debugLog("Failed to send OTP to {$admin['email']}: $sendResult");
-                        
-                        // For development - show the actual OTP (REMOVE IN PRODUCTION)
-                        $error = "⚠️ SMTP Error. For testing, use OTP: <strong>$otp</strong>";
-                        
-                        // Uncomment for production:
-                        // $error = "Unable to send verification email. Please try again later.";
-                        
-                        unset($_SESSION['temp_admin_id'], $_SESSION['temp_admin_name'], $_SESSION['temp_admin_email'], $_SESSION['login_otp'], $_SESSION['otp_time']);
+                        $error = "Invalid username or password.";
+                        debugLog("Password verification FAILED");
                     }
                 } else {
                     $error = "Invalid username or password.";
+                    debugLog("Admin not found in database");
                 }
             } catch (Exception $e) {
                 $error = "Database error. Please try again.";
@@ -206,12 +258,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Helper function to mask email
 function maskEmail($email) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return $email;
     $parts = explode("@", $email);
     $name = $parts[0];
     $domain = $parts[1];
-    $maskedName = substr($name, 0, 3) . str_repeat("*", strlen($name) - 3);
+    $maskedName = substr($name, 0, 2) . str_repeat("*", strlen($name) - 2);
     return $maskedName . "@" . $domain;
 }
 ?>
@@ -225,11 +277,9 @@ function maskEmail($email) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="../loader/admin_loder/loader.css">
 
     <style>
-        /* === CSS VARIABLES FOR THEMES (Matched from index.html) === */
         :root {
             --bg-base: #f8fafc;
             --bg-surface: #ffffff;
@@ -241,12 +291,10 @@ function maskEmail($email) {
             --card-border: rgba(79, 70, 229, 0.15);
             --shadow-color: rgba(15, 23, 42, 0.08);
             --glow-color: rgba(6, 182, 212, 0.4);
-            
             --input-bg: #f8fafc;
             --input-border: rgba(79, 70, 229, 0.15);
             --icon-color: #64748b;
         }
-
         [data-theme="dark"] {
             --bg-base: #09090b; 
             --bg-surface: #18181b;
@@ -258,17 +306,11 @@ function maskEmail($email) {
             --card-border: rgba(255, 255, 255, 0.1);
             --shadow-color: rgba(0, 0, 0, 0.6);
             --glow-color: rgba(34, 211, 238, 0.3);
-
             --input-bg: #09090b;
             --input-border: rgba(255, 255, 255, 0.1);
             --icon-color: #94a3b8;
         }
-
-        * {
-            margin: 0; padding: 0; box-sizing: border-box;
-            font-family: 'Inter', sans-serif; text-decoration: none; list-style: none;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; text-decoration: none; list-style: none; }
         body {
             display: flex; flex-direction: column; min-height: 100vh;
             justify-content: center; align-items: center;
@@ -279,8 +321,6 @@ function maskEmail($email) {
             transition: background-color 0.4s ease, color 0.4s ease;
             overflow: hidden;
         }
-
-        /* --- FLOATING PILL HEADER --- */
         .admin-header {
             position: fixed; top: 20px; left: 5%; width: 90%; height: 70px;
             background: var(--nav-bg);
@@ -291,21 +331,14 @@ function maskEmail($email) {
             box-shadow: 0 10px 30px var(--shadow-color);
             transition: all 0.4s ease;
         }
-
         .logo { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; color: var(--text-main); }
         .logo i { color: var(--primary); font-size: 1.5rem; transform: rotate(-10deg); transition: transform 0.3s; }
         .logo:hover i { transform: rotate(0deg) scale(1.1); }
         .brand-text .trip { color: var(--text-main); }
         .brand-text .mate { color: var(--secondary); }
-        
         .header-actions { display: flex; align-items: center; gap: 15px; }
         .admin-info { font-size: 14px; font-weight: 600; color: var(--text-muted); display: none; }
-        
-        @media screen and (min-width: 600px) {
-            .admin-info { display: block; }
-        }
-
-        /* BUTTONS IN HEADER */
+        @media screen and (min-width: 600px) { .admin-info { display: block; } }
         .home-btn {
             display: flex; align-items: center; gap: 8px;
             background: var(--bg-surface); border: 1px solid var(--card-border);
@@ -318,7 +351,6 @@ function maskEmail($email) {
             color: white; border-color: transparent;
             transform: translateY(-2px);
         }
-
         .theme-toggle {
             background: var(--bg-surface); border: 1px solid var(--card-border);
             color: var(--text-main); width: 44px; height: 44px; border-radius: 50%;
@@ -326,8 +358,6 @@ function maskEmail($email) {
             transition: all 0.3s; box-shadow: 0 4px 10px var(--shadow-color);
         }
         .theme-toggle:hover { transform: rotate(20deg) scale(1.1); color: var(--primary); border-color: var(--primary); }
-
-        /* --- MAIN CONTAINER --- */
         .container {
             position: relative; width: 900px; height: 580px;
             background: var(--bg-surface);
@@ -337,24 +367,19 @@ function maskEmail($email) {
             overflow: hidden;
             transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
         }
-
         .container h1 { font-size: 32px; font-weight: 800; margin-bottom: 5px; color: var(--text-main); letter-spacing: -0.5px; transition: color 0.3s ease; }
         .container p { font-size: 14px; margin: 10px 0 25px; color: var(--text-muted); transition: color 0.3s ease; }
-
         .form-box {
             position: absolute; right: 0; width: 50%; height: 100%;
             background: var(--bg-surface);
             display: flex; align-items: center; text-align: center; padding: 50px;
             z-index: 1; transition: 0.6s ease-in-out 1.2s, visibility 0s 1s, background 0.3s ease;
         }
-
         .container.active .form-box { right: 50%; }
         .form-box.login { visibility: visible; }
         .container.active .form-box.login { visibility: hidden; }
         .form-box.otp { visibility: hidden; }
         .container.active .form-box.otp { visibility: visible; }
-
-        /* INPUTS */
         .input-box { position: relative; margin: 20px 0; }
         .input-box input {
             width: 100%; padding: 15px 50px 15px 20px;
@@ -368,12 +393,9 @@ function maskEmail($email) {
             position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
             font-size: 20px; color: var(--icon-color);
         }
-
         .forgot-link { margin: -10px 0 20px; text-align: left; }
         .forgot-link a { font-size: 13px; color: var(--secondary); font-weight: 600; transition: color 0.2s; }
         .forgot-link a:hover { color: var(--primary); text-decoration: underline; }
-
-        /* BUTTONS */
         .btn {
             width: 100%; height: 50px;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -383,8 +405,6 @@ function maskEmail($email) {
             transition: all 0.3s ease;
         }
         .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px var(--glow-color); }
-
-        /* GRADIENT TOGGLE OVERLAY */
         .toggle-box { position: absolute; width: 100%; height: 100%; }
         .toggle-box::before {
             content: ""; position: absolute; left: -250%; width: 300%; height: 100%;
@@ -393,7 +413,6 @@ function maskEmail($email) {
             box-shadow: inset 0 0 50px rgba(0,0,0,0.2);
         }
         .container.active .toggle-box::before { left: 50%; }
-
         .toggle-panel {
             position: absolute; width: 50%; height: 100%; color: #fff;
             display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
@@ -401,19 +420,15 @@ function maskEmail($email) {
         }
         .toggle-panel h1 { color: #fff; font-size: 36px; margin-bottom: 15px; }
         .toggle-panel p { color: rgba(255,255,255,0.8); font-size: 15px; margin-bottom: 30px; line-height: 1.6; }
-
         .toggle-panel.toggle-left { left: 0; transition-delay: 1.2s; }
         .container.active .toggle-panel.toggle-left { left: -50%; transition-delay: 0.6s; }
         .toggle-panel.toggle-right { right: -50%; transition-delay: 0.6s; }
         .container.active .toggle-panel.toggle-right { right: 0; transition-delay: 1.2s; }
-
         .toggle-panel .btn { 
             width: 160px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
             border: 2px solid #fff; box-shadow: none; 
         }
         .toggle-panel .btn:hover { background: #fff; color: var(--primary); transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-
-        /* ERROR MESSAGE DISPLAY */
         .message { 
             padding: 12px 15px; border-radius: 12px; margin-bottom: 20px; font-size: 13px; font-weight: 500;
             display: flex; align-items: center; gap: 10px; text-align: left; word-break: break-word;
@@ -421,8 +436,6 @@ function maskEmail($email) {
         .message.success { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
         .message.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
         .message.warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
-
-        /* OTP display for testing */
         .test-otp {
             background: var(--input-bg);
             border: 1px dashed var(--secondary);
@@ -435,8 +448,6 @@ function maskEmail($email) {
             color: var(--secondary);
             margin: 10px 0;
         }
-
-        /* FOOTER */
         .admin-footer {
             position: fixed; bottom: 20px; 
             color: var(--text-muted); padding: 10px 20px; font-size: 13px; font-weight: 500;
@@ -445,7 +456,6 @@ function maskEmail($email) {
         .admin-footer .brand { font-weight: 800; margin-left: 5px; }
         .admin-footer .trip { color: var(--text-main); }
         .admin-footer .mate { color: var(--secondary); }
-
         @media screen and (max-width: 768px) {
             .container { height: calc(100vh - 140px); margin-top: 100px; width: 90%; }
             .form-box { bottom: 0; width: 100%; height: 70%; padding: 30px; }
@@ -460,7 +470,7 @@ function maskEmail($email) {
             .toggle-panel.toggle-right { right: 0; bottom: -30%; }
             .container.active .toggle-panel.toggle-right { bottom: 0; }
             .admin-header { top: 15px; height: 60px; width: 95%; left: 2.5%; padding: 0 15px; }
-            .home-btn span { display: none; } /* Hide text on very small screens, keep icon */
+            .home-btn span { display: none; }
         }
     </style>
 </head>
@@ -518,22 +528,13 @@ function maskEmail($email) {
                 <div class="message success"><i class='bx bx-check-circle'></i><span><?= htmlspecialchars($success) ?></span></div>
             <?php endif; ?>
             <?php if ($error && $showOTPField): ?>
-                <?php if (strpos($error, 'OTP:') !== false): ?>
-                    <div class="message warning">
-                        <i class='bx bx-error-circle'></i>
-                        <span><?= htmlspecialchars($error) ?></span>
-                    </div>
-                <?php else: ?>
-                    <div class="message error"><i class='bx bx-error-circle'></i><span><?= htmlspecialchars($error) ?></span></div>
-                <?php endif; ?>
+                <div class="message warning">
+                    <i class='bx bx-error-circle'></i>
+                    <span><?= htmlspecialchars($error) ?></span>
+                </div>
             <?php endif; ?>
             
-            <?php if (isset($_SESSION['login_otp']) && $showOTPField && strpos($error ?? '', 'OTP:') !== false): ?>
-                <div class="test-otp">
-                    <?= $_SESSION['login_otp'] ?>
-                </div>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: -15px; margin-bottom: 10px;">(Test OTP - SMTP not working)</p>
-            <?php endif; ?>
+          
             
             <div class="input-box">
                 <input type="text" name="otp" placeholder="Enter OTP" required maxlength="6" inputmode="numeric">
@@ -564,12 +565,10 @@ function maskEmail($email) {
 </div>
 
 <script>
-    // Theme Toggle Logic matched to index.html style
     const themeToggle = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
     const htmlElement = document.documentElement;
 
-    // Check Local Storage for saved theme
     const savedTheme = localStorage.getItem('tripmate-theme') || localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         htmlElement.setAttribute('data-theme', 'dark');
@@ -580,7 +579,7 @@ function maskEmail($email) {
         if (htmlElement.getAttribute('data-theme') === 'dark') {
             htmlElement.removeAttribute('data-theme');
             localStorage.setItem('tripmate-theme', 'light');
-            localStorage.setItem('theme', 'light'); // Keep compatibility with older scripts
+            localStorage.setItem('theme', 'light');
             themeIcon.className = 'bx bx-moon';
         } else {
             htmlElement.setAttribute('data-theme', 'dark');
@@ -590,7 +589,6 @@ function maskEmail($email) {
         }
     });
 
-    // Login Panel Toggle
     const container = document.querySelector('.container');
     const loginBtn = document.querySelector('.login-btn');
 
@@ -603,7 +601,6 @@ function maskEmail($email) {
         });
     }
 
-    // Loader logic
     document.querySelectorAll('form').forEach((form) => {
       form.addEventListener('submit', (e) => {
         e.preventDefault();

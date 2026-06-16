@@ -62,11 +62,11 @@ function checkVisitFeasibility($weather_data) {
 function getWeatherMessage($feasibility, $weather, $temperature) {
     switch ($feasibility) {
         case 'not_feasible':
-            return "Travel is not advisable due to $weather conditions (${temperature}°C). Consider rescheduling your trip.";
+            return "Travel is not advisable due to $weather conditions ({$temperature}°C). Consider rescheduling your trip.";
         case 'challenging':
-            return "Travel may be challenging due to $weather (${temperature}°C). Pack appropriate clothing and gear.";
+            return "Travel may be challenging due to $weather ({$temperature}°C). Pack appropriate clothing and gear.";
         case 'feasible':
-            return "Good weather conditions for travel with $weather (${temperature}°C). Enjoy your trip!";
+            return "Good weather conditions for travel with $weather ({$temperature}°C). Enjoy your trip!";
         default:
             return "Please check local weather updates before traveling.";
     }
