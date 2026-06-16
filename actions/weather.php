@@ -3,8 +3,9 @@
 // GET: lat, lng
 header('Content-Type: application/json');
 
-// Load config: create config file or environment variable with key.
-$OWM_KEY = trim(file_get_contents(__DIR__ . '/../.owm_key')) ?: getenv('OPENWEATHERMAP_API_KEY');
+// Load config from dedicated config file
+require_once __DIR__ . '/../database/weather_config.php';
+$OWM_KEY = defined('WEATHER_API_KEY') ? WEATHER_API_KEY : (trim(@file_get_contents(__DIR__ . '/../.owm_key')) ?: getenv('OPENWEATHERMAP_API_KEY'));
 
 if (!$OWM_KEY) {
     echo json_encode(['status' => 'error', 'message' => 'No weather API key configured.']);

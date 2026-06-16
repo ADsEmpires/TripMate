@@ -5,9 +5,12 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../database/dbconfig.php';
 
 try {
-    // Get all destinations from database
+    // Get all approved destinations from database
     $query = "SELECT id, name, location, type, description, budget, best_season, image_urls, attractions 
               FROM destinations 
+              WHERE submission_status = 'approved' 
+                 OR submitted_by_type = 'admin' 
+                 OR submitted_by_type IS NULL
               ORDER BY name ASC";
     
     $result = $conn->query($query);

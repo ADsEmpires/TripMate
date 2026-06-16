@@ -151,7 +151,7 @@ if (!$destination) {
 error_log("Checking seasonal pricing for months: " . implode(', ', $months));
 
 // Build hotels query with dynamic pricing
-$hotel_query = "SELECT * FROM hotels WHERE destination_id = ?";
+$hotel_query = "SELECT *, name AS hotel_name, stars AS hotel_rating FROM hotels WHERE destination_id = ?";
 $hotel_params = [$destination_id];
 $hotel_types = "i";
 
@@ -221,19 +221,19 @@ if (empty($hotels)) {
 }
 
 // Build flights query with dynamic pricing
-$flight_query = "SELECT * FROM flights WHERE destination_id = ?";
+$flight_query = "SELECT *, price AS price_per_person, from_city AS departure_city FROM flights WHERE destination_id = ?";
 $flight_params = [$destination_id];
 $flight_types = "i";
 
 // Add departure city filter if specified
 if (!empty($departure_city)) {
-    $flight_query .= " AND departure_city = ?";
+    $flight_query .= " AND from_city = ?";
     $flight_params[] = $departure_city;
     $flight_types .= "s";
 }
 
 // Apply budget filter (using base price for filtering)
-$flight_query .= " AND price_per_person <= ?";
+$flight_query .= " AND price <= ?";
 $flight_params[] = $flight_budget;
 $flight_types .= "d";
 
@@ -241,7 +241,7 @@ if ($refundable_flights) {
     $flight_query .= " AND refundable = 1";
 }
 
-$flight_query .= " ORDER BY price_per_person ASC LIMIT 12";
+$flight_query .= " ORDER BY price ASC LIMIT 12";
 
 $flight_stmt = $conn->prepare($flight_query);
 $flight_stmt->bind_param($flight_types, ...$flight_params);
@@ -254,8 +254,8 @@ while ($row = $flight_result->fetch_assoc()) {
     $multiplier = getSeasonalMultiplier($conn, 'flight', $row['id'], $months);
     
     // Apply multiplier to price
-    $row['base_price_per_person'] = $row['price_per_person'];
-    $row['price_per_person'] = round($row['price_per_person'] * $multiplier, 2);
+    $row['base_price_per_person'] = $row['price'];
+    $row['price_per_person'] = round($row['price'] * $multiplier, 2);
     $row['seasonal_multiplier'] = $multiplier;
     $row['season_active'] = ($multiplier != 1.00);
     
@@ -266,7 +266,7 @@ $flight_stmt->close();
 // If no flights found for this departure city, get all flights for this destination as fallback
 if (empty($flights)) {
     error_log("No flights found for departure city $departure_city, fetching all flights");
-    $fallback_query = "SELECT * FROM flights WHERE destination_id = ? AND price_per_person <= ? ORDER BY price_per_person ASC LIMIT 8";
+    $fallback_query = "SELECT *, price AS price_per_person, from_city AS departure_city FROM flights WHERE destination_id = ? AND price <= ? ORDER BY price ASC LIMIT 8";
     $fallback_stmt = $conn->prepare($fallback_query);
     $fallback_stmt->bind_param("id", $destination_id, $flight_budget);
     $fallback_stmt->execute();
@@ -275,8 +275,8 @@ if (empty($flights)) {
     while ($row = $fallback_result->fetch_assoc()) {
         // Apply seasonal pricing to fallback flights too
         $multiplier = getSeasonalMultiplier($conn, 'flight', $row['id'], $months);
-        $row['base_price_per_person'] = $row['price_per_person'];
-        $row['price_per_person'] = round($row['price_per_person'] * $multiplier, 2);
+        $row['base_price_per_person'] = $row['price'];
+        $row['price_per_person'] = round($row['price'] * $multiplier, 2);
         $row['seasonal_multiplier'] = $multiplier;
         $row['season_active'] = ($multiplier != 1.00);
         
