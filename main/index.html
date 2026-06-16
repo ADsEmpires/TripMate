@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TripMate · smart travel companion</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
@@ -10,7 +11,7 @@
 
 <style>
 /* ==========================================================================
-   UNIFIED & COMPRESSED STYLES (Merged index.css, style.css, and inline CSS)
+   UNIFIED & COMPRESSED STYLES 
    ========================================================================== */
 :root {
   --bg-base: #f8fafc; --bg-surface: #ffffff; --text-main: #0f172a !important; --text-muted: #475569 !important;
@@ -25,10 +26,16 @@ body.dark-mode {
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+
+/* Hide default cursor on desktop for custom cursor */
+@media (min-width: 768px) {
+  body { cursor: none; }
+  a, button, input { cursor: none !important; }
+}
+
 body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: var(--bg-base); color: var(--text-main); transition: background-color 0.4s ease, color 0.4s ease; line-height: 1.6; overflow-x: hidden; }
 h1, h2, h3, h4, h5, h6 { color: var(--text-main); font-weight: 800; letter-spacing: -0.5px; }
 p { color: var(--text-muted); }
-.widget-card, .features li, .app-feature-item, .review-card-expanded { color: var(--text-main); }
 .text-center { text-align: center; } .container { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 1rem; }
 
 /* Scroll Progress & Diagonal Track */
@@ -37,73 +44,224 @@ p { color: var(--text-muted); }
 .diagonal-track { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .track-thumb { position: absolute; top: 0; left: 0; width: 50px; height: 50px; margin: -25px 0 0 -25px; background: var(--bg-surface); border: 2px solid var(--card-border); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 6px 20px var(--shadow-color); will-change: transform; }
 .track-thumb i { color: var(--primary); font-size: 1.4rem; transform: rotate(90deg); background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.reveal { opacity: 0; transform: translateY(40px) scale(0.98); transition: all 1s cubic-bezier(0.25, 1, 0.5, 1); }
-.reveal.active { opacity: 1; transform: translateY(0) scale(1); }
 
-/* Floating Pill Navbar (Modernized) */
+/* Cinematic Film Grain Overlay */
+.cinematic-grain {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background-image: url('data:image/svg+xml;charset=utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+  opacity: 0.05; pointer-events: none; z-index: 9997;
+}
+
+/* Custom Magnetic Cursor */
+.custom-cursor-dot { position: fixed; top: 0; left: 0; width: 8px; height: 8px; background-color: var(--secondary); border-radius: 50%; pointer-events: none; z-index: 10000; transform: translate(-50%, -50%); transition: opacity 0.3s; }
+.custom-cursor-outline { position: fixed; top: 0; left: 0; width: 40px; height: 40px; border: 2px solid var(--primary); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); transition: width 0.2s, height 0.2s, background-color 0.2s, border-color 0.2s; }
+.custom-cursor-outline.hover-active { width: 60px; height: 60px; background-color: rgba(6, 182, 212, 0.1); border-color: var(--secondary); }
+@media (max-width: 768px) { .custom-cursor-dot, .custom-cursor-outline { display: none; } }
+
+/* Spatial Cursor Image Preview */
+#spatial-image-preview {
+  position: fixed; top: 0; left: 0; width: 280px; height: 180px;
+  background-size: cover; background-position: center;
+  border-radius: 16px; pointer-events: none; z-index: 9998;
+  opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-5deg);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform, opacity, left, top;
+}
+#spatial-image-preview.active-preview { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+
+/* Ambient Glassmorphism Orbs */
+.ambient-orb { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.4; pointer-events: none; z-index: 0; animation: floatOrb 20s infinite alternate ease-in-out; }
+.orb-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(79,70,229,0.6) 0%, rgba(79,70,229,0) 70%); }
+.orb-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: radial-gradient(circle, rgba(6,182,212,0.5) 0%, rgba(6,182,212,0) 70%); animation-delay: -10s; }
+@keyframes floatOrb { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(10%, 10%) scale(1.2); } }
+
+/* Keep content above orbs */
+.navbar, .slideshow, .unique-widgets, .features, .app-demo-section, .reviews-expanded, .call-to-action, .pro-footer-parallax, .marquee-container {
+  position: relative; z-index: 10;
+}
+
+/* Broken Signal (Glitch) Link Effect */
+.glitch-link {
+  position: relative; display: inline-block;
+  color: var(--text-main); font-weight: 600; text-decoration: none;
+  transition: color 0.2s;
+}
+.glitch-link::before, .glitch-link::after {
+  content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: transparent; pointer-events: none; opacity: 0;
+}
+.glitch-link:hover::before {
+  opacity: 1; left: 2px; text-shadow: -2px 0 var(--secondary);
+  animation: glitch-anim-1 0.3s infinite linear alternate-reverse;
+}
+.glitch-link:hover::after {
+  opacity: 1; left: -2px; text-shadow: 2px 0 var(--primary);
+  animation: glitch-anim-2 0.2s infinite linear alternate-reverse;
+}
+@keyframes glitch-anim-1 {
+  0% { clip-path: inset(20% 0 80% 0); }
+  20% { clip-path: inset(60% 0 10% 0); }
+  40% { clip-path: inset(40% 0 50% 0); }
+  60% { clip-path: inset(80% 0 5% 0); }
+  80% { clip-path: inset(10% 0 70% 0); }
+  100% { clip-path: inset(30% 0 20% 0); }
+}
+@keyframes glitch-anim-2 {
+  0% { clip-path: inset(10% 0 60% 0); }
+  20% { clip-path: inset(30% 0 20% 0); }
+  40% { clip-path: inset(70% 0 10% 0); }
+  60% { clip-path: inset(20% 0 50% 0); }
+  80% { clip-path: inset(90% 0 5% 0); }
+  100% { clip-path: inset(40% 0 30% 0); }
+}
+
+/* Pixel Scatter Link Effect */
+.pixel-scatter {
+  position: relative; display: inline-block; cursor: pointer; text-decoration: none;
+}
+.pixel-particle {
+  position: absolute; width: 4px; height: 4px;
+  background: var(--secondary); pointer-events: none;
+  border-radius: 1px; z-index: 20;
+  animation: scatterAnim 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+@keyframes scatterAnim {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+
+/* Cinematic Blur Reveal */
+.reveal { opacity: 0; filter: blur(15px); transform: translateY(50px) scale(0.92); transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1); will-change: opacity, filter, transform; }
+.reveal.active { opacity: 1; filter: blur(0px); transform: translateY(0) scale(1); }
+
+/* Scroll-Scrubbing Text Reveal */
+.scrub-reveal { background: linear-gradient(90deg, var(--text-main) 50%, rgba(148, 163, 184, 0.2) 50%); background-size: 200% 100%; background-position: 100% 0; -webkit-background-clip: text; -webkit-text-fill-color: transparent; transition: background-position 0.1s ease-out; will-change: background-position; }
+
+/* Circular Scroll Progress */
+.progress-wrap { position: fixed; right: 30px; bottom: 30px; height: 50px; width: 50px; cursor: pointer; display: block; border-radius: 50px; box-shadow: inset 0 0 0 2px rgba(6, 182, 212, 0.15); z-index: 1000; opacity: 0; visibility: hidden; transform: translateY(20px); transition: all 0.3s ease; background: var(--bg-surface); }
+.progress-wrap.active-progress { opacity: 1; visibility: visible; transform: translateY(0); }
+.progress-wrap::after { position: absolute; font-family: "Font Awesome 6 Free"; font-weight: 900; content: "\f062"; text-align: center; line-height: 50px; font-size: 1.2rem; color: var(--text-main); left: 0; top: 0; height: 50px; width: 50px; cursor: pointer; display: block; z-index: 1; transition: all 0.3s ease; }
+.progress-wrap:hover { box-shadow: 0 10px 25px var(--glow-color); }
+.progress-wrap:hover::after { color: var(--primary); transform: translateY(-3px); }
+.progress-wrap svg path { fill: none; }
+.progress-wrap svg.progress-circle path { stroke: var(--secondary); stroke-width: 4; box-sizing: border-box; transition: all 200ms linear; }
+
+/* Floating Pill Navbar */
 .navbar { position: fixed; top: 20px; left: 5%; width: 90%; height: 70px; background: var(--nav-bg) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--card-border); border-radius: 50px; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; z-index: 1000; box-shadow: 0 10px 30px var(--shadow-color); transition: top 0.4s ease, transform 0.4s ease; }
 .navbar.hide-nav { top: -100px; }
-.logo { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; }
-.logo i { color: var(--primary); font-size: 1.5rem; transform: rotate(-10deg); transition: transform 0.3s; }
-.logo:hover i { transform: rotate(0deg) scale(1.1); }
-.brand-text .trip { color: var(--text-main); } .brand-text .mate { color: var(--secondary); }
 .nav-links { display: flex; align-items: center; gap: 20px; list-style: none; }
-.nav-links a { color: var(--text-main); text-decoration: none; font-weight: 600; transition: color 0.2s; }
-.nav-links a:hover { color: var(--secondary); }
-.register-btn { background: linear-gradient(135deg, var(--primary), var(--secondary)) !important; color: white !important; padding: 10px 24px; border-radius: 30px; box-shadow: 0 4px 15px var(--glow-color); transition: all 0.3s !important; border: none; white-space: nowrap; }
+
+/* Animated Logo Design */
+.logo-container { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 800; cursor: pointer; perspective: 1000px; }
+.logo-icon-wrapper { position: relative; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(6, 182, 212, 0.1)); border-radius: 50%; box-shadow: 0 4px 10px var(--shadow-color); border: 1px solid var(--card-border); overflow: hidden; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s; }
+.logo-container:hover .logo-icon-wrapper { transform: scale(1.1) rotate(5deg); box-shadow: 0 8px 20px var(--glow-color); border-color: var(--secondary); }
+.logo-icon-wrapper i { color: var(--primary); font-size: 1.2rem; z-index: 2; animation: floatPlane 3s ease-in-out infinite; }
+.logo-icon-wrapper::before, .logo-icon-wrapper::after { content: ''; position: absolute; background: var(--secondary); height: 2px; border-radius: 2px; opacity: 0; animation: windDash 1.5s linear infinite; }
+.logo-icon-wrapper::before { width: 12px; top: 18px; left: -15px; animation-delay: 0s; }
+.logo-icon-wrapper::after { width: 8px; bottom: 15px; left: -10px; animation-delay: 0.7s; }
+@keyframes floatPlane { 0%, 100% { transform: translateY(0) rotate(-10deg); } 50% { transform: translateY(-3px) rotate(0deg); color: var(--secondary); } }
+@keyframes windDash { 0% { transform: translateX(0); opacity: 0; } 20% { opacity: 0.6; } 80% { opacity: 0.6; } 100% { transform: translateX(45px); opacity: 0; } }
+
+.brand-text .trip { color: var(--text-main); } .brand-text .mate { color: var(--secondary); }
+
+/* Spinning Magic Glow Button */
+.magic-btn-wrap { position: relative; display: inline-block; padding: 2px; border-radius: 50px; overflow: hidden; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s; will-change: transform; }
+.magic-btn-wrap::before { content: ''; position: absolute; top: 50%; left: 50%; width: 200%; height: 200%; background: conic-gradient(transparent, transparent, transparent, var(--secondary), var(--primary)); transform-origin: center center; animation: spinGlow 3s linear infinite; translate: -50% -50%; z-index: 1; }
+@keyframes spinGlow { 100% { transform: rotate(360deg); } }
+.magic-btn { position: relative; background: var(--text-main); color: var(--bg-base); border: none; padding: 16px 45px; font-size: 1.1rem; font-weight: bold; border-radius: 50px; cursor: pointer; z-index: 2; transition: background 0.3s cubic-bezier(0.25, 1, 0.5, 1); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.magic-btn:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white !important; }
+.magic-btn-wrap:hover { box-shadow: 0 15px 35px var(--glow-color); }
+
+/* Standard buttons */
+.register-btn { background: linear-gradient(135deg, var(--primary), var(--secondary)) !important; color: white !important; padding: 10px 24px; border-radius: 30px; box-shadow: 0 4px 15px var(--glow-color); border: none; white-space: nowrap; transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s; display: inline-block; }
 .register-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px var(--glow-color); }
 .theme-toggle { background: var(--bg-surface); border: 1px solid var(--card-border); color: var(--text-main); width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.3s; box-shadow: 0 4px 10px var(--shadow-color); }
-.theme-toggle:hover { transform: rotate(20deg) scale(1.1); color: var(--primary); border-color: var(--primary); }
+.theme-toggle:hover { color: var(--primary); border-color: var(--primary); }
 
 /* Hero Parallax Slideshow */
-.slideshow { position: relative; height: 100vh; overflow: hidden; background: #000; }
-.slides-container { position: absolute; inset: 0; z-index: 1; }
-.slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1s ease; }
+.slideshow { position: relative; height: 100vh; overflow: hidden; background: #000; z-index: 5; }
+.slides-container { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 1; }
+.slide { position: absolute; top: 0; right: 0; bottom: 0; left: 0; opacity: 0; transition: opacity 1s ease; }
 .slide.active { opacity: 1; }
 .slide img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; will-change: transform; }
-.overlay { position: absolute; inset: 0; z-index: 3; background: linear-gradient(to right, rgba(9,9,11,0.9) 0%, rgba(9,9,11,0.4) 50%, transparent 100%); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; padding: 0 10%; pointer-events: none; }
+.overlay { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 3; background: linear-gradient(to right, rgba(9,9,11,0.9) 0%, rgba(9,9,11,0.4) 50%, transparent 100%); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; padding: 0 10%; pointer-events: none; }
 .hero-content { max-width: 650px; pointer-events: auto; }
 .overlay h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -2px; margin-bottom: 20px; background: linear-gradient(to right, #ffffff, var(--secondary));  -webkit-background-clip:text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); line-height: 1.1; }
+
+/* Typewriter Effect Styles */
+.type-text { -webkit-text-fill-color: var(--secondary); }
+.cursor { display: inline-block; -webkit-text-fill-color: #fff; animation: blink 1s step-end infinite; font-weight: 300; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
 .overlay p { font-size: clamp(1rem, 2vw, 1.25rem); color: #cbd5e1 !important; margin-bottom: 30px; font-weight: 300; }
-.get-started { background: var(--text-main); color: var(--bg-base); border: none; padding: 16px 45px; font-size: 1.1rem; font-weight: bold; border-radius: 50px; cursor: pointer; transition: all 0.3s cubic-bezier(0.25,1,0.5,1); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
-.get-started:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; transform: translateY(-3px) scale(1.02); box-shadow: 0 15px 30px var(--glow-color); }
 .scroll-indicator { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 4; color: rgba(255,255,255,0.7); font-size: 0.9rem; font-weight: 600; letter-spacing: 2px; }
 .mouse { width: 26px; height: 40px; border: 2px solid rgba(255,255,255,0.7); border-radius: 20px; display: flex; justify-content: center; padding-top: 6px; }
 .wheel { width: 4px; height: 8px; background: var(--secondary); border-radius: 2px; animation: scrollBounce 1.5s infinite; }
-@keyframes scrollBounce { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(15px); opacity: 0; } }
 .prev, .next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
 .prev { left: 30px; } .next { right: 30px; }
 .prev:hover, .next:hover { background: var(--primary); transform: translateY(-50%) scale(1.1); border-color: var(--primary); }
 
-/* Widgets Section */
-.unique-widgets { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: -60px auto 40px; padding: 0 20px; position: relative; z-index: 20; }
-.widget-card { background: var(--bg-surface); flex: 1 1 300px; padding: 35px; border-radius: 24px; box-shadow: 0 20px 40px var(--shadow-color); border: 1px solid var(--card-border); transition: all 0.4s cubic-bezier(0.25,1,0.5,1); position: relative; overflow: hidden; }
+/* Infinite Scrolling Glass Marquee */
+.marquee-container { width: 100%; overflow: hidden; background: var(--nav-bg); backdrop-filter: blur(15px); padding: 25px 0; border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); box-shadow: 0 10px 30px var(--shadow-color); margin-bottom: 60px; }
+.marquee-wrapper { display: flex; width: max-content; animation: scrollMarquee 35s linear infinite; }
+.marquee-wrapper:hover { animation-play-state: paused; }
+.marquee-content { display: flex; gap: 30px; padding-right: 30px; }
+.marquee-item { font-size: 1.1rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 12px; background: var(--bg-surface); padding: 12px 25px; border-radius: 50px; border: 1px solid var(--card-border); box-shadow: 0 4px 15px var(--shadow-color); transition: transform 0.3s, border-color 0.3s, color 0.3s; cursor: none; }
+.marquee-item:hover { transform: translateY(-5px); border-color: var(--secondary); color: var(--secondary); }
+@keyframes scrollMarquee { to { transform: translateX(-50%); } }
+
+/* 3D Tilt + Spotlight Hover Effect for Cards */
+.widget-card, .features li, .app-feature-item, .review-card-expanded {
+  position: relative; overflow: hidden; transform-style: preserve-3d;
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--tz, 0px));
+  transition: transform 0.1s ease-out, box-shadow 0.3s, border-color 0.3s, background 0.3s; will-change: transform;
+}
+.widget-card > *, .features li > *, .app-feature-item > *, .review-card-expanded > * { position: relative; z-index: 2; }
+.widget-card::after, .features li::after, .app-feature-item::after, .review-card-expanded::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(600px circle at var(--mouse-x, -500px) var(--mouse-y, -500px), rgba(6, 182, 212, 0.15), transparent 40%);
+  z-index: 1; opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+}
+.widget-card:hover::after, .features li:hover::after, .app-feature-item:hover::after, .review-card-expanded:hover::after { opacity: 1; }
+.tilt-reset { transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1) !important; --rx: 0deg !important; --ry: 0deg !important; --tz: 0px !important; }
+
+/* Base Card Styling */
+.unique-widgets { display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; max-width: 1200px; margin: 0 auto 40px; padding: 0 20px; }
+.widget-card { background: var(--bg-surface); color: var(--text-main); flex: 1 1 300px; padding: 35px; border-radius: 24px; box-shadow: 0 20px 40px var(--shadow-color); border: 1px solid var(--card-border); }
 .widget-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 5px; background: linear-gradient(90deg, var(--primary), var(--secondary)); opacity: 0.8; transition: opacity 0.3s; }
-.widget-card:hover { transform: translateY(-10px); box-shadow: 0 30px 60px var(--shadow-color); border-color: var(--secondary); }
-.widget-card:hover::before { opacity: 1; }
+.widget-card:hover, .features li:hover, .app-feature-item:hover, .review-card-expanded:hover { box-shadow: 0 35px 70px var(--shadow-color); border-color: var(--secondary); }
 .widget-card i.widget-icon { font-size: 2.8rem; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; display: inline-block; }
 .currency-row input { background: var(--bg-base); color: var(--text-main); border: 1px solid var(--card-border); padding: 10px 15px; border-radius: 12px; font-weight: bold; width: 100px; outline: none; transition: border 0.3s; }
 .currency-row input:focus { border-color: var(--secondary); box-shadow: 0 0 0 3px var(--glow-color); }
 
 /* Features & Sections */
 .features { padding: 100px 20px; max-width: 1200px; margin: 0 auto; text-align: center; }
-.features h2 { font-size: 3rem; margin-bottom: 60px; }
+.features h2 { font-size: clamp(2.5rem, 5vw, 4rem); margin-bottom: 60px; }
 .features ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; list-style: none; }
-.features li { background: var(--bg-surface); padding: 40px 30px; border-radius: 24px; text-align: left; border: 1px solid var(--card-border); box-shadow: 0 10px 30px var(--shadow-color); transition: all 0.4s; }
-.features li:hover { border-color: var(--primary); transform: translateY(-8px) scale(1.02); box-shadow: 0 20px 40px var(--shadow-color); }
+.features li { background: var(--bg-surface); color: var(--text-main); padding: 40px 30px; border-radius: 24px; text-align: left; border: 1px solid var(--card-border); box-shadow: 0 10px 30px var(--shadow-color); }
 .features li strong { display: flex; align-items: center; gap: 10px; color: var(--text-main); font-size: 1.4rem; margin-bottom: 12px; }
 .features li strong i { color: var(--secondary); }
 
-/* App Demo Section */
+/* App Demo Section & 3D Phone */
 .app-demo-section { background: var(--bg-surface); margin: 60px 5%; padding: 80px 5%; border-radius: 40px; border: 1px solid var(--card-border); box-shadow: 0 20px 60px var(--shadow-color); background-image: radial-gradient(circle at top right, rgba(6,182,212,0.05), transparent 40%), radial-gradient(circle at bottom left, rgba(79,70,229,0.05), transparent 40%); }
 .app-features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
-.app-feature-item { background: var(--bg-base); padding: 25px; border-radius: 20px; border: 1px solid var(--card-border); transition: all 0.3s; }
-.app-feature-item:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)); transform: scale(1.05); border-color: transparent; color: white !important; }
+.app-feature-item { background: var(--bg-base); color: var(--text-main); padding: 25px; border-radius: 20px; border: 1px solid var(--card-border); }
 .app-feature-item:hover h4, .app-feature-item:hover i, .app-feature-item:hover p { color: white !important; }
 .app-feature-item i { font-size: 2rem; color: var(--primary); margin-bottom: 15px; transition: color 0.3s; }
+
+/* 3D PHONE EFFECT */
+.app-mockup { perspective: 1200px; }
+#interactive-phone { transform-style: preserve-3d; transition: transform 0.1s ease-out; will-change: transform; }
 .phone-frame { background: var(--text-main); padding: 12px; border-radius: 45px; display: inline-block; box-shadow: 0 30px 60px rgba(0,0,0,0.4); border: 2px solid var(--card-border); }
-.phone-screen { width: 270px; height: 580px; border-radius: 35px; background: url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80') center/cover; display: flex; align-items: flex-end; padding: 20px; }
-.phone-screen span { background: rgba(15, 23, 42, 0.8); color: white; padding: 12px 20px; border-radius: 20px; backdrop-filter: blur(10px); font-weight: bold; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+.phone-screen { position: relative; overflow: hidden; width: 270px; height: 580px; border-radius: 35px; background: url('https://images.unsplash.com/photo-1524661135-423995f22d0b?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80') center/cover; display: flex; align-items: flex-end; padding: 20px; }
+.phone-screen span { position: relative; z-index: 3; background: rgba(15, 23, 42, 0.8); color: white; padding: 12px 20px; border-radius: 20px; backdrop-filter: blur(10px); font-weight: bold; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+.glare { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.3) 25%, transparent 30%); border-radius: 35px; pointer-events: none; z-index: 2; }
+.floating-badge { position: absolute; background: var(--nav-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 12px 20px; border-radius: 20px; box-shadow: 0 15px 35px var(--shadow-color); border: 1px solid var(--card-border); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; z-index: 10; animation: floatBadge 4s ease-in-out infinite; white-space: nowrap; }
+.badge-1 { top: 15%; left: -10%; animation-delay: 0s; }
+.badge-2 { bottom: 25%; right: -20%; animation-delay: -2s; }
+@keyframes floatBadge { 0%, 100% { transform: translateY(0px) translateZ(30px); } 50% { transform: translateY(-15px) translateZ(30px); } }
+@media (max-width: 480px) { .floating-badge { display: none; } }
 
 /* Reviews */
 .reviews-expanded { max-width: 1200px; margin: 100px auto; padding: 0 20px; }
@@ -112,8 +270,7 @@ p { color: var(--text-muted); }
 .rating-number { font-size: 2.8rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .stars { color: #f59e0b; font-size: 1.3rem; letter-spacing: 2px; }
 .reviews-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-.review-card-expanded { background: var(--bg-surface); padding: 35px; border-radius: 24px; border: 1px solid var(--card-border); box-shadow: 0 15px 35px var(--shadow-color); transition: all 0.3s; }
-.review-card-expanded:hover { transform: translateY(-8px); border-color: var(--secondary); box-shadow: 0 25px 50px var(--shadow-color); }
+.review-card-expanded { background: var(--bg-surface); color: var(--text-main); padding: 35px; border-radius: 24px; border: 1px solid var(--card-border); box-shadow: 0 15px 35px var(--shadow-color); }
 .review-card-expanded i.quote-icon { color: var(--secondary); opacity: 0.3; font-size: 2.5rem; margin-bottom: 20px; display: block; }
 .reviewer img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid var(--card-border); }
 .reviewer { display: flex; align-items: center; margin-top: 25px; border-top: 1px solid var(--card-border); padding-top: 25px; }
@@ -121,10 +278,8 @@ p { color: var(--text-muted); }
 /* Call to Action */
 .call-to-action { margin: 80px 5%; padding: 100px 20px; border-radius: 40px; text-align: center; background: linear-gradient(135deg, var(--primary), #1e1b4b); color: white !important; box-shadow: 0 30px 60px var(--shadow-color); position: relative; overflow: hidden; }
 .call-to-action::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, var(--glow-color) 0%, transparent 60%); opacity: 0.5; pointer-events: none; }
-.call-to-action h2 { color: white; font-size: clamp(2rem, 4vw, 3.5rem); margin-bottom: 20px; position: relative; z-index: 2;}
-.call-to-action p { position: relative; z-index: 2; font-size: 1.2rem; color: #cbd5e1 !important; }
-.call-to-action button { background: white; color: #0f172a !important; margin-top: 40px; position: relative; z-index: 2; border: none; font-weight: bold; }
-.call-to-action button:hover { background: var(--secondary); color: white !important; }
+.call-to-action h2 { color: white; margin-bottom: 20px; position: relative; z-index: 2;}
+.call-to-action p { position: relative; z-index: 2; font-size: 1.2rem; color: #cbd5e1 !important; margin-bottom: 30px;}
 
 /* Footer & Floating Elements */
 .pro-footer-parallax { background: var(--bg-surface); border-top: 1px solid var(--card-border); padding-top: 80px; margin-top: 80px; }
@@ -132,33 +287,89 @@ p { color: var(--text-muted); }
 .footer-content h4 { color: var(--text-main); margin-bottom: 25px; display: flex; align-items: center; gap: 10px; font-size: 1.2rem; }
 .footer-content h4 i { color: var(--primary); }
 .footer-content ul { list-style: none; }
-.footer-content a { color: var(--text-muted); text-decoration: none; transition: all 0.2s; display: block; margin-bottom: 12px; font-weight: 500;}
+.footer-content a { color: var(--text-muted); transition: all 0.2s; display: block; margin-bottom: 12px; font-weight: 500;}
 .footer-content a:hover { color: var(--secondary); transform: translateX(5px); }
 .hidden { display: none !important; }
 .floating-admin-btn { position: fixed; bottom: 30px; left: 30px; background: var(--bg-surface); color: var(--text-main); padding: 15px 25px; border-radius: 50px; box-shadow: 0 10px 30px var(--shadow-color); border: 1px solid var(--card-border); text-decoration: none; font-weight: bold; display: flex; align-items: center; gap: 10px; transition: all 0.3s; z-index: 100; }
 .floating-admin-btn:hover { background: var(--primary); color: white; transform: translateY(-5px); border-color: transparent; }
 
-/* User Session Float - Top Right Position */
-.user-session-float { position: fixed; top: 30px; right: 30px; background-color: var(--nav-bg); color: var(--text-main); padding: 14px 18px; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid var(--card-border); z-index: 10000; display: none; align-items: center; gap: 10px; transition: all 0.3s; }
+/* User Session Float */
+.user-session-float { position: fixed; top: 30px; right: 30px; background-color: var(--nav-bg); backdrop-filter: blur(10px); color: var(--text-main); padding: 10px 20px; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 30px var(--shadow-color); z-index: 1000; display: none; align-items: center; gap: 10px; transition: all 0.3s; border: 1px solid var(--card-border); }
+.user-session-float::before { content: ""; position: absolute; bottom: -30px; left: 0; width: 100%; height: 30px; }
 .user-session-float:hover { transform: translateY(3px); }
-.user-session-float .user-menu { display: none; position: absolute; top: calc(100% + 10px); right: 0; background-color: var(--bg-surface); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px 0; min-width: 220px; overflow: hidden; }
-.user-session-float:hover .user-menu,
-.user-session-float.active .user-menu { display: block; }
+.user-session-float .user-menu { display: none; position: absolute; top: calc(100% + 10px); right: 0; background-color: var(--bg-surface); border: 1px solid var(--card-border); border-radius: 12px; box-shadow: 0 10px 30px var(--shadow-color); padding: 10px 0; min-width: 200px; overflow: hidden; }
+.user-session-float:hover .user-menu { display: block; }
 .user-menu a { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: var(--text-main); text-decoration: none; transition: background-color 0.3s; z-index: 10; position: relative;}
 .user-menu a:hover { background-color: var(--card-border); color: var(--secondary); }
 
 /* Responsive Tweaks */
 @media (max-width: 768px) {
   .navbar { width: 95%; left: 2.5%; padding: 0 20px; }
-  .nav-links { display: none; /* Auto-collapse links on mobile for cleaner UI */ }
+  .nav-links { display: none; }
   .slideshow { height: 75vh; }
+  .marquee-item { padding: 10px 15px; font-size: 0.95rem; }
+}
+
+/* Expressive Typography Animations */
+.expressive-heading { display: inline-block; overflow: hidden; margin-bottom: 60px; }
+.expressive-char { display: inline-block; transform: translateY(120%) rotate(8deg); opacity: 0; transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease-out; will-change: transform, opacity; }
+.expressive-char.in-view { transform: translateY(0) rotate(0deg); opacity: 1; }
+.elastic-text { display: inline-flex; cursor: pointer; }
+.elastic-char { display: inline-block; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), color 0.3s ease; }
+.elastic-text:hover .elastic-char { animation: waveElastic 0.6s ease-in-out infinite alternate; }
+.elastic-text:hover .elastic-char:nth-child(odd) { color: var(--secondary); }
+.elastic-text:hover .elastic-char:nth-child(even) { color: var(--primary); }
+@keyframes waveElastic { 0% { transform: translateY(0) scaleY(1); } 100% { transform: translateY(-8px) scaleY(1.1); } }
+
+/* Global Skeleton Loading Screen */
+.skeleton-wrapper {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: var(--bg-base); z-index: 999999;
+  display: flex; flex-direction: column; padding: 20px 5%;
+  transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
+}
+.skeleton-wrapper.loaded { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.skeleton-pulse {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 25%, rgba(148, 163, 184, 0.25) 50%, rgba(148, 163, 184, 0.1) 75%);
+  background-size: 400% 100%;
+  animation: skelPulseAnim 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes skelPulseAnim { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+.skeleton-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25vh; height: 70px; border-radius: 50px; padding: 0 30px; border: 1px solid var(--card-border);}
+.skeleton-logo { width: 160px; height: 40px; border-radius: 20px; }
+.skeleton-links { width: 350px; height: 40px; border-radius: 20px; }
+.skeleton-hero { display: flex; flex-direction: column; gap: 20px; max-width: 650px; margin-left: 5%; }
+.skeleton-title { width: 90%; height: 80px; border-radius: 12px; }
+.skeleton-text { width: 70%; height: 25px; border-radius: 8px; }
+.skeleton-text.short { width: 50%; }
+.skeleton-button { width: 220px; height: 55px; border-radius: 50px; margin-top: 25px; }
+
+@media (max-width: 768px) {
+  .skeleton-links { display: none; }
+  .skeleton-title { height: 60px; }
+  .skeleton-hero { margin-left: 0; }
 }
 </style>
 </head>
 <body>
   
-  <div class="scroll-progress-bar" id="scrollBar"></div>
+  <div id="skeleton-loader" class="skeleton-wrapper">
+    <div class="skeleton-nav skeleton-pulse">
+      <div class="skeleton-logo skeleton-pulse"></div>
+      <div class="skeleton-links skeleton-pulse"></div>
+    </div>
+    <div class="skeleton-hero">
+      <div class="skeleton-title skeleton-pulse"></div>
+      <div class="skeleton-text skeleton-pulse"></div>
+      <div class="skeleton-text short skeleton-pulse"></div>
+      <div class="skeleton-button skeleton-pulse"></div>
+    </div>
+  </div>
 
+  <div class="scroll-progress-bar" id="scrollBar"></div>
   <div class="diagonal-scroll-container" id="diagonalContainer">
     <svg class="diagonal-track" preserveAspectRatio="none" viewBox="0 0 100 100">
       <line x1="0" y1="0" x2="100" y2="100" stroke="#06b6d4" stroke-width="0.3" stroke-dasharray="2, 3" opacity="0.5" />
@@ -166,17 +377,35 @@ p { color: var(--text-muted); }
     <div class="track-thumb" id="scrollThumb"><i class="fas fa-plane"></i></div>
   </div>
 
-  <nav class="navbar" role="navigation" aria-label="Main navigation">
-    <div class="logo">
-      <i class="fa-solid fa-paper-plane"></i>
-      <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
-    </div>
-    <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#reviews">Reviews</a></li>
-      <li><a href="../Contributor/contributor_login.php">Contributor</a></li>
+  <div class="cinematic-grain"></div>
 
-      <li><a href="../auth/login.html" class="register-btn" id="signInBtn">Sign In</a></li>
+  <div class="ambient-orb orb-1"></div>
+  <div class="ambient-orb orb-2"></div>
+
+  <div class="custom-cursor-dot" id="cursor-dot"></div>
+  <div class="custom-cursor-outline" id="cursor-outline"></div>
+
+  <div id="spatial-image-preview"></div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <svg class="progress-circle svg-content" width="100%" height="100%" viewBox="-1 -1 102 102">
+      <path d="M50,1 a49,49 0 0,1 0,98 a49,49 0 0,1 0,-98"/>
+    </svg>
+  </div>
+
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="logo-container">
+      <div class="logo-icon-wrapper">
+        <i class="fa-solid fa-paper-plane"></i>
+      </div>
+      <span class="brand-text elastic-text">TripMate</span>
+    </div>
+
+    <ul class="nav-links">
+      <li><a href="#features" class="glitch-link" data-text="Features">Features</a></li>
+      <li><a href="#reviews" class="glitch-link" data-text="Reviews">Reviews</a></li>
+      <li><a href="../Contributor/contributor_login.php" class="glitch-link" data-text="Contributor">Contributor</a></li>
+      <li><a href="../auth/login.html" class="register-btn magnetic-btn" id="signInBtn">Sign In</a></li>
       <li><button class="theme-toggle" id="themeToggle" aria-label="Switch mode"><i class="fas fa-moon"></i></button></li>
     </ul>
   </nav>
@@ -190,9 +419,13 @@ p { color: var(--text-muted); }
     </div>
     <div class="overlay">
       <div class="hero-content parallax-text">
-        <h1>Discover Your Perfect Destination</h1>
+        <h1>Discover Your Perfect <span id="typewriter-text" class="type-text"></span><span class="cursor">|</span></h1>
         <p>Plan your dream vacation with TripMate - find the best destinations tailored to your preferences and budget in seconds.</p>
-        <button class="get-started" data-href="../search/search.html">Start Planning Free</button>
+        
+        <div class="magic-btn-wrap magnetic-btn">
+          <button class="magic-btn" data-href="../search/search.html">Start Planning Free</button>
+        </div>
+
       </div>
     </div>
     <div class="scroll-indicator parallax-text">
@@ -203,8 +436,31 @@ p { color: var(--text-muted); }
     <button class="next" onclick="changeSlide(1)">❯</button>
   </section>
 
+  <div class="marquee-container reveal">
+    <div class="marquee-wrapper">
+      <div class="marquee-content">
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1502602881226-261569fe8c15?w=500&q=80">✈️ Paris, France</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=500&q=80">🏝️ Bali, Indonesia</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=500&q=80">🗼 Tokyo, Japan</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=500&q=80">🌉 New York, USA</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=500&q=80">🏛️ Rome, Italy</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=500&q=80">🏜️ Dubai, UAE</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1530122037265-a5f1f91d3b99?w=500&q=80">🏔️ Zermatt, Switzerland</div>
+      </div>
+      <div class="marquee-content" aria-hidden="true">
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1502602881226-261569fe8c15?w=500&q=80">✈️ Paris, France</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=500&q=80">🏝️ Bali, Indonesia</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=500&q=80">🗼 Tokyo, Japan</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=500&q=80">🌉 New York, USA</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=500&q=80">🏛️ Rome, Italy</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=500&q=80">🏜️ Dubai, UAE</div>
+        <div class="marquee-item spatial-hover" data-img="https://images.unsplash.com/photo-1530122037265-a5f1f91d3b99?w=500&q=80">🏔️ Zermatt, Switzerland</div>
+      </div>
+    </div>
+  </div>
+
   <div class="unique-widgets reveal">
-    <div class="widget-card">
+    <div class="widget-card tilt-reset">
       <i class="fas fa-coins widget-icon"></i>
       <h3>Live currency</h3>
       <div class="currency-row" style="display:flex; align-items:center; gap:10px; margin-bottom: 15px;">
@@ -215,7 +471,7 @@ p { color: var(--text-muted); }
       </div>
       <p style="font-size:0.85rem; color:var(--text-muted);">* live approximate rate</p>
     </div>
-    <div class="widget-card">
+    <div class="widget-card tilt-reset">
       <i class="fas fa-cloud-sun widget-icon"></i>
       <h3>Destination weather</h3>
       <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px; padding-bottom: 15px; border-bottom: 1px solid var(--card-border);">
@@ -227,58 +483,74 @@ p { color: var(--text-muted); }
         <span style="font-size:1.1rem;"><strong>Kyoto</strong> <br><span style="color:var(--text-muted);">18°C Light Rain</span></span>
       </div>
     </div>
-    <div class="widget-card">
+    <div class="widget-card tilt-reset">
       <i class="fas fa-lightbulb widget-icon"></i>
       <h3>Travel trivia</h3>
       <p id="triviaText" style="margin-bottom: 25px; font-size: 1.1rem; font-style: italic;">"The shortest commercial flight is 2.8 km (UK)."</p>
-      <button class="get-started" style="padding:10px 24px; font-size:0.9rem;" id="newTriviaBtn">New fact</button>
+      
+      <div class="magic-btn-wrap magnetic-btn" style="border-radius: 30px;">
+        <button class="magic-btn" style="padding:10px 24px; font-size:0.9rem;" id="newTriviaBtn">New fact</button>
+      </div>
     </div>
   </div>
 
   <section id="features" class="features">
-    <h2 class="reveal">Why Choose TripMate?</h2>
+    <h2 class="expressive-heading" style="font-size: clamp(2.5rem, 5vw, 4rem);">Why Choose TripMate?</h2>
     <ul>
-      <li class="reveal"><strong><i class="fas fa-magic"></i> Recommendations</strong> <p>Get tailored travel suggestions based on your exact preferences and style.</p></li>
-      <li class="reveal"><strong><i class="fas fa-wallet"></i> Budget Planning</strong> <p>Easily manage your travel budget with our intuitive, real-time tools.</p></li>
-      <li class="reveal"><strong><i class="fas fa-map-location-dot"></i> Itinerary Builder</strong> <p>Create and customize your daily travel itinerary effortlessly on a visual map.</p></li>
-      <li class="reveal"><strong><i class="fas fa-comments"></i> Community Reviews</strong> <p>Read authentic reviews from fellow travelers to make informed decisions.</p></li>
-      <li class="reveal"><strong><i class="fas fa-headset"></i> 24/7 Support</strong> <p>Travel with peace of mind knowing our support team is available around the clock.</p></li>
+      <li class="reveal tilt-reset"><strong><i class="fas fa-magic"></i> Recommendations</strong> <p>Get tailored travel suggestions based on your exact preferences and style.</p></li>
+      <li class="reveal tilt-reset"><strong><i class="fas fa-wallet"></i> Budget Planning</strong> <p>Easily manage your travel budget with our intuitive, real-time tools.</p></li>
+      <li class="reveal tilt-reset"><strong><i class="fas fa-map-location-dot"></i> Itinerary Builder</strong> <p>Create and customize your daily travel itinerary effortlessly on a visual map.</p></li>
+      <li class="reveal tilt-reset"><strong><i class="fas fa-comments"></i> Community Reviews</strong> <p>Read authentic reviews from fellow travelers to make informed decisions.</p></li>
+      <li class="reveal tilt-reset"><strong><i class="fas fa-headset"></i> 24/7 Support</strong> <p>Travel with peace of mind knowing our support team is available around the clock.</p></li>
     </ul>
   </section>
 
   <section class="app-demo-section reveal">
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:50px; justify-content:center;">
-      <div class="app-mockup reveal" style="flex: 1 1 300px; text-align:center;">
-        <div class="phone-frame"><div class="phone-screen"><span>TripMate OS</span></div></div>
+      
+      <div class="app-mockup reveal" style="flex: 1 1 300px; text-align:center; position: relative;">
+        <div class="floating-badge badge-1">
+          <i class="fas fa-plane-departure" style="color: var(--primary);"></i> Flight deal found!
+        </div>
+        <div class="floating-badge badge-2">
+          <i class="fas fa-check-circle" style="color: var(--secondary);"></i> Budget updated
+        </div>
+        <div class="phone-frame" id="interactive-phone">
+          <div class="phone-screen">
+            <div class="glare"></div>
+            <span>TripMate OS</span>
+          </div>
+        </div>
       </div>
+
       <div class="app-features-grid" style="flex: 2 1 500px;">
-        <div class="app-feature-item reveal"><i class="fas fa-map-marked-alt"></i><h4>Offline maps</h4><p>Access itineraries without internet.</p></div>
-        <div class="app-feature-item reveal"><i class="fas fa-wallet"></i><h4>Budget tracker</h4><p>Real-time expenses, currency converter.</p></div>
-        <div class="app-feature-item reveal"><i class="fas fa-camera-retro"></i><h4>Photo journals</h4><p>Create travel diaries with auto-tagging.</p></div>
-        <div class="app-feature-item reveal"><i class="fas fa-bell"></i><h4>Smart alerts</h4><p>Flight deals, weather updates.</p></div>
-        <div class="app-feature-item reveal"><i class="fas fa-users"></i><h4>Group planning</h4><p>Share itineraries and vote.</p></div>
-        <div class="app-feature-item reveal"><i class="fas fa-robot"></i><h4>AI assistant</h4><p>24/7 chat for travel tips.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-map-marked-alt"></i><h4>Offline maps</h4><p>Access itineraries without internet.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-wallet"></i><h4>Budget tracker</h4><p>Real-time expenses, currency converter.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-camera-retro"></i><h4>Photo journals</h4><p>Create travel diaries with auto-tagging.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-bell"></i><h4>Smart alerts</h4><p>Flight deals, weather updates.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-users"></i><h4>Group planning</h4><p>Share itineraries and vote.</p></div>
+        <div class="app-feature-item reveal tilt-reset"><i class="fas fa-robot"></i><h4>AI assistant</h4><p>24/7 chat for travel tips.</p></div>
       </div>
     </div>
   </section>
 
   <section class="reviews-expanded" id="reviews">
     <div class="reviews-header reveal">
-      <h2 style="font-size: clamp(2rem, 4vw, 3rem);">Loved by travellers</h2>
+      <h2 class="expressive-heading" style="font-size: clamp(2.5rem, 4vw, 4rem);">Loved by travellers</h2>
       <div class="rating-summary"><span class="rating-number">4.8</span><div class="stars">★★★★★</div></div>
     </div>
     <div class="reviews-grid">
-      <div class="review-card-expanded reveal">
+      <div class="review-card-expanded reveal tilt-reset">
         <i class="fas fa-quote-left quote-icon"></i>
         <p>"TripMate's itinerary builder saved us hours. We discovered hidden gems and stayed under budget!"</p>
         <div class="reviewer"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="Sarah J."><div><h4>Sarah J.</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 2 trips</p></div></div>
       </div>
-      <div class="review-card-expanded reveal">
+      <div class="review-card-expanded reveal tilt-reset">
         <i class="fas fa-quote-left quote-icon"></i>
         <p>"The app is incredibly intuitive. I planned a 10-day Europe trip in one evening. Love the offline maps!"</p>
         <div class="reviewer"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="Michael Chen"><div><h4>Michael Chen</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 8 trips</p></div></div>
       </div>
-      <div class="review-card-expanded reveal">
+      <div class="review-card-expanded reveal tilt-reset">
         <i class="fas fa-quote-left quote-icon"></i>
         <p>"Budget tracking feature helped me save $300 on my Japan trip. Real-time currency conversion is a blessing."</p>
         <div class="reviewer"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80" alt="David Park"><div><h4>David Park</h4><p style="font-size:0.9rem; margin:0;">★ 5.0 · 3 trips</p></div></div>
@@ -287,17 +559,20 @@ p { color: var(--text-muted); }
   </section>
 
   <section class="call-to-action reveal">
-    <h2>Ready to Start Your Adventure?</h2>
-    <p style="margin-bottom: 30px;">Join thousands of satisfied travelers and make your travel dreams a reality.</p>
-    <button class="get-started" data-href="../search/search.html">Create Free Account</button>
+    <h2 class="expressive-heading" style="font-size: clamp(2rem, 4vw, 3.5rem);">Ready to Start Your Adventure?</h2>
+    <p>Join thousands of satisfied travelers and make your travel dreams a reality.</p>
+    
+    <div class="magic-btn-wrap magnetic-btn" style="margin-top: 30px;">
+        <button class="magic-btn" data-href="../search/search.html" style="background: white; color: #0f172a !important;">Create Free Account</button>
+    </div>
   </section>
 
   <div class="pro-footer-parallax reveal">
     <div class="footer-content">
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:50px;">
-        <div><h4><i class="fas fa-headset"></i> Support</h4><ul><li><a href="#">Help Center</a></li><li><a href="#">Contact</a></li><li><a href="#">Live Chat</a></li></ul></div>
-        <div><h4><i class="fas fa-building"></i> Company</h4><ul><li><a href="#">About</a></li><li><a href="#">Press</a></li><li><a href="#">Careers</a></li></ul></div>
-        <div><h4><i class="fas fa-lightbulb"></i> Travel Tips</h4><ul><li><a href="#">Visa Guide</a></li><li><a href="#">Safety</a></li><li><a href="#">Budget Hacks</a></li></ul></div>
+        <div><h4><i class="fas fa-headset"></i> Support</h4><ul><li><a href="#" class="pixel-scatter-link">Help Center</a></li><li><a href="#" class="pixel-scatter-link">Contact</a></li><li><a href="#" class="pixel-scatter-link">Live Chat</a></li></ul></div>
+        <div><h4><i class="fas fa-building"></i> Company</h4><ul><li><a href="#" class="pixel-scatter-link">About</a></li><li><a href="#" class="pixel-scatter-link">Press</a></li><li><a href="#" class="pixel-scatter-link">Careers</a></li></ul></div>
+        <div><h4><i class="fas fa-lightbulb"></i> Travel Tips</h4><ul><li><a href="#" class="pixel-scatter-link">Visa Guide</a></li><li><a href="#" class="pixel-scatter-link">Safety</a></li><li><a href="#" class="pixel-scatter-link">Budget Hacks</a></li></ul></div>
         <div><h4><i class="fas fa-mobile-alt"></i> Get the App</h4><div style="display:flex; flex-direction:column; gap:12px;"><a href="#" style="background:var(--text-main); color:var(--bg-base); padding:12px 20px; border-radius:30px; text-align:center; font-weight: bold;"><i class="fab fa-apple"></i> App Store</a><a href="#" style="background:var(--text-main); color:var(--bg-base); padding:12px 20px; border-radius:30px; text-align:center; font-weight: bold;"><i class="fab fa-google-play"></i> Google Play</a></div></div>
       </div>
       <div style="margin-top:80px; text-align:center; border-top:1px solid var(--card-border); padding:30px 0; color:var(--text-muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap: 20px;">
@@ -321,11 +596,17 @@ p { color: var(--text-muted); }
   
   <script>
     /* ==========================================================================
-       UNIFIED & COMPRESSED JAVASCRIPT (Merged script.js and inline logic)
+       UNIFIED JAVASCRIPT LOGIC
        ========================================================================== */
     document.addEventListener('DOMContentLoaded', () => {
       
-      // 1. Hardware Accelerated Diagonal Scroll Progress
+      // Skeleton Loader Removal
+      setTimeout(() => {
+        const skeleton = document.getElementById('skeleton-loader');
+        if (skeleton) skeleton.classList.add('loaded');
+      }, 1200); 
+
+      // Hardware Accelerated Diagonal Scroll Progress
       const diagContainer = document.getElementById("diagonalContainer");
       const diagThumb = document.getElementById("scrollThumb");
       const scrollBar = document.getElementById("scrollBar");
@@ -351,7 +632,154 @@ p { color: var(--text-muted); }
         }
       });
 
-      // 2. Enhanced 3D Parallax Effort Integration
+      // Custom Cursor Logic
+      const cursorDot = document.getElementById('cursor-dot');
+      const cursorOutline = document.getElementById('cursor-outline');
+      
+      if(cursorDot && cursorOutline && window.matchMedia("(min-width: 768px)").matches) {
+        window.addEventListener('mousemove', (e) => {
+          const posX = e.clientX;
+          const posY = e.clientY;
+          
+          cursorDot.style.left = `${posX}px`;
+          cursorDot.style.top = `${posY}px`;
+          
+          cursorOutline.animate({
+            left: `${posX}px`,
+            top: `${posY}px`
+          }, { duration: 500, fill: "forwards" });
+        });
+
+        const interactiveElements = document.querySelectorAll('a, button, .magic-btn, .widget-card, .progress-wrap, .marquee-item, .logo-container');
+        interactiveElements.forEach(el => {
+          el.addEventListener('mouseenter', () => cursorOutline.classList.add('hover-active'));
+          el.addEventListener('mouseleave', () => cursorOutline.classList.remove('hover-active'));
+        });
+      }
+
+      // Pixel Scatter Link Effect
+      const pixelLinks = document.querySelectorAll('.pixel-scatter-link');
+      pixelLinks.forEach(link => {
+        link.addEventListener('mouseenter', (e) => {
+          for(let i = 0; i < 12; i++) {
+            let pixel = document.createElement('span');
+            pixel.classList.add('pixel-particle');
+            pixel.style.left = `${e.offsetX + (Math.random() * 20 - 10)}px`;
+            pixel.style.top = `${e.offsetY + (Math.random() * 20 - 10)}px`;
+            pixel.style.setProperty('--dx', `${Math.random() * 60 - 30}px`);
+            pixel.style.setProperty('--dy', `${Math.random() * 60 - 30}px`);
+            link.appendChild(pixel);
+            setTimeout(() => pixel.remove(), 600);
+          }
+        });
+      });
+
+      // Spatial Cursor Image Reveal
+      const spatialHoverItems = document.querySelectorAll('.spatial-hover');
+      const spatialPreview = document.getElementById('spatial-image-preview');
+      if (spatialHoverItems.length > 0 && spatialPreview) {
+        spatialHoverItems.forEach(item => {
+          item.addEventListener('mouseenter', () => {
+            const imgSrc = item.getAttribute('data-img');
+            if(imgSrc) {
+              spatialPreview.style.backgroundImage = `url('${imgSrc}')`;
+              spatialPreview.classList.add('active-preview');
+            }
+          });
+          item.addEventListener('mousemove', (e) => {
+            spatialPreview.style.left = `${e.clientX}px`;
+            spatialPreview.style.top = `${e.clientY}px`;
+          });
+          item.addEventListener('mouseleave', () => {
+            spatialPreview.classList.remove('active-preview');
+          });
+        });
+      }
+
+      // Scroll-Scrubbing Text Reveal Engine
+      const scrubTexts = document.querySelectorAll('.scrub-reveal');
+      window.addEventListener('scroll', () => {
+        const windowHeight = window.innerHeight;
+        scrubTexts.forEach(el => {
+          const rect = el.getBoundingClientRect();
+          const start = windowHeight * 0.85; 
+          const end = windowHeight * 0.4;
+          let progress = (start - rect.top) / (start - end);
+          progress = Math.max(0, Math.min(1, progress)); 
+          el.style.backgroundPosition = `${100 - (progress * 100)}% 0`;
+        });
+      });
+
+      // Magnetic Buttons
+      const magneticBtns = document.querySelectorAll('.magnetic-btn');
+      magneticBtns.forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+          const rect = btn.getBoundingClientRect();
+          const x = e.clientX - rect.left - rect.width / 2;
+          const y = e.clientY - rect.top - rect.height / 2;
+          btn.style.transform = `translate(${x * 0.25}px, ${y * 0.25}px) scale(1.02)`;
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.transform = `translate(0px, 0px) scale(1)`;
+        });
+      });
+
+      // 3D Tilt Hover Effect for Cards
+      const tiltCards = document.querySelectorAll('.widget-card, .features li, .app-feature-item, .review-card-expanded');
+      tiltCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          card.style.setProperty('--mouse-x', `${x}px`);
+          card.style.setProperty('--mouse-y', `${y}px`);
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const rotateX = ((y - centerY) / centerY) * -6;
+          const rotateY = ((x - centerX) / centerX) * 6; 
+          card.classList.remove('tilt-reset');
+          card.style.setProperty('--rx', `${rotateX}deg`);
+          card.style.setProperty('--ry', `${rotateY}deg`);
+          card.style.setProperty('--tz', `10px`); 
+        });
+        card.addEventListener('mouseleave', () => {
+          card.classList.add('tilt-reset');
+          card.style.setProperty('--rx', `0deg`);
+          card.style.setProperty('--ry', `0deg`);
+          card.style.setProperty('--tz', `0px`);
+        });
+      });
+
+      // Circular Scroll Progress
+      const progressWrap = document.getElementById('progressWrap');
+      const progressPath = document.querySelector('.progress-circle path');
+      if (progressWrap && progressPath) {
+        const pathLength = progressPath.getTotalLength();
+        progressPath.style.transition = progressPath.style.WebkitTransition = 'none';
+        progressPath.style.strokeDasharray = `${pathLength} ${pathLength}`;
+        progressPath.style.strokeDashoffset = pathLength;
+        progressPath.getBoundingClientRect(); 
+        progressPath.style.transition = progressPath.style.WebkitTransition = 'stroke-dashoffset 10ms linear';
+        
+        const updateProgress = function () {
+          const scroll = window.scrollY || document.documentElement.scrollTop;
+          const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+          const progress = pathLength - (scroll * pathLength / height);
+          progressPath.style.strokeDashoffset = progress;
+        }
+        updateProgress();
+        window.addEventListener('scroll', () => {
+          updateProgress();
+          if (window.scrollY > 150) progressWrap.classList.add('active-progress');
+          else progressWrap.classList.remove('active-progress');
+        });
+        progressWrap.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
+
+      // 3D Parallax Effort Integration
       const bgs = document.querySelectorAll('.parallax-bg');
       const textLayers = document.querySelectorAll('.parallax-text');
       window.addEventListener('scroll', () => {
@@ -363,7 +791,7 @@ p { color: var(--text-muted); }
         });
       }, { passive: true });
 
-      // 3. Slideshow Logic
+      // Slideshow
       let currentSlide = 0;
       const slides = document.querySelectorAll('.slide');
       window.changeSlide = function(d) { 
@@ -372,7 +800,7 @@ p { color: var(--text-muted); }
       };
       setInterval(() => window.changeSlide(1), 5500);
 
-      // 4. Scroll Reveal Observer
+      // Scroll Blur-Reveal Observer
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -383,7 +811,7 @@ p { color: var(--text-muted); }
       }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
       document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-      // 5. Dark Mode Toggle
+      // Dark Mode Toggle
       const toggleBtn = document.getElementById('themeToggle');
       const icon = toggleBtn ? toggleBtn.querySelector('i') : null;
       if (localStorage.getItem('tripmate-theme') === 'dark' && icon) {
@@ -399,7 +827,7 @@ p { color: var(--text-muted); }
         });
       }
 
-      // 6. Navbar Hide on Scroll
+      // Navbar Hide on Scroll
       const navbar = document.querySelector('.navbar');
       let lastScroll = 0;
       window.addEventListener('scroll', () => {
@@ -409,7 +837,7 @@ p { color: var(--text-muted); }
         lastScroll = currentY;
       });
 
-      // 7. Interactive Widgets (Currency & Trivia)
+      // Interactive Widgets
       const usdInput = document.getElementById('usdInput');
       const euroOut = document.getElementById('euroOutput');
       if (usdInput) usdInput.addEventListener('input', function() { euroOut.innerText = '€ ' + ((parseFloat(this.value)||0) * 0.925).toFixed(2); });
@@ -419,7 +847,7 @@ p { color: var(--text-muted); }
       const triviaBtn = document.getElementById('newTriviaBtn');
       if (triviaBtn) triviaBtn.addEventListener('click', () => triviaP.innerText = triviaArr[Math.floor(Math.random() * triviaArr.length)]);
 
-      // 8. Session Management & Floating User UI
+      // Session Management
       if (sessionStorage.getItem('user_id')) {
         const userFloat = document.getElementById('userSessionObj');
         const signInBtn = document.getElementById('signInBtn');
@@ -430,7 +858,6 @@ p { color: var(--text-muted); }
           const pic = sessionStorage.getItem('user_pic');
           const email = sessionStorage.getItem('user_email');
           const dpHtml = pic ? `<img src="${pic}" style="width:35px;height:35px;border-radius:50%;object-fit:cover; border:2px solid white;">` : `<i class="fas fa-user-circle" style="font-size: 1.5rem;"></i>`;
-          
           userFloat.innerHTML = `
               ${dpHtml}
               <div style="display:flex; flex-direction:column; line-height:1.1;">
@@ -442,21 +869,11 @@ p { color: var(--text-muted); }
                   <a href="../auth/logout.php" onclick="return confirm('Logout?')"><i class="fas fa-sign-out-alt"></i> Logout</a>
               </div>
           `;
-
-          const userMenu = userFloat.querySelector('.user-menu');
-          userFloat.addEventListener('click', (event) => {
-            event.stopPropagation();
-            userFloat.classList.toggle('active');
-          });
-          if (userMenu) {
-            userMenu.addEventListener('click', (event) => event.stopPropagation());
-          }
-          document.addEventListener('click', () => userFloat.classList.remove('active'));
         }
       }
 
-      // 9. Button Loaders
-      document.querySelectorAll('.get-started[data-href]').forEach(btn => {
+      // Button Loaders
+      document.querySelectorAll('.magic-btn[data-href], .get-started[data-href]').forEach(btn => {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
           let loader = document.getElementById('lottie-loader');
@@ -472,17 +889,84 @@ p { color: var(--text-muted); }
         if(admLoader) admLoader.classList.remove('hidden');
         setTimeout(() => { if(el.getAttribute('href')) window.location.href = el.getAttribute('href'); }, 180);
       });
+
+      // Typewriter Effect
+      const textArray = ["Destination", "Getaway", "Adventure", "Vacation"];
+      const typingElement = document.getElementById("typewriter-text");
+      if (typingElement) {
+        let wordIndex = 0; let charIndex = 0; let isDeleting = false;
+        function typeEffect() {
+          const currentWord = textArray[wordIndex];
+          if (isDeleting) { typingElement.textContent = currentWord.substring(0, charIndex - 1); charIndex--; } 
+          else { typingElement.textContent = currentWord.substring(0, charIndex + 1); charIndex++; }
+          let typingSpeed = isDeleting ? 75 : 150;
+          if (!isDeleting && charIndex === currentWord.length) { typingSpeed = 2000; isDeleting = true; } 
+          else if (isDeleting && charIndex === 0) { isDeleting = false; wordIndex = (wordIndex + 1) % textArray.length; typingSpeed = 500; }
+          setTimeout(typeEffect, typingSpeed);
+        }
+        typeEffect();
+      }
+
+      // 3D Phone Hover Logic
+      const phoneWrap = document.querySelector('.app-mockup');
+      const phoneObj = document.getElementById('interactive-phone');
+      if (phoneWrap && phoneObj) {
+        phoneWrap.addEventListener('mousemove', (e) => {
+          const rect = phoneWrap.getBoundingClientRect();
+          const x = e.clientX - rect.left; 
+          const y = e.clientY - rect.top;
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          const rotateX = ((y - centerY) / centerY) * -15; 
+          const rotateY = ((x - centerX) / centerX) * 15;
+          phoneObj.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`;
+        });
+        phoneWrap.addEventListener('mouseleave', () => {
+          phoneObj.style.transition = 'transform 0.5s ease';
+          phoneObj.style.transform = `rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+          setTimeout(() => { phoneObj.style.transition = 'transform 0.1s ease-out'; }, 500);
+        });
+      }
+
+      // Expressive Typography Engine
+      const elasticTexts = document.querySelectorAll('.elastic-text');
+      elasticTexts.forEach(el => {
+        const text = el.innerText; el.innerHTML = '';
+        text.split('').forEach((char, i) => {
+          const span = document.createElement('span'); span.className = 'elastic-char';
+          span.innerHTML = char === ' ' ? '&nbsp;' : char; span.style.animationDelay = `${i * 0.05}s`;
+          el.appendChild(span);
+        });
+      });
+
+      const expressiveHeadings = document.querySelectorAll('.expressive-heading');
+      expressiveHeadings.forEach(heading => {
+        const text = heading.innerText; heading.innerHTML = '';
+        text.split('').forEach((char, i) => {
+          const span = document.createElement('span'); span.className = 'expressive-char';
+          span.innerHTML = char === ' ' ? '&nbsp;' : char; span.style.transitionDelay = `${i * 0.03}s`; 
+          heading.appendChild(span);
+        });
+      });
+
+      const typoObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if(entry.isIntersecting) {
+            const chars = entry.target.querySelectorAll('.expressive-char');
+            chars.forEach(char => char.classList.add('in-view'));
+            typoObserver.unobserve(entry.target); 
+          }
+        });
+      }, { threshold: 0.2, rootMargin: "0px 0px -50px 0px" });
+      expressiveHeadings.forEach(el => typoObserver.observe(el));
+
     });
   </script>
   
   <script src="page_time_tracker.js"></script>
-  <script src="../user/session-sync.js"></script>
-  <script src="../user/session-keepalive.js"></script>
-  <script src="../user/auto-logout.js"></script>
   <script src="../user/user-profile.js"></script>
   <script>window.ANALYTICS_BASE = '../actions/';</script>
   <script src="analytics.js"></script>
+  <script src="../scripts/session_guard.js"></script>
 </body>
 </html>
-
-9474915908
