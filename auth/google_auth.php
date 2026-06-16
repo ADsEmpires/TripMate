@@ -1,23 +1,21 @@
 <?php
-// ============================================
-// CRITICAL: Configure session BEFORE session_start()
-// ============================================
-if (session_status() === PHP_SESSION_NONE) {
-    ini_set('session.cookie_lifetime', 0);
-    ini_set('session.gc_maxlifetime', 86400);
-    ini_set('session.cookie_httponly', 1);
-    ini_set('session.cookie_samesite', 'Lax');
-    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-        ini_set('session.cookie_secure', 1);
-    }
-    session_start();
-}
-
+session_start();
 header('Content-Type: application/json');
 include '../database/dbconfig.php';
 
+// Support both JSON body (from login.html) and FormData (from login.php)
 $data = json_decode(file_get_contents('php://input'), true);
-$id_token = $data['id_token'] ?? '';
+$id_token = '';
+
+if (!empty($data['id_token'])) {
+    $id_token = $data['id_token'];
+} elseif (!empty($data['credential'])) {
+    $id_token = $data['credential'];
+} elseif (!empty($_POST['id_token'])) {
+    $id_token = $_POST['id_token'];
+} elseif (!empty($_POST['credential'])) {
+    $id_token = $_POST['credential'];
+}
 
 if (empty($id_token)) {
     echo json_encode(['status' => 'error', 'message' => 'No ID token provided']);
@@ -106,18 +104,10 @@ if ($result->num_rows > 0) {
 }
 $stmt->close();
 
-// Regenerate session ID for security
-session_regenerate_id(true);
-
 // Set PHP Session
 $_SESSION['user_id'] = $user_id;
 $_SESSION['user_name'] = $user_name;
-$_SESSION['user_email'] = $email;
-$_SESSION['user_pic'] = $profile_pic;
 $_SESSION['auth_provider'] = $user_auth_provider;
-$_SESSION['created_at'] = time();
-$_SESSION['last_activity'] = time();
-$_SESSION['_regenerated'] = true;
 
 // Track User IP
 if (file_exists('../admin/ip_tracking.php')) {
@@ -127,7 +117,7 @@ if (file_exists('../admin/ip_tracking.php')) {
     }
 }
 
-// Return success to frontend
+// Return success to frontend with profile pic and email attached!
 echo json_encode([
     'status' => 'success',
     'user_id' => $user_id,
@@ -137,3 +127,4 @@ echo json_encode([
     'auth_provider' => $user_auth_provider
 ]);
 $conn->close();
+?>
