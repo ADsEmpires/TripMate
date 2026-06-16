@@ -1,60 +1,52 @@
 <?php
 // Start session at the very beginning
-require_once __DIR__ . '/session_init.php'; // Initialize session management
-
-// Check if logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../auth/login.html');
-    exit;
-}
+session_start();
 
 // Enable error reporting for debugging (remove in production)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once __DIR__ . '/../database/dbconfig.php';
-require_once __DIR__ . '/../database/app_config.php';
+
+// Block Google-only users — they must create a full account first
+if (isset($_SESSION['auth_provider']) && $_SESSION['auth_provider'] === 'google') {
+    $google_email = isset($_SESSION['google_email']) ? urlencode($_SESSION['google_email']) : '';
+    $google_name = isset($_SESSION['user_name']) ? urlencode($_SESSION['user_name']) : '';
+    header("Location: ../auth/register.html?upgrade=1&email={$google_email}&name={$google_name}");
+    exit;
+}
 
 // Get user ID and name from session if available
 $user_id = $_SESSION['user_id'] ?? null;
 $userName = $_SESSION['user_name'] ?? $_SESSION['username'] ?? 'User';
-$user_email = '';
-$user_level = 'normal';
-$user_profile_pic = '../image/default-avatar.png';
 
-// Get additional user details from database if user is logged in
-if ($user_id) {
-    $user_query = "SELECT name, email, profile_pic, user_level FROM users WHERE id = ?";
-    $user_stmt = $conn->prepare($user_query);
-    if ($user_stmt) {
-        $user_stmt->bind_param("i", $user_id);
-        $user_stmt->execute();
-        $user_result = $user_stmt->get_result();
-        $user_details = $user_result->fetch_assoc();
-        $user_stmt->close();
+// Get additional user details from database
+$user_query = "SELECT name, email, profile_pic, user_level FROM users WHERE id = ?";
+$user_stmt = $conn->prepare($user_query);
+$user_stmt->bind_param("i", $user_id);
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user_details = $user_result->fetch_assoc();
+$user_stmt->close();
 
-        if ($user_details) {
-            $userName = $user_details['name']; // Update with exact name from database
-            $user_level = $user_details['user_level'] ?? 'normal';
-            $user_email = $user_details['email'] ?? '';
-            $user_profile_pic = $user_details['profile_pic'] ?? '../image/default-avatar.png';
-        }
-    }
+if ($user_details) {
+    $userName = $user_details['name']; // Update with exact name from database
+    $user_level = $user_details['user_level'] ?? 'normal';
+    $user_email = $user_details['email'] ?? '';
+    $user_profile_pic = $user_details['profile_pic'] ?? '../image/default-avatar.png';
 }
 
 // Fetch all destinations for dropdown
 $destinations = [];
 $dest_query = "SELECT id, name, location, type, image_urls, budget, best_season FROM destinations ORDER BY name";
 $dest_result = $conn->query($dest_query);
-if ($dest_result) {
-    while ($row = $dest_result->fetch_assoc()) {
-        $destinations[] = $row;
-    }
+while ($row = $dest_result->fetch_assoc()) {
+    $destinations[] = $row;
 }
 
 // Fetch all departure cities from flights for location dropdown
 $locations = [];
-$loc_query = "SELECT DISTINCT departure_city FROM flights WHERE departure_city IS NOT NULL AND departure_city != '' ORDER BY departure_city";
+$loc_query = "SELECT DISTINCT from_city AS departure_city FROM flights WHERE from_city IS NOT NULL AND from_city != '' ORDER BY from_city";
 $loc_result = $conn->query($loc_query);
 if ($loc_result) {
     while ($row = $loc_result->fetch_assoc()) {
@@ -71,145 +63,53 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TripMate - Plan Your Perfect Trip</title>
+    <title>TripMate - Plan Your Trip</title>
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts Inter & Poppins -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <!-- Flatpickr for date picker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
-    <!-- Session Management Meta Tags -->
-    <meta name="user-id" content="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
-    <meta name="user-name" content="<?php echo htmlspecialchars($_SESSION['user_name']); ?>">
-
-    <!-- Session Management Scripts -->
-    <script src="session-keepalive.js"></script>
-    <script src="session-sync.js"></script>
-    <script src="auto-logout.js"></script>
-
     <style>
         /* ========================================================
-           TRIPMATE PREMIUM THEME - NAVY & TEAL
+           ULTRA-PREMIUM "INDIGO & NEON CYAN" THEME
            ======================================================== */
-
-        /* ----- CSS Variables for Light/Dark Theme ----- */
         :root {
-            /* Light theme (default) */
-            --primary: #1A2E40;
-            /* Navy */
-            --secondary: #30BCED;
-            /* Teal */
-            --accent: #F59E0B;
-            /* Amber accent */
-            --danger: #EF4444;
-            /* Red for errors */
-            --success: #10B981;
-            /* Green for success */
-            --warning: #F59E0B;
-            /* Amber for warnings */
-
-            /* Background & surfaces */
-            --bg-body: #F5F7FA;
-            /* Soft off-white background */
-            --bg-card: #FFFFFF;
-            /* White cards */
-            --bg-base: #F9FAFC;
-            /* Base background */
-            --bg-hover: #F0F3F8;
-            /* Hover state */
-            --bg-surface: rgba(255, 255, 255, 0.95);
-            /* Glass effect */
-
-            /* Text colors */
-            --text-main: #1E2A3A;
-            /* Dark text */
-            --text-muted: #64748B;
-            /* Muted text */
-            --text-light: #94A3B8;
-            /* Light text */
-
-            /* Borders & shadows */
-            --card-border: #E2E8F0;
-            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
-            --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            --shadow-hover: 0 20px 30px -10px rgba(0, 0, 0, 0.15), 0 8px 15px -6px rgba(0, 0, 0, 0.1);
-
-            /* Spacing */
-            --space-xs: 0.25rem;
-            --space-sm: 0.5rem;
-            --space-md: 1rem;
-            --space-lg: 1.5rem;
-            --space-xl: 2rem;
-            --space-2xl: 3rem;
-
-            /* Border radius */
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --radius-xl: 24px;
-            --radius-full: 9999px;
-
-            /* Transitions */
-            --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-
-            /* Z-index layers */
-            --z-nav: 100;
-            --z-modal: 200;
-            --z-toast: 300;
-            --z-progress: 400;
-
-            /* Gradients */
-            --gradient-primary: linear-gradient(135deg, var(--primary), #2C3E50);
-            --gradient-accent: linear-gradient(135deg, var(--secondary), #4DC9FF);
-            --gradient-mixed: linear-gradient(135deg, var(--primary), var(--secondary));
+            --bg-base: #f1f5f9;
+            --bg-surface: rgba(255, 255, 255, 0.85);
+            --text-main: #0f172a !important;
+            --text-muted: #475569 !important;
+            --primary: #4f46e5;
+            --secondary: #06b6d4;
+            --nav-bg: rgba(255, 255, 255, 0.85);
+            --card-border: rgba(79, 70, 229, 0.15);
+            --shadow-color: rgba(15, 23, 42, 0.08);
+            --glow-color: rgba(6, 182, 212, 0.4);
+            --danger: #ef4444;
+            --success: #10b981;
         }
 
-        /* Dark theme variables */
-        .dark-mode {
-            --primary: #2C3E50;
-            /* Lighter navy for dark mode */
-            --secondary: #4DC9FF;
-            /* Brighter teal */
-
-            /* Background & surfaces */
-            --bg-body: #0F172A;
-            /* Dark navy background */
-            --bg-card: #1E293B;
-            /* Dark blue-gray cards */
-            --bg-base: #0F172A;
-            /* Dark background */
-            --bg-hover: #2D3A4F;
-            /* Hover state */
-            --bg-surface: rgba(30, 41, 59, 0.95);
-            /* Dark glass */
-
-            /* Text colors */
-            --text-main: #F1F5F9;
-            /* Light text */
-            --text-muted: #94A3B8;
-            /* Muted text for dark mode */
-            --text-light: #64748B;
-            /* Even lighter muted */
-
-            /* Borders & shadows */
-            --card-border: #334155;
-            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-            --shadow-md: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
-            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-            --shadow-hover: 0 20px 30px -10px rgba(0, 0, 0, 0.6);
+        body.dark-mode {
+            --bg-base: #020617;
+            --bg-surface: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc !important;
+            --text-muted: #94a3b8 !important;
+            --primary: #818cf8;
+            --secondary: #22d3ee;
+            --nav-bg: rgba(15, 23, 42, 0.85);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --shadow-color: rgba(0, 0, 0, 0.6);
+            --glow-color: rgba(34, 211, 238, 0.3);
         }
 
-        /* ===== Base Styles ===== */
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
         }
 
         html {
@@ -218,237 +118,179 @@ $conn->close();
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-body);
-            background-image:
-                radial-gradient(circle at top right, rgba(48, 188, 237, 0.05), transparent 40%),
-                radial-gradient(circle at bottom left, rgba(26, 46, 64, 0.05), transparent 40%);
+            background-color: var(--bg-base);
+            background-image: radial-gradient(circle at top right, rgba(6, 182, 212, 0.05), transparent 40%),
+                radial-gradient(circle at bottom left, rgba(79, 70, 229, 0.05), transparent 40%);
             color: var(--text-main);
-            transition: background-color var(--transition-base), color var(--transition-base);
+            transition: background-color 0.4s ease, color 0.4s ease;
             line-height: 1.6;
             min-height: 100vh;
-            padding-top: 100px;
+            padding-top: 90px;
         }
 
-        /* Headings with Poppins */
         h1,
         h2,
         h3,
         h4,
         h5,
         h6 {
-            font-family: 'Poppins', sans-serif;
-            font-weight: 700;
-            letter-spacing: -0.02em;
             color: var(--text-main);
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
 
         p {
             color: var(--text-muted);
-            line-height: 1.7;
         }
 
-        /* ===== Scroll Progress Bar ===== */
+        /* Scroll Progress Bar */
         .scroll-progress-bar {
             position: fixed;
             top: 0;
             left: 0;
             height: 4px;
             width: 0%;
-            background: var(--gradient-mixed);
-            z-index: var(--z-progress);
-            transition: width var(--transition-fast);
-            box-shadow: 0 0 10px var(--secondary);
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            z-index: 9999;
+            transition: width 0.1s ease-out;
+            box-shadow: 0 0 10px var(--glow-color);
         }
 
-        /* ===== Floating Navigation Bar ===== */
+        /* --- FLOATING PILL NAVBAR --- */
         .navbar {
             position: fixed;
             top: 20px;
             left: 5%;
             width: 90%;
-            height: 80px;
-            background: var(--bg-surface);
+            height: 70px;
+            background: var(--nav-bg) !important;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--card-border);
-            border-radius: var(--radius-full);
+            border-radius: 50px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 0 30px;
-            z-index: var(--z-nav);
-            box-shadow: var(--shadow-md);
-            transition: all var(--transition-base);
-            animation: slideDown 0.6s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .navbar:hover {
-            box-shadow: var(--shadow-lg);
-            border-color: var(--secondary);
+            z-index: 1000;
+            box-shadow: 0 10px 30px var(--shadow-color);
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: var(--space-md);
-            font-size: 1.5rem;
+            gap: 12px;
+            font-size: 1.4rem;
             font-weight: 800;
             text-decoration: none;
-            color: var(--text-main);
         }
 
         .logo i {
-            color: var(--secondary);
-            font-size: 1.8rem;
-            transform: rotate(-15deg);
-            transition: transform var(--transition-base);
+            color: var(--primary);
+            font-size: 1.5rem;
+            transform: rotate(-10deg);
+            transition: transform 0.3s;
         }
 
         .logo:hover i {
             transform: rotate(0deg) scale(1.1);
         }
 
-        .brand-text {
-            font-family: 'Poppins', sans-serif;
+        .brand-text .trip {
+            color: var(--text-main);
         }
 
-        .trip {
-            color: var(--primary);
-        }
-
-        .mate {
+        .brand-text .mate {
             color: var(--secondary);
         }
 
         .nav-right {
             display: flex;
             align-items: center;
-            gap: var(--space-lg);
+            gap: 15px;
         }
 
         .nav-link {
             color: var(--text-main);
             text-decoration: none;
             font-weight: 600;
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-full);
-            transition: all var(--transition-fast);
+            padding: 8px 16px;
+            border-radius: 30px;
+            transition: all 0.3s;
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
-        }
-
-        .nav-link i {
-            color: var(--secondary);
-            font-size: 1.1rem;
-            transition: transform var(--transition-fast);
+            gap: 8px;
         }
 
         .nav-link:hover {
-            background: var(--bg-hover);
-            color: var(--secondary);
-            transform: translateY(-2px);
+            color: var(--primary);
+            background: var(--bg-surface);
         }
 
-        .nav-link:hover i {
-            transform: translateY(-2px);
-        }
-
-        /* ===== Theme Toggle Button ===== */
         .theme-toggle {
-            background: var(--bg-hover);
-            border: none;
+            background: var(--bg-surface);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
             width: 44px;
             height: 44px;
-            border-radius: var(--radius-full);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border-radius: 50%;
             cursor: pointer;
-            color: var(--text-main);
-            transition: all var(--transition-base);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .theme-toggle i {
-            font-size: 1.2rem;
-            transition: transform var(--transition-base);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px var(--shadow-color);
         }
 
         .theme-toggle:hover {
-            background: var(--secondary);
-            color: white;
-            transform: rotate(15deg);
+            transform: rotate(20deg) scale(1.1);
+            color: var(--primary);
+            border-color: var(--primary);
         }
 
-        .theme-toggle:hover i {
-            transform: scale(1.1);
-        }
-
-        /* ===== Profile Menu ===== */
+        /* Profile Menu */
         .profile-menu {
             position: relative;
         }
 
         .profile-btn {
-            background: var(--bg-hover);
+            background: var(--bg-surface);
             border: 1px solid var(--card-border);
             color: var(--text-main);
-            padding: var(--space-sm) var(--space-lg);
-            border-radius: var(--radius-full);
+            padding: 10px 20px;
+            border-radius: 30px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: var(--space-sm);
+            gap: 10px;
             font-weight: 600;
-            transition: all var(--transition-base);
+            transition: all 0.3s;
         }
 
         .profile-btn:hover {
             border-color: var(--secondary);
             color: var(--secondary);
-            transform: translateY(-2px);
-        }
-
-        .profile-btn img {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--secondary);
         }
 
         .profile-dropdown {
             position: absolute;
-            top: calc(100% + var(--space-md));
+            top: 100%;
             right: 0;
-            width: 260px;
+            margin-top: 10px;
+            width: 220px;
             background: var(--bg-surface);
             border: 1px solid var(--card-border);
-            border-radius: var(--radius-lg);
-            padding: var(--space-md);
-            box-shadow: var(--shadow-lg);
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 20px 40px var(--shadow-color);
             backdrop-filter: blur(20px);
             display: none;
-            z-index: calc(var(--z-nav) + 1);
-            animation: slideDown 0.3s ease;
+            z-index: 1001;
         }
 
         .profile-dropdown.active {
             display: block;
+            animation: slideDown 0.3s ease;
         }
 
         @keyframes slideDown {
@@ -463,270 +305,124 @@ $conn->close();
             }
         }
 
-        .profile-header {
-            background: var(--gradient-mixed);
-            border-radius: var(--radius-md);
-            padding: var(--space-md);
-            margin-bottom: var(--space-md);
-            color: white;
-        }
-
-        .profile-header .font-bold {
-            font-size: 1.1rem;
-            margin-bottom: var(--space-xs);
-        }
-
-        .profile-header .text-xs {
-            opacity: 0.9;
-        }
-
-        .premium-badge {
-            display: inline-block;
-            margin-top: var(--space-xs);
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 8px;
-            border-radius: var(--radius-full);
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-
         .profile-dropdown a,
         .profile-dropdown button {
             display: flex;
             align-items: center;
-            gap: var(--space-md);
-            padding: var(--space-md);
+            gap: 12px;
+            padding: 12px;
             color: var(--text-main);
             text-decoration: none;
-            font-weight: 500;
-            border-radius: var(--radius-md);
-            transition: all var(--transition-fast);
+            font-weight: 600;
+            border-radius: 12px;
+            transition: all 0.2s;
             width: 100%;
             text-align: left;
             border: none;
             background: none;
             cursor: pointer;
-            font-size: 0.95rem;
         }
 
         .profile-dropdown a:hover,
         .profile-dropdown button:hover {
-            background: var(--bg-hover);
-            color: var(--secondary);
-            padding-left: var(--space-lg);
+            background: var(--bg-base);
+            color: var(--primary);
         }
 
         .profile-dropdown a i,
         .profile-dropdown button i {
             width: 20px;
             color: var(--secondary);
-            font-size: 1rem;
         }
 
         .profile-dropdown hr {
-            margin: var(--space-sm) 0;
+            margin: 10px 0;
             border: none;
             border-top: 1px solid var(--card-border);
         }
 
-        /* ===== Main Container ===== */
+        /* Main Content */
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 var(--space-xl);
+            padding: 0 20px;
         }
 
-        /* ===== Hero Section ===== */
-        .hero-section {
-            text-align: center;
-            margin-bottom: var(--space-2xl);
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-title {
-            font-size: 3.5rem;
-            font-weight: 800;
-            margin-bottom: var(--space-md);
-            line-height: 1.2;
-        }
-
-        .hero-title span {
-            color: var(--secondary);
-            position: relative;
-            display: inline-block;
-        }
-
-        .hero-title span::after {
-            content: '';
-            position: absolute;
-            bottom: 5px;
-            left: 0;
-            width: 100%;
-            height: 8px;
-            background: var(--secondary);
-            opacity: 0.2;
-            border-radius: var(--radius-full);
-            z-index: -1;
-        }
-
-        .hero-subtitle {
-            font-size: 1.2rem;
-            max-width: 600px;
-            margin: 0 auto;
-            color: var(--text-muted);
-        }
-
-        /* ===== Glass Card Effect ===== */
+        /* Glass Card Effect */
         .glass-card {
             background: var(--bg-surface);
             border: 1px solid var(--card-border);
-            border-radius: var(--radius-xl);
-            padding: var(--space-2xl);
-            box-shadow: var(--shadow-md);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 50px var(--shadow-color);
             backdrop-filter: blur(20px);
-            margin-bottom: var(--space-2xl);
-            transition: all var(--transition-base);
-            animation: fadeIn 0.6s ease-out;
+            margin-bottom: 30px;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        .glass-card:hover {
-            box-shadow: var(--shadow-hover);
-            border-color: var(--secondary);
-        }
-
-        /* ===== Form Elements ===== */
-        .form-label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: var(--space-sm);
-            color: var(--text-main);
-        }
-
-        .form-label i {
-            color: var(--secondary);
-            margin-right: var(--space-sm);
-        }
-
+        /* Form Input Styles */
         .form-input {
             width: 100%;
             padding: 16px 20px;
             border: 2px solid var(--card-border);
-            border-radius: var(--radius-md);
-            background: var(--bg-base);
+            border-radius: 16px;
+            background: var(--bg-surface);
             color: var(--text-main);
-            font-family: 'Inter', sans-serif;
+            font-family: inherit;
             font-size: 1rem;
-            transition: all var(--transition-fast);
+            transition: all 0.3s;
         }
 
+        /* Fix for select dropdown options - BLACK BACKGROUND WITH WHITE TEXT */
+        select.form-input option {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+            padding: 12px !important;
+            font-size: 1rem !important;
+        }
+
+        /* For dark mode consistency */
+        body.dark-mode select.form-input option {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+        }
+
+        /* Focus state */
         .form-input:focus {
             outline: none;
             border-color: var(--secondary);
-            background: var(--bg-card);
-            box-shadow: 0 0 0 4px rgba(48, 188, 237, 0.1);
-        }
-
-        .form-input::placeholder {
-            color: var(--text-light);
+            background: rgba(6, 182, 212, 0.05);
+            box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.1);
         }
 
         select.form-input {
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
             background-repeat: no-repeat;
             background-position: right 1rem center;
-            background-size: 1.2em;
-            padding-right: 2.5rem;
+            background-size: 1em;
         }
 
-        select.form-input option {
-            background: var(--bg-card);
-            color: var(--text-main);
-            padding: var(--space-md);
-        }
-
-        /* ===== Checkbox Styles ===== */
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            padding: var(--space-md);
-            background: var(--bg-base);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            border: 1px solid transparent;
-        }
-
-        .checkbox-wrapper:hover {
-            background: var(--bg-hover);
-            border-color: var(--secondary);
-        }
-
-        .checkbox-wrapper input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: var(--secondary);
-            cursor: pointer;
-        }
-
-        .checkbox-wrapper span {
-            color: var(--text-main);
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
-        /* ===== Range Slider ===== */
-        .range-slider-container {
-            background: var(--bg-base);
-            border-radius: var(--radius-lg);
-            padding: var(--space-xl);
-        }
-
+        /* Range Slider */
         .range-slider {
             -webkit-appearance: none;
             width: 100%;
             height: 8px;
-            border-radius: var(--radius-full);
+            border-radius: 5px;
             background: linear-gradient(to right, var(--secondary) 0%, var(--secondary) 50%, var(--card-border) 50%, var(--card-border) 100%);
             outline: none;
-            margin: var(--space-lg) 0;
         }
 
         .range-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background: white;
-            border: 3px solid var(--secondary);
+            border: 2px solid var(--secondary);
             cursor: pointer;
-            transition: all var(--transition-fast);
-            box-shadow: 0 2px 10px var(--secondary);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px var(--glow-color);
         }
 
         .range-slider::-webkit-slider-thumb:hover {
@@ -734,284 +430,93 @@ $conn->close();
             background: var(--secondary);
         }
 
-        .range-values {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        .range-value-display {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--secondary);
-        }
-
-        /* ===== Submit Button ===== */
+        /* Submit Button - Improved */
         .submit-btn {
-            background: var(--gradient-mixed);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             color: white;
             border: none;
-            padding: 18px 40px;
-            border-radius: var(--radius-full);
+            padding: 18px 32px;
+            border-radius: 50px;
             cursor: pointer;
-            font-weight: 700;
+            font-weight: 800;
+            width: auto;
+            min-width: 260px;
             font-size: 1.2rem;
-            transition: all var(--transition-base);
-            box-shadow: 0 10px 20px rgba(48, 188, 237, 0.3);
-            display: inline-flex;
-            align-items: center;
+            transition: all 0.3s;
+            box-shadow: 0 15px 30px rgba(79, 70, 229, 0.4);
+            display: flex;
             justify-content: center;
-            gap: var(--space-md);
+            gap: 12px;
+            align-items: center;
+            margin: 20px 0 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            position: relative;
-            overflow: hidden;
-            min-width: 280px;
-        }
-
-        .submit-btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
         }
 
         .submit-btn:hover {
             transform: translateY(-5px);
-            box-shadow: 0 20px 30px rgba(48, 188, 237, 0.4);
+            box-shadow: 0 20px 40px rgba(79, 70, 229, 0.5);
         }
 
-        .submit-btn:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-
-        .submit-btn i {
-            transition: transform var(--transition-fast);
-        }
-
-        .submit-btn:hover i:last-child {
-            transform: translateX(5px);
-        }
-
-        /* ===== Summary Card ===== */
-        .summary-card {
-            background: var(--gradient-mixed);
-            border-radius: var(--radius-xl);
-            padding: var(--space-2xl);
-            color: white;
-            box-shadow: var(--shadow-lg);
-            margin-bottom: var(--space-2xl);
-            position: relative;
-            overflow: hidden;
-            animation: slideInRight 0.6s ease-out;
-        }
-
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .summary-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-            animation: rotate 20s linear infinite;
-        }
-
-        @keyframes rotate {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .summary-card h3,
-        .summary-card p {
-            color: white;
-            position: relative;
-            z-index: 1;
-        }
-
-        .total-budget {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: white;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-        }
-
-        /* ===== Selected Items ===== */
-        .selected-items {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: var(--radius-lg);
-            padding: var(--space-xl);
-            margin-top: var(--space-xl);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .selected-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: var(--space-md) 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .selected-item:last-child {
-            border-bottom: none;
-        }
-
-        .selected-item span:first-child {
-            opacity: 0.9;
-        }
-
-        .selected-item span:last-child {
-            font-weight: 600;
-            color: var(--secondary);
-        }
-
-        /* ===== Tab Buttons ===== */
-        .tab-container {
-            display: flex;
-            gap: var(--space-sm);
-            margin-bottom: var(--space-xl);
-            flex-wrap: wrap;
-        }
-
-        .tab-button {
-            padding: 14px 32px;
-            font-weight: 600;
-            font-size: 1rem;
-            border-radius: var(--radius-full);
-            transition: all var(--transition-base);
-            cursor: pointer;
-            border: 2px solid var(--card-border);
-            background: var(--bg-surface);
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tab-button i {
-            color: var(--secondary);
-            transition: all var(--transition-fast);
-        }
-
-        .tab-button.active {
-            background: var(--secondary);
-            color: white;
-            border-color: var(--secondary);
-            box-shadow: 0 10px 20px rgba(48, 188, 237, 0.3);
-        }
-
-        .tab-button.active i {
-            color: white;
-        }
-
-        .tab-button:not(.active):hover {
-            border-color: var(--secondary);
-            color: var(--secondary);
-            transform: translateY(-2px);
-        }
-
-        .tab-button:not(.active):hover i {
-            color: var(--secondary);
-        }
-
-        /* ===== Result Cards ===== */
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: var(--space-xl);
-            margin-top: var(--space-xl);
-        }
-
+        /* Result Cards */
         .result-card {
-            background: var(--bg-card);
+            background: var(--bg-surface);
             border: 1px solid var(--card-border);
-            border-radius: var(--radius-xl);
+            border-radius: 24px;
             overflow: hidden;
-            transition: all var(--transition-base);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            backdrop-filter: blur(10px);
             position: relative;
             height: 100%;
             display: flex;
             flex-direction: column;
-            animation: scaleIn 0.5s ease-out;
-            box-shadow: var(--shadow-sm);
         }
 
-        @keyframes scaleIn {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            opacity: 0.8;
+            transition: opacity 0.3s;
+            z-index: 2;
         }
 
         .result-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow-hover);
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px var(--shadow-color);
             border-color: var(--secondary);
+        }
+
+        .result-card:hover::before {
+            opacity: 1;
         }
 
         .result-card.selected {
             border: 2px solid var(--secondary);
-            box-shadow: 0 0 0 4px rgba(48, 188, 237, 0.2);
+            box-shadow: 0 0 0 2px var(--glow-color);
         }
 
-        .card-image {
-            height: 200px;
+        .hotel-image,
+        .flight-image {
+            height: 160px;
             background-size: cover;
             background-position: center;
             position: relative;
-            transition: transform var(--transition-base);
         }
 
-        .result-card:hover .card-image {
-            transform: scale(1.05);
-        }
-
-        .card-badge {
+        .hotel-badge,
+        .flight-badge {
             position: absolute;
-            top: var(--space-md);
-            right: var(--space-md);
-            padding: 6px 12px;
-            border-radius: var(--radius-full);
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 20px;
             font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            z-index: 2;
+            font-weight: 600;
         }
 
         .badge-low {
@@ -1020,7 +525,7 @@ $conn->close();
         }
 
         .badge-medium {
-            background: var(--warning);
+            background: #f59e0b;
             color: white;
         }
 
@@ -1029,83 +534,22 @@ $conn->close();
             color: white;
         }
 
-        .card-content {
-            padding: var(--space-xl);
-            flex-grow: 1;
+        /* Summary Card */
+        .summary-card {
+            background: linear-gradient(135deg, var(--primary), #2a0a8a);
+            border-radius: 24px;
+            padding: 30px;
+            color: white;
+            box-shadow: 0 20px 40px rgba(79, 70, 229, 0.3);
+            margin-bottom: 30px;
         }
 
-        .card-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: var(--space-xs);
-            color: var(--text-main);
+        .summary-card h3,
+        .summary-card p {
+            color: white;
         }
 
-        .card-rating {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            margin-bottom: var(--space-sm);
-        }
-
-        .card-rating i {
-            color: #f59e0b;
-            font-size: 0.9rem;
-        }
-
-        .card-rating span {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-left: var(--space-xs);
-        }
-
-        .card-description {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            line-height: 1.6;
-            margin-bottom: var(--space-md);
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .card-amenities {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--space-sm);
-            margin-bottom: var(--space-lg);
-        }
-
-        .amenity-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-xs);
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            background: var(--bg-base);
-            padding: 4px 10px;
-            border-radius: var(--radius-full);
-        }
-
-        .amenity-item i {
-            color: var(--secondary);
-            font-size: 0.8rem;
-        }
-
-        .price-section {
-            border-top: 1px solid var(--card-border);
-            padding-top: var(--space-lg);
-            margin-top: auto;
-        }
-
-        .price-wrapper {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: var(--space-md);
-        }
-
+        /* Price Display */
         .price-tag {
             font-size: 1.8rem;
             font-weight: 800;
@@ -1114,122 +558,139 @@ $conn->close();
         }
 
         .price-label {
-            font-size: 0.9rem;
+            font-size: 1rem;
             color: var(--text-muted);
+            margin-left: 4px;
         }
 
-        .total-price {
-            text-align: right;
-        }
-
-        .total-price .amount {
-            font-size: 1.2rem;
+        /* Tab Buttons - Improved */
+        .tab-button {
+            padding: 14px 32px;
             font-weight: 700;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid var(--card-border);
+            background: var(--bg-surface);
+            color: var(--text-main);
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .tab-button.active {
+            background: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+            box-shadow: 0 8px 16px rgba(6, 182, 212, 0.3);
+        }
+
+        .tab-button:not(.active):hover {
+            border-color: var(--secondary);
             color: var(--secondary);
+            transform: translateY(-2px);
         }
 
-        .total-price .period {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        /* ===== Select Button ===== */
+        /* ===== FIXED BUTTON STYLES ===== */
+        /* Select Button - Improved sizing and positioning */
         .select-btn {
-            background: var(--gradient-mixed);
+            background: var(--secondary);
             color: white;
             border: none;
-            border-radius: var(--radius-full);
+            border-radius: 50px;
             padding: 14px 24px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
             cursor: pointer;
-            transition: all var(--transition-base);
+            transition: all 0.3s ease;
             width: 100%;
+            max-width: 220px;
+            margin: 15px auto 5px;
+            display: block;
+            text-align: center;
+            box-shadow: 0 8px 16px rgba(6, 182, 212, 0.3);
             text-transform: uppercase;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .select-btn::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
         }
 
         .select-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(48, 188, 237, 0.3);
-        }
-
-        .select-btn:hover::before {
-            width: 300px;
-            height: 300px;
+            background: var(--primary);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px rgba(79, 70, 229, 0.4);
         }
 
         .select-btn.selected {
             background: var(--success);
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
         }
 
         .select-btn:disabled {
-            background: var(--text-muted);
+            background: #94a3b8;
             cursor: not-allowed;
-            opacity: 0.6;
             transform: none;
             box-shadow: none;
+            opacity: 0.6;
         }
 
-        /* ===== Flight Card Specific ===== */
-        .flight-info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: var(--space-md);
-            margin-bottom: var(--space-md);
+        /* Button container utility */
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 25px 0 15px;
         }
 
-        .flight-info-item {
-            text-align: center;
-            padding: var(--space-sm);
-            background: var(--bg-base);
-            border-radius: var(--radius-md);
+        /* Result cards grid spacing */
+        #hotelsResults,
+        #flightsResults {
+            gap: 30px;
+            margin-top: 30px;
         }
 
-        .flight-info-item .label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        /* Card content spacing */
+        .result-card .p-5 {
+            padding: 24px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
-        .flight-info-item .value {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-top: 2px;
+        .result-card .border-t {
+            margin-top: auto;
+            padding-top: 20px;
         }
 
-        /* ===== Loading Spinner ===== */
+        /* Selected Items Summary improvements */
+        .selected-items {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 24px;
+            margin-top: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .selected-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 1.1rem;
+        }
+
+        .selected-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Loading Spinner */
         .loading-spinner {
-            text-align: center;
-            padding: var(--space-2xl) 0;
-        }
-
-        .spinner {
-            border: 4px solid var(--card-border);
-            border-top: 4px solid var(--secondary);
+            border: 3px solid var(--card-border);
+            border-top: 3px solid var(--secondary);
             border-radius: 50%;
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto var(--space-lg);
         }
 
         @keyframes spin {
@@ -1242,559 +703,169 @@ $conn->close();
             }
         }
 
-        /* ===== Toast Notifications ===== */
+        /* Toast Notifications */
         .toast-container {
             position: fixed;
             top: 30px;
             right: 30px;
-            z-index: var(--z-toast);
+            z-index: 3000;
         }
 
         .toast {
             background: var(--bg-surface);
-            backdrop-filter: blur(20px);
-            border-radius: var(--radius-lg);
-            padding: 16px 24px;
-            margin-top: var(--space-sm);
-            box-shadow: var(--shadow-lg);
-            border-left: 6px solid;
+            border-radius: 16px;
+            padding: 18px 24px;
+            margin-top: 10px;
+            box-shadow: 0 15px 40px var(--shadow-color);
+            border-left: 8px solid var(--primary);
             color: var(--text-main);
-            font-weight: 600;
+            font-weight: 700;
             transform: translateX(400px);
-            transition: transform var(--transition-base);
+            transition: transform 0.3s ease;
             border: 1px solid var(--card-border);
-            min-width: 320px;
+            backdrop-filter: blur(10px);
+            min-width: 300px;
             display: flex;
             align-items: center;
-            gap: var(--space-md);
-            animation: slideInRight 0.3s ease;
+            gap: 12px;
         }
 
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast i {
-            font-size: 1.3rem;
-        }
-
-        .toast-success {
+        .toast.toast-success {
             border-left-color: var(--success);
         }
 
-        .toast-success i {
-            color: var(--success);
-        }
-
-        .toast-error {
+        .toast.toast-error {
             border-left-color: var(--danger);
         }
 
-        .toast-error i {
-            color: var(--danger);
+        .toast.toast-warning {
+            border-left-color: #f59e0b;
         }
 
-        .toast-warning {
-            border-left-color: var(--warning);
-        }
-
-        .toast-warning i {
-            color: var(--warning);
-        }
-
-        .toast-info {
-            border-left-color: var(--secondary);
-        }
-
-        .toast-info i {
-            color: var(--secondary);
-        }
-
-        /* ===== Session Restore Message ===== */
+        /* Session restore message */
         .session-restore {
             position: fixed;
-            top: 100px;
-            right: 30px;
+            top: 20px;
+            right: 20px;
             background: var(--bg-surface);
-            backdrop-filter: blur(20px);
-            border-radius: var(--radius-lg);
+            border-radius: 16px;
             padding: 16px 24px;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 15px 40px var(--shadow-color);
             display: flex;
             align-items: center;
-            gap: var(--space-md);
-            z-index: calc(var(--z-toast) + 1);
+            gap: 12px;
+            z-index: 9999;
             animation: slideInRight 0.3s ease;
             border-left: 4px solid var(--secondary);
             border: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
         }
 
-        .session-restore i {
-            color: var(--secondary);
-            animation: spin 1s linear infinite;
-        }
-
-        /* ===== Utility Classes ===== */
-        .hidden {
-            display: none !important;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .flex {
-            display: flex;
-        }
-
-        .flex-col {
-            flex-direction: column;
-        }
-
-        .items-center {
-            align-items: center;
-        }
-
-        .items-start {
-            align-items: flex-start;
-        }
-
-        .justify-between {
-            justify-content: space-between;
-        }
-
-        .justify-center {
-            justify-content: center;
-        }
-
-        .justify-end {
-            justify-content: flex-end;
-        }
-
-        .gap-1 {
-            gap: var(--space-xs);
-        }
-
-        .gap-2 {
-            gap: var(--space-sm);
-        }
-
-        .gap-3 {
-            gap: var(--space-md);
-        }
-
-        .gap-4 {
-            gap: var(--space-lg);
-        }
-
-        .gap-6 {
-            gap: var(--space-xl);
-        }
-
-        .mt-1 {
-            margin-top: var(--space-xs);
-        }
-
-        .mt-2 {
-            margin-top: var(--space-sm);
-        }
-
-        .mt-3 {
-            margin-top: var(--space-md);
-        }
-
-        .mt-4 {
-            margin-top: var(--space-lg);
-        }
-
-        .mt-6 {
-            margin-top: var(--space-xl);
-        }
-
-        .mt-8 {
-            margin-top: var(--space-2xl);
-        }
-
-        .mb-1 {
-            margin-bottom: var(--space-xs);
-        }
-
-        .mb-2 {
-            margin-bottom: var(--space-sm);
-        }
-
-        .mb-3 {
-            margin-bottom: var(--space-md);
-        }
-
-        .mb-4 {
-            margin-bottom: var(--space-lg);
-        }
-
-        .mb-6 {
-            margin-bottom: var(--space-xl);
-        }
-
-        .mb-8 {
-            margin-bottom: var(--space-2xl);
-        }
-
-        .ml-1 {
-            margin-left: var(--space-xs);
-        }
-
-        .ml-2 {
-            margin-left: var(--space-sm);
-        }
-
-        .mr-1 {
-            margin-right: var(--space-xs);
-        }
-
-        .mr-2 {
-            margin-right: var(--space-sm);
-        }
-
-        .p-3 {
-            padding: var(--space-md);
-        }
-
-        .p-4 {
-            padding: var(--space-lg);
-        }
-
-        .p-5 {
-            padding: var(--space-xl);
-        }
-
-        .text-xs {
-            font-size: 0.75rem;
-        }
-
-        .text-sm {
-            font-size: 0.875rem;
-        }
-
-        .text-base {
-            font-size: 1rem;
-        }
-
-        .text-lg {
-            font-size: 1.125rem;
-        }
-
-        .text-xl {
-            font-size: 1.25rem;
-        }
-
-        .text-2xl {
-            font-size: 1.5rem;
-        }
-
-        .text-3xl {
-            font-size: 1.875rem;
-        }
-
-        .text-4xl {
-            font-size: 2.25rem;
-        }
-
-        .text-5xl {
-            font-size: 3rem;
-        }
-
-        .font-normal {
-            font-weight: 400;
-        }
-
-        .font-medium {
-            font-weight: 500;
-        }
-
-        .font-semibold {
-            font-weight: 600;
-        }
-
-        .font-bold {
-            font-weight: 700;
-        }
-
-        .font-extrabold {
-            font-weight: 800;
-        }
-
-        .text-white {
-            color: white;
-        }
-
-        .text-white\/80 {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .w-full {
-            width: 100%;
-        }
-
-        .max-w-2xl {
-            max-width: 42rem;
-        }
-
-        .mx-auto {
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .relative {
-            position: relative;
-        }
-
-        .absolute {
-            position: absolute;
-        }
-
-        .inset-y-0 {
-            top: 0;
-            bottom: 0;
-        }
-
-        .right-0 {
-            right: 0;
-        }
-
-        .left-4 {
-            left: 1rem;
-        }
-
-        .top-1\/2 {
-            top: 50%;
-        }
-
-        .-translate-y-1\/2 {
-            transform: translateY(-50%);
-        }
-
-        .pr-3 {
-            padding-right: 0.75rem;
-        }
-
-        .pointer-events-none {
-            pointer-events: none;
-        }
-
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .border-t {
-            border-top: 1px solid var(--card-border);
-        }
-
-        .pt-4 {
-            padding-top: var(--space-lg);
-        }
-
-        .pb-2 {
-            padding-bottom: var(--space-sm);
-        }
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
 
-        .opacity-80 {
-            opacity: 0.8;
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
-        /* ===== Responsive Design ===== */
-        @media (max-width: 1024px) {
+        /* Responsive */
+        @media (max-width: 768px) {
             .navbar {
                 width: 95%;
                 left: 2.5%;
                 padding: 0 20px;
             }
 
-            .nav-link span:not(.fa) {
-                display: none;
-            }
-
-            .hero-title {
-                font-size: 2.5rem;
-            }
-
-            .results-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            body {
-                padding-top: 80px;
-            }
-
-            .navbar {
-                height: 70px;
-                padding: 0 15px;
-            }
-
-            .logo .brand-text {
-                display: none;
-            }
-
-            .logo i {
-                font-size: 1.5rem;
-            }
-
-            .nav-right {
-                gap: var(--space-sm);
-            }
-
-            .nav-link {
-                padding: var(--space-xs);
-            }
-
-            .nav-link i {
-                font-size: 1.2rem;
-            }
-
-            .profile-btn span:not(.fa) {
-                display: none;
-            }
-
-            .profile-btn i:last-child {
-                display: none;
-            }
-
-            .hero-title {
-                font-size: 2rem;
-            }
-
-            .hero-subtitle {
-                font-size: 1rem;
-                padding: 0 var(--space-md);
-            }
-
             .glass-card {
-                padding: var(--space-xl);
+                padding: 20px;
             }
 
-            .container {
-                padding: 0 var(--space-md);
-            }
-
-            .results-grid {
+            .grid {
                 grid-template-columns: 1fr;
             }
-
-            .submit-btn {
-                width: 100%;
-                min-width: auto;
-                padding: 16px 20px;
-                font-size: 1rem;
-            }
-
-            .tab-container {
-                justify-content: center;
-            }
-
-            .tab-button {
-                padding: 12px 24px;
-                font-size: 0.9rem;
-            }
-
-            .toast-container {
-                left: 20px;
-                right: 20px;
-            }
-
-            .toast {
-                min-width: auto;
-                width: 100%;
-            }
         }
 
-        @media (max-width: 480px) {
-            .hero-title {
-                font-size: 1.75rem;
-            }
+        .hidden {
+            display: none !important;
+        }
 
-            .glass-card {
-                padding: var(--space-lg);
-            }
+        /* Utility classes */
+        .ml-2 {
+            margin-left: 8px;
+        }
 
-            .range-slider-container {
-                padding: var(--space-lg);
-            }
+        .mr-2 {
+            margin-right: 8px;
+        }
 
-            .checkbox-wrapper {
-                padding: var(--space-sm);
-            }
+        .mb-4 {
+            margin-bottom: 16px;
+        }
 
-            .checkbox-wrapper span {
-                font-size: 0.85rem;
-            }
+        .mt-4 {
+            margin-top: 16px;
+        }
 
-            .tab-button {
-                padding: 10px 16px;
-                font-size: 0.85rem;
-            }
+        .p-4 {
+            padding: 16px;
+        }
 
-            .card-content {
-                padding: var(--space-lg);
-            }
+        .text-lg {
+            font-size: 1.125rem;
+        }
 
-            .price-tag {
-                font-size: 1.5rem;
-            }
+        .font-bold {
+            font-weight: 700;
         }
     </style>
 </head>
 
-<body class="user-logged-in" data-user-id="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
+<body>
 
     <div class="scroll-progress-bar" id="scrollBar"></div>
 
     <!-- Session restore notification -->
     <div id="sessionRestoreMsg" class="session-restore" style="display: none;">
-        <i class="fas fa-sync-alt fa-spin"></i>
+        <i class="fas fa-sync-alt fa-spin" style="color: var(--secondary);"></i>
         <span>Restoring your session...</span>
     </div>
 
     <!-- Navigation -->
     <nav class="navbar" role="navigation" aria-label="Main navigation">
-        <a href="../main/index.html" class="logo">
+        <a href="../main/index.html" class="logo" style="text-decoration:none;">
             <i class="fa-solid fa-paper-plane"></i>
             <span class="brand-text"><span class="trip">Trip</span><span class="mate">Mate</span></span>
         </a>
 
         <div class="nav-right">
-            <a href="../main/index.html" class="nav-link"><i class="fas fa-home"></i> <span>Home</span></a>
-            <a href="../search/search.html" class="nav-link"><i class="fas fa-search"></i> <span>Search</span></a>
-            <a href="user_dashboard.php" class="nav-link"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
-            <button class="theme-toggle" id="themeToggle" aria-label="Switch dark/light mode">
-                <i class="fas fa-moon"></i>
-            </button>
+            <a href="../main/index.html" class="nav-link"><i class="fas fa-home"></i> Home</a>
+            <a href="../search/search.html" class="nav-link"><i class="fas fa-search"></i> Search</a>
+            <a href="user_dashboard.php" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <button class="theme-toggle" id="themeToggle" aria-label="Switch dark/light mode"><i class="fas fa-moon"></i></button>
 
             <!-- Profile Menu -->
             <div class="profile-menu">
                 <button class="profile-btn" id="profileBtn">
                     <?php if (!empty($user_profile_pic) && $user_profile_pic != '../image/default-avatar.png'): ?>
-                        <img src="<?php echo htmlspecialchars($user_profile_pic); ?>" alt="Profile">
+                        <img src="<?php echo htmlspecialchars($user_profile_pic); ?>" alt="Profile" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
                     <?php else: ?>
                         <i class="fas fa-user-circle"></i>
                     <?php endif; ?>
-                    <span><?php echo htmlspecialchars($userName); ?></span>
-                    <i class="fas fa-chevron-down"></i>
+                    <span class="hidden sm:inline"><?php echo htmlspecialchars($userName); ?></span>
+                    <i class="fas fa-chevron-down text-xs"></i>
                 </button>
 
                 <div class="profile-dropdown" id="userDropdown">
-                    <div class="profile-header">
+                    <div class="p-3 mb-2" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; color: white;">
                         <div class="font-bold"><?php echo htmlspecialchars($userName); ?></div>
-                        <div class="text-xs"><?php echo htmlspecialchars($user_email); ?></div>
+                        <div class="text-xs opacity-80"><?php echo htmlspecialchars($user_email); ?></div>
                         <?php if (isset($user_level) && $user_level == 'high'): ?>
-                            <span class="premium-badge">✨ Premium Member</span>
+                            <span class="inline-block mt-2 text-xs bg-white/20 px-2 py-1 rounded-full">Premium Member</span>
                         <?php endif; ?>
                     </div>
                     <a href="user_profile.php"><i class="fas fa-user"></i> My Profile</a>
@@ -1809,12 +880,12 @@ $conn->close();
 
     <!-- Main Content -->
     <div class="container">
-        <!-- Hero Section -->
-        <div class="hero-section">
-            <h1 class="hero-title">
-                Plan Your <span>Perfect Trip</span>
+        <!-- Header -->
+        <div class="text-center mb-8 animate-fadeInUp">
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-4" style="color: var(--text-main);">
+                Plan Your <span style="color: var(--secondary);">Perfect Trip</span>
             </h1>
-            <p class="hero-subtitle">
+            <p class="text-lg max-w-2xl mx-auto" style="color: var(--text-muted);">
                 Customize every aspect of your journey with our intelligent trip planner
             </p>
         </div>
@@ -1822,11 +893,10 @@ $conn->close();
         <!-- Main Form Card -->
         <div class="glass-card">
             <form id="tripPlannerForm" onsubmit="event.preventDefault(); planTrip();">
-                <?php echo getCSRFTokenField(); ?>
                 <!-- Destination Selection -->
                 <div class="mb-6">
-                    <label class="form-label">
-                        <i class="fas fa-map-marker-alt"></i>Select Destination
+                    <label class="block text-sm font-semibold mb-2" style="color: var(--text-main);">
+                        <i class="fas fa-map-marker-alt" style="color: var(--secondary); mr-2"></i>Select Destination
                     </label>
                     <select id="destination" name="destination_id" required class="form-input">
                         <option value="">Choose your dream destination</option>
@@ -1843,8 +913,8 @@ $conn->close();
 
                 <!-- Departure Location -->
                 <div class="mb-6">
-                    <label class="form-label">
-                        <i class="fas fa-plane-departure"></i>Your Departure City
+                    <label class="block text-sm font-semibold mb-2" style="color: var(--text-main);">
+                        <i class="fas fa-plane-departure" style="color: var(--secondary); mr-2"></i>Your Departure City
                     </label>
                     <select id="departureCity" name="departure_city" required class="form-input">
                         <option value="">Select your departure city</option>
@@ -1854,51 +924,55 @@ $conn->close();
                     </select>
                 </div>
 
-                <div class="grid gap-6" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-bottom: var(--space-xl);">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     <!-- Hotel Budget Slider -->
-                    <div class="range-slider-container">
-                        <label class="form-label">
-                            <i class="fas fa-hotel"></i>Hotel Budget (per night)
+                    <div class="p-5" style="background: var(--bg-base); border-radius: 16px;">
+                        <label class="block text-sm font-semibold mb-4" style="color: var(--text-main);">
+                            <i class="fas fa-hotel" style="color: var(--secondary); mr-2"></i>Hotel Budget (per night)
                         </label>
-                        <input type="range" id="hotelBudget" min="0" max="10000" value="5000" step="100" class="range-slider w-full">
-                        <div class="range-values">
-                            <span>Min: ₹0</span>
-                            <span class="range-value-display" id="hotelBudgetValue">₹5,000</span>
-                            <span>Max: ₹10,000</span>
+                        <div class="space-y-3">
+                            <input type="range" id="hotelBudget" min="0" max="10000" value="5000" step="100" class="range-slider w-full">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm" style="color: var(--text-muted);">Min: ₹0</span>
+                                <span class="text-lg font-bold" style="color: var(--secondary);" id="hotelBudgetValue">₹5,000</span>
+                                <span class="text-sm" style="color: var(--text-muted);">Max: ₹10,000</span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Flight Budget Slider -->
-                    <div class="range-slider-container">
-                        <label class="form-label">
-                            <i class="fas fa-plane"></i>Flight Budget (per person)
+                    <div class="p-5" style="background: var(--bg-base); border-radius: 16px;">
+                        <label class="block text-sm font-semibold mb-4" style="color: var(--text-main);">
+                            <i class="fas fa-plane" style="color: var(--secondary); mr-2"></i>Flight Budget (per person)
                         </label>
-                        <input type="range" id="flightBudget" min="1000" max="50000" value="25000" step="500" class="range-slider w-full">
-                        <div class="range-values">
-                            <span>Min: ₹1,000</span>
-                            <span class="range-value-display" id="flightBudgetValue">₹25,000</span>
-                            <span>Max: ₹50,000</span>
+                        <div class="space-y-3">
+                            <input type="range" id="flightBudget" min="1000" max="50000" value="25000" step="500" class="range-slider w-full">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm" style="color: var(--text-muted);">Min: ₹1,000</span>
+                                <span class="text-lg font-bold" style="color: var(--secondary);" id="flightBudgetValue">₹25,000</span>
+                                <span class="text-sm" style="color: var(--text-muted);">Max: ₹50,000</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="grid gap-6" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: var(--space-xl);">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <!-- Travel Dates -->
                     <div>
-                        <label class="form-label">
-                            <i class="fas fa-calendar-alt"></i>Start Date
+                        <label class="block text-sm font-semibold mb-2" style="color: var(--text-main);">
+                            <i class="fas fa-calendar-alt" style="color: var(--secondary); mr-2"></i>Start Date
                         </label>
                         <input type="text" id="startDate" class="form-input" placeholder="Select start date" required>
                     </div>
                     <div>
-                        <label class="form-label">
-                            <i class="fas fa-calendar-check"></i>End Date
+                        <label class="block text-sm font-semibold mb-2" style="color: var(--text-main);">
+                            <i class="fas fa-calendar-check" style="color: var(--secondary); mr-2"></i>End Date
                         </label>
                         <input type="text" id="endDate" class="form-input" placeholder="Select end date" required>
                     </div>
                     <div>
-                        <label class="form-label">
-                            <i class="fas fa-users"></i>Number of Travelers
+                        <label class="block text-sm font-semibold mb-2" style="color: var(--text-main);">
+                            <i class="fas fa-users" style="color: var(--secondary); mr-2"></i>Number of Travelers
                         </label>
                         <div class="relative">
                             <input type="number" id="travelers" min="1" max="10" value="2" class="form-input">
@@ -1910,34 +984,32 @@ $conn->close();
                 </div>
 
                 <!-- Additional Preferences -->
-                <div class="grid gap-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: var(--space-xl);">
-                    <label class="checkbox-wrapper">
-                        <input type="checkbox" id="freeCancellation">
-                        <span>Free Cancellation</span>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <label class="flex items-center space-x-3 p-3 rounded-lg cursor-pointer hover:bg-[var(--bg-base)] transition" style="background: var(--bg-base);">
+                        <input type="checkbox" id="freeCancellation" class="form-checkbox h-5 w-5" style="color: var(--secondary);">
+                        <span class="text-sm" style="color: var(--text-main);">Free Cancellation</span>
                     </label>
-                    <label class="checkbox-wrapper">
-                        <input type="checkbox" id="breakfastIncluded">
-                        <span>Breakfast Included</span>
+                    <label class="flex items-center space-x-3 p-3 rounded-lg cursor-pointer hover:bg-[var(--bg-base)] transition" style="background: var(--bg-base);">
+                        <input type="checkbox" id="breakfastIncluded" class="form-checkbox h-5 w-5" style="color: var(--secondary);">
+                        <span class="text-sm" style="color: var(--text-main);">Breakfast Included</span>
                     </label>
-                    <label class="checkbox-wrapper">
-                        <input type="checkbox" id="refundableFlights">
-                        <span>Refundable Flights</span>
+                    <label class="flex items-center space-x-3 p-3 rounded-lg cursor-pointer hover:bg-[var(--bg-base)] transition" style="background: var(--bg-base);">
+                        <input type="checkbox" id="refundableFlights" class="form-checkbox h-5 w-5" style="color: var(--secondary);">
+                        <span class="text-sm" style="color: var(--text-main);">Refundable Flights</span>
                     </label>
                 </div>
 
                 <!-- Submit Button -->
-                <div class="text-center">
-                    <button type="submit" class="submit-btn">
-                        <i class="fas fa-magic"></i>
-                        <span>Search Options</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </div>
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-magic"></i>
+                    <span>Search Options</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
             </form>
         </div>
 
         <!-- Results Section (Initially Hidden) -->
-        <div id="resultsSection" class="hidden">
+        <div id="resultsSection" class="hidden space-y-8">
             <!-- Trip Summary -->
             <div class="summary-card">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1946,48 +1018,48 @@ $conn->close();
                         <p class="text-white/80" id="tripSummaryText"></p>
                     </div>
                     <div class="text-right">
-                        <div class="total-budget" id="totalBudget">₹0</div>
+                        <div class="text-3xl font-bold" style="color: var(--secondary);" id="totalBudget">₹0</div>
                         <div class="text-white/80 text-sm">Estimated Total Budget</div>
                     </div>
                 </div>
 
                 <!-- Selected Items Summary -->
                 <div class="selected-items" id="selectedItemsSummary" style="display: none;">
-                    <h4 class="font-semibold mb-3 text-white">Your Selections:</h4>
+                    <h4 class="font-semibold mb-2 text-white">Your Selections:</h4>
                     <div id="selectedHotelInfo" class="selected-item">
                         <span>Hotel:</span>
-                        <span class="font-semibold" id="selectedHotelName">None selected</span>
+                        <span class="font-semibold" style="color: var(--secondary);" id="selectedHotelName">None selected</span>
                     </div>
                     <div id="selectedFlightInfo" class="selected-item">
                         <span>Flight:</span>
-                        <span class="font-semibold" id="selectedFlightName">None selected</span>
+                        <span class="font-semibold" style="color: var(--secondary);" id="selectedFlightName">None selected</span>
                     </div>
                 </div>
             </div>
 
             <!-- Tabs for Hotels and Flights -->
-            <div class="tab-container">
+            <div class="flex space-x-2 pb-2">
                 <button onclick="switchTab('hotels')" id="hotelsTab" class="tab-button active">
-                    <i class="fas fa-hotel"></i>Hotels <span id="hotelCount">(0)</span>
+                    <i class="fas fa-hotel mr-2"></i>Hotels <span id="hotelCount" class="ml-1 text-sm">(0)</span>
                 </button>
                 <button onclick="switchTab('flights')" id="flightsTab" class="tab-button">
-                    <i class="fas fa-plane"></i>Flights <span id="flightCount">(0)</span>
+                    <i class="fas fa-plane mr-2"></i>Flights <span id="flightCount" class="ml-1 text-sm">(0)</span>
                 </button>
             </div>
 
             <!-- Hotels Results -->
-            <div id="hotelsResults" class="results-grid">
+            <div id="hotelsResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Results will be dynamically inserted here -->
             </div>
 
             <!-- Flights Results -->
-            <div id="flightsResults" class="results-grid hidden">
+            <div id="flightsResults" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <!-- Results will be dynamically inserted here -->
             </div>
 
             <!-- Loading Spinner -->
-            <div id="loadingSpinner" class="loading-spinner hidden">
-                <div class="spinner"></div>
+            <div id="loadingSpinner" class="hidden text-center py-12">
+                <div class="loading-spinner mx-auto mb-4"></div>
                 <p style="color: var(--text-muted);">Finding the best options for you...</p>
             </div>
         </div>
@@ -2059,7 +1131,7 @@ $conn->close();
         flatpickr("#startDate", {
             minDate: "today",
             dateFormat: "Y-m-d",
-            onChange: function(selectedDates, dateStr) {
+            onChange: function(selectedDates, dateStr, instance) {
                 flatpickr("#endDate", {
                     minDate: dateStr,
                     dateFormat: "Y-m-d"
@@ -2202,16 +1274,16 @@ $conn->close();
 
             const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
             toast.innerHTML = `
-                <i class="fas ${icon}"></i>
+                <i class="fas ${icon}" style="color: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#f59e0b'};"></i>
                 <span>${message}</span>
             `;
 
             container.appendChild(toast);
 
-            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => toast.style.transform = 'translateX(0)', 10);
 
             setTimeout(() => {
-                toast.classList.remove('show');
+                toast.style.transform = 'translateX(400px)';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
@@ -2276,111 +1348,50 @@ $conn->close();
                 return;
             }
 
-            // Simulate API call with sample data
-            setTimeout(() => {
-                // Sample hotels data
-                const sampleHotels = [{
-                        id: 1,
-                        hotel_name: 'Grand Luxury Hotel',
-                        hotel_type: 'high',
-                        price_per_night: 8500,
-                        hotel_rating: 4.8,
-                        description: 'Experience ultimate luxury with ocean view rooms and premium amenities',
-                        image_url: '../image/hotel-luxury.jpg',
-                        breakfast_included: true,
-                        free_cancellation: true,
-                        check_in_time: '14:00',
-                        amenities: ['Free WiFi', 'Swimming Pool', 'Spa', 'Restaurant']
+            try {
+                const response = await fetch('../actions/plan_trip.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     },
-                    {
-                        id: 2,
-                        hotel_name: 'Comfort Inn',
-                        hotel_type: 'medium',
-                        price_per_night: 4500,
-                        hotel_rating: 4.2,
-                        description: 'Modern comfort with excellent location and friendly service',
-                        image_url: '../image/hotel-comfort.jpg',
-                        breakfast_included: true,
-                        free_cancellation: true,
-                        check_in_time: '13:00',
-                        amenities: ['Free WiFi', 'Restaurant', 'Parking']
-                    },
-                    {
-                        id: 3,
-                        hotel_name: 'Budget Stay',
-                        hotel_type: 'low',
-                        price_per_night: 2200,
-                        hotel_rating: 3.9,
-                        description: 'Clean, basic accommodation perfect for budget travelers',
-                        image_url: '../image/hotel-budget.jpg',
-                        breakfast_included: false,
-                        free_cancellation: false,
-                        check_in_time: '12:00',
-                        amenities: ['Free WiFi', 'Shared Kitchen']
+                    body: JSON.stringify(formData)
+                });
+
+                const raw = await response.text();
+                let data = null;
+                try { data = raw ? JSON.parse(raw) : null; } catch (e) {
+                    console.error('Non-JSON response from plan_trip.php:', raw);
+                    showToast(raw || 'Server returned an unexpected response. Please try again.', 'error');
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    return;
+                }
+
+                if (!response.ok) {
+                    showToast((data && data.message) ? data.message : 'Network response was not ok', 'error');
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    return;
+                }
+
+                if (data && data.status === 'success') {
+                    currentHotels = data.hotels || [];
+                    currentFlights = data.flights || [];
+                    displayResults(data, currentNights);
+                    showToast('Trip options loaded successfully!', 'success');
+                } else {
+                    showToast(data.message || 'Error planning trip', 'error');
+
+                    if (data.message && data.message.includes('login')) {
+                        setTimeout(() => {
+                            window.location.href = '../auth/login.php';
+                        }, 2000);
                     }
-                ];
-
-                // Sample flights data
-                const sampleFlights = [{
-                        id: 1,
-                        airline: 'Emirates',
-                        flight_type: 'high',
-                        price_per_person: 45000,
-                        departure_city: departureCity,
-                        departure_time: '10:30 AM',
-                        arrival_time: '08:45 PM',
-                        duration_hours: 14.5,
-                        stops: 1,
-                        flight_class: 'Business',
-                        baggage_allowance: '30kg',
-                        refundable: true,
-                        meal_included: true
-                    },
-                    {
-                        id: 2,
-                        airline: 'Qatar Airways',
-                        flight_type: 'medium',
-                        price_per_person: 32000,
-                        departure_city: departureCity,
-                        departure_time: '11:45 PM',
-                        arrival_time: '09:30 AM',
-                        duration_hours: 16,
-                        stops: 1,
-                        flight_class: 'Economy',
-                        baggage_allowance: '25kg',
-                        refundable: true,
-                        meal_included: true
-                    },
-                    {
-                        id: 3,
-                        airline: 'Air India',
-                        flight_type: 'low',
-                        price_per_person: 18500,
-                        departure_city: departureCity,
-                        departure_time: '06:00 AM',
-                        arrival_time: '08:30 PM',
-                        duration_hours: 18,
-                        stops: 2,
-                        flight_class: 'Economy',
-                        baggage_allowance: '15kg',
-                        refundable: false,
-                        meal_included: true
-                    }
-                ];
-
-                currentHotels = sampleHotels;
-                currentFlights = sampleFlights;
-
-                const data = {
-                    status: 'success',
-                    hotels: sampleHotels,
-                    flights: sampleFlights
-                };
-
-                displayResults(data, currentNights);
-                showToast('Trip options loaded successfully!', 'success');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Network error. Please try again.', 'error');
+            } finally {
                 document.getElementById('loadingSpinner').classList.add('hidden');
-            }, 1500);
+            }
         }
 
         // Display results
@@ -2391,21 +1402,21 @@ $conn->close();
             const flightCount = document.getElementById('flightCount');
             const tripSummaryText = document.getElementById('tripSummaryText');
 
-            hotelCount.textContent = `(${data.hotels?.length || 0})`;
-            flightCount.textContent = `(${data.flights?.length || 0})`;
+            hotelCount.textContent = `(${(data.hotels && data.hotels.length) || 0})`;
+            flightCount.textContent = `(${(data.flights && data.flights.length) || 0})`;
 
             const destSelect = document.getElementById('destination');
-            const destName = destSelect.options[destSelect.selectedIndex]?.text.split(' - ')[0] || 'Selected Destination';
+            const destName = destSelect.options[destSelect.selectedIndex].text.split(' - ')[0];
             const departureCity = document.getElementById('departureCity').value;
             const travelers = document.getElementById('travelers').value;
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
 
             tripSummaryText.innerHTML = `
-                <i class="fas fa-map-marker-alt mr-2"></i>${destName}<br>
-                <i class="fas fa-plane-departure mr-2"></i>From: ${departureCity}<br>
-                <i class="fas fa-calendar mr-2"></i>${nights} ${nights === 1 ? 'night' : 'nights'} (${startDate} to ${endDate})<br>
-                <i class="fas fa-users mr-2"></i>${travelers} ${travelers == 1 ? 'traveler' : 'travelers'}
+                <i class="fas fa-map-marker-alt mr-2" style="color: var(--secondary);"></i>${destName}<br>
+                <i class="fas fa-plane-departure mr-2" style="color: var(--secondary);"></i>From: ${departureCity}<br>
+                <i class="fas fa-calendar mr-2" style="color: var(--secondary);"></i>${nights} ${nights === 1 ? 'night' : 'nights'} (${startDate} to ${endDate})<br>
+                <i class="fas fa-users mr-2" style="color: var(--secondary);"></i>${travelers} ${travelers == 1 ? 'traveler' : 'travelers'}
             `;
 
             if (data.hotels && data.hotels.length > 0) {
@@ -2430,41 +1441,49 @@ $conn->close();
             const badgeClass = hotel.hotel_type === 'low' ? 'badge-low' : (hotel.hotel_type === 'medium' ? 'badge-medium' : 'badge-high');
             const badgeText = hotel.hotel_type.charAt(0).toUpperCase() + hotel.hotel_type.slice(1) + ' Budget';
             const isSelected = selectedHotel && selectedHotel.id == hotel.id;
-            const amenitiesList = hotel.amenities || ['Free WiFi', 'Restaurant'];
 
             return `
                 <div class="result-card ${isSelected ? 'selected' : ''}" data-hotel-id="${hotel.id}">
-                    <div class="card-image" style="background-image: url('${hotel.image_url || '../image/hotel-placeholder.jpg'}')">
-                        <span class="card-badge ${badgeClass}">${badgeText}</span>
+                    <div class="hotel-image" style="background-image: url('${hotel.image_url || '../image/hotel-placeholder.jpg'}')">
+                        <span class="hotel-badge ${badgeClass}">${badgeText}</span>
                     </div>
-                    <div class="card-content">
-                        <h3 class="card-title">${escapeHtml(hotel.hotel_name)}</h3>
-                        <div class="card-rating">
-                            ${Array(5).fill(0).map((_, i) => 
-                                `<i class="fas fa-star" style="color: ${i < Math.floor(hotel.hotel_rating) ? '#f59e0b' : 'var(--card-border)'};"></i>`
-                            ).join('')}
+                    <div class="p-5 flex-grow">
+                        <h3 class="font-bold text-lg mb-1" style="color: var(--text-main);">${escapeHtml(hotel.hotel_name)}</h3>
+                        <div class="flex items-center text-sm mb-2" style="color: var(--text-muted);">
+                            <i class="fas fa-star" style="color: #f59e0b; mr-1"></i>
                             <span>${hotel.hotel_rating} / 5</span>
                         </div>
-                        <p class="card-description">${escapeHtml(hotel.description || 'No description available')}</p>
-                        <div class="card-amenities">
-                            ${amenitiesList.slice(0, 3).map(amenity => 
-                                `<span class="amenity-item"><i class="fas fa-check"></i> ${amenity}</span>`
-                            ).join('')}
+                        <p class="text-sm mb-3 line-clamp-2" style="color: var(--text-muted);">${escapeHtml(hotel.description || 'No description available')}</p>
+                        <div class="space-y-2 mb-3">
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-wifi" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">Free WiFi</span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-utensils" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">${hotel.breakfast_included ? 'Breakfast Included' : 'Breakfast not included'}</span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-clock" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">Check-in: ${hotel.check_in_time || '12:00'}</span>
+                            </div>
                         </div>
-                        <div class="price-section">
-                            <div class="price-wrapper">
+                        <div class="border-t pt-4" style="border-color: var(--card-border);">
+                            <div class="flex justify-between items-center mb-4">
                                 <div>
                                     <span class="price-tag">₹${Number(hotel.price_per_night).toLocaleString()}</span>
                                     <span class="price-label">/night</span>
                                 </div>
-                                <div class="total-price">
-                                    <div class="amount">₹${totalPrice.toLocaleString()}</div>
-                                    <div class="period">for ${nights} nights</div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold" style="color: var(--secondary);">Total: ₹${totalPrice.toLocaleString()}</div>
+                                    <div class="text-sm" style="color: var(--text-muted);">for ${nights} nights</div>
                                 </div>
                             </div>
-                            <button onclick="selectHotel(${hotel.id})" class="select-btn ${isSelected ? 'selected' : ''}">
-                                ${isSelected ? '✓ SELECTED' : 'SELECT THIS HOTEL'}
-                            </button>
+                            <div class="button-container">
+                                <button onclick="selectHotel(${hotel.id})" class="select-btn ${isSelected ? 'selected' : ''}">
+                                    ${isSelected ? '✓ SELECTED' : 'SELECT THIS HOTEL'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2479,51 +1498,62 @@ $conn->close();
 
             return `
                 <div class="result-card ${isSelected ? 'selected' : ''}" data-flight-id="${flight.id}">
-                    <div class="card-image" style="background-image: url('../image/flight-bg.jpg')">
-                        <span class="card-badge ${badgeClass}">${badgeText}</span>
+                    <div class="flight-image" style="background-image: url('../image/flight-bg.jpg')">
+                        <span class="flight-badge ${badgeClass}">${badgeText}</span>
                     </div>
-                    <div class="card-content">
-                        <h3 class="card-title">${escapeHtml(flight.airline)}</h3>
-                        <p class="card-description">
-                            <i class="fas fa-map-marker-alt" style="color: var(--secondary); margin-right: 4px;"></i>
+                    <div class="p-5 flex-grow">
+                        <h3 class="font-bold text-lg mb-1" style="color: var(--text-main);">${escapeHtml(flight.airline)}</h3>
+                        <p class="text-sm mb-2" style="color: var(--text-muted);">
+                            <i class="fas fa-map-marker-alt" style="color: var(--secondary); mr-1"></i>
                             ${flight.departure_city} → Destination
                         </p>
-                        <div class="flight-info-grid">
-                            <div class="flight-info-item">
-                                <div class="label">Departure</div>
-                                <div class="value">${flight.departure_time || 'N/A'}</div>
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <div class="text-sm">
+                                <span style="color: var(--text-muted);">Departure</span><br>
+                                <span class="font-semibold" style="color: var(--text-main);">${flight.departure_time || 'N/A'}</span>
                             </div>
-                            <div class="flight-info-item">
-                                <div class="label">Arrival</div>
-                                <div class="value">${flight.arrival_time || 'N/A'}</div>
+                            <div class="text-sm">
+                                <span style="color: var(--text-muted);">Arrival</span><br>
+                                <span class="font-semibold" style="color: var(--text-main);">${flight.arrival_time || 'N/A'}</span>
                             </div>
-                            <div class="flight-info-item">
-                                <div class="label">Duration</div>
-                                <div class="value">${flight.duration_hours || 'N/A'} hrs</div>
+                            <div class="text-sm">
+                                <span style="color: var(--text-muted);">Duration</span><br>
+                                <span class="font-semibold" style="color: var(--text-main);">${flight.duration_hours || 'N/A'} hrs</span>
                             </div>
-                            <div class="flight-info-item">
-                                <div class="label">Stops</div>
-                                <div class="value">${flight.stops || '0'}</div>
+                            <div class="text-sm">
+                                <span style="color: var(--text-muted);">Stops</span><br>
+                                <span class="font-semibold" style="color: var(--text-main);">${flight.stops || '0'}</span>
                             </div>
                         </div>
-                        <div class="card-amenities">
-                            <span class="amenity-item"><i class="fas fa-briefcase"></i> ${flight.baggage_allowance || '15kg'}</span>
-                            <span class="amenity-item"><i class="fas fa-utensils"></i> ${flight.meal_included ? 'Meal' : 'No Meal'}</span>
-                            <span class="amenity-item"><i class="fas fa-exchange-alt"></i> ${flight.refundable ? 'Refundable' : 'Non-refundable'}</span>
+                        <div class="space-y-1 mb-3">
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-briefcase" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">${flight.baggage_allowance || '15kg'}</span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-utensils" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">${flight.meal_included ? 'Meal Included' : 'Meal not included'}</span>
+                            </div>
+                            <div class="flex items-center text-sm">
+                                <i class="fas fa-exchange-alt" style="color: var(--secondary); width: 20px;"></i>
+                                <span style="color: var(--text-main);">${flight.refundable ? 'Refundable' : 'Non-refundable'}</span>
+                            </div>
                         </div>
-                        <div class="price-section">
-                            <div class="price-wrapper">
+                        <div class="border-t pt-4" style="border-color: var(--card-border);">
+                            <div class="flex justify-between items-center mb-4">
                                 <div>
                                     <span class="price-tag">₹${Number(flight.price_per_person).toLocaleString()}</span>
                                     <span class="price-label">/person</span>
                                 </div>
-                                <div class="text-right">
-                                    <div class="text-xs" style="color: var(--text-muted);">${flight.flight_class || 'Economy'} Class</div>
+                                <div class="text-xs" style="color: var(--text-muted);">
+                                    ${flight.flight_class || 'Economy'} Class
                                 </div>
                             </div>
-                            <button onclick="selectFlight(${flight.id})" class="select-btn ${isSelected ? 'selected' : ''}">
-                                ${isSelected ? '✓ SELECTED' : 'SELECT THIS FLIGHT'}
-                            </button>
+                            <div class="button-container">
+                                <button onclick="selectFlight(${flight.id})" class="select-btn ${isSelected ? 'selected' : ''}">
+                                    ${isSelected ? '✓ SELECTED' : 'SELECT THIS FLIGHT'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2538,7 +1568,6 @@ $conn->close();
                         sessionStorage.clear();
                         localStorage.removeItem('tripmate_active_user_id');
                         localStorage.removeItem('tripmate_active_user_name');
-                        localStorage.removeItem('tripmate-theme');
                         window.location.href = '../main/index.html';
                     })
                     .catch(error => {
@@ -2567,14 +1596,28 @@ $conn->close();
                 if (storedUserId && storedUserName) {
                     document.getElementById('sessionRestoreMsg').style.display = 'flex';
 
-                    // Simulate session restore
-                    setTimeout(() => {
-                        document.getElementById('sessionRestoreMsg').style.display = 'none';
-                        sessionStorage.setItem('user_id', storedUserId);
-                        sessionStorage.setItem('user_name', storedUserName);
-                        document.body.classList.add('user-logged-in');
-                        showToast('Session restored!', 'success');
-                    }, 1500);
+                    fetch('../auth/restore_session.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                user_id: storedUserId,
+                                user_name: storedUserName
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                window.location.reload();
+                            } else {
+                                document.getElementById('sessionRestoreMsg').style.display = 'none';
+                                showToast('Please log in to continue', 'warning');
+                            }
+                        })
+                        .catch(() => {
+                            document.getElementById('sessionRestoreMsg').style.display = 'none';
+                        });
                 }
             <?php endif; ?>
         });

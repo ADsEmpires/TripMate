@@ -1,16 +1,7 @@
 <?php
-require_once __DIR__ . '/session_init.php'; // Initialize session management
-
-// Check if logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../auth/login.html');
-    exit;
-}
-
-require_once __DIR__ . '/../database/dbconfig.php';
-require_once __DIR__ . '/../database/app_config.php';  // ADD THIS LINE
-require_once __DIR__ . '/../database/api_config.php';  // ADD THIS LINE
-require_once __DIR__ . '/../backand/image_helper.php';
+session_start();
+include '../database/dbconfig.php';
+require_once '../backand/image_helper.php';
 
 // --- Input validation & load destination ---
 if (!isset($_GET['id'])) {
@@ -33,13 +24,31 @@ if (!$destination) {
 // --- Basic metadata for OG / SEO ---
 $og_title = htmlspecialchars($destination['name'] . ' | TripMate');
 $og_description = htmlspecialchars(mb_strimwidth(strip_tags($destination['description']), 0, 220, '...'));
-$base_url = getBaseUrl();
-$current_url = "https://{$_SERVER['HTTP_HOST']}{$_SERVER['REQUEST_URI']}";
+// Dynamically detect base URL - works on any server
+$protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$script_dir = dirname($_SERVER['SCRIPT_NAME']); // /test/tripmate/user
+$base_url = $protocol . "://" . $host . str_replace('/user', '', $script_dir); // Remove /user to get /test/tripmate
+$current_url = $protocol . "://$host$_SERVER[REQUEST_URI]";
 
 // ============================================
 // FIXED: Get images from 'images' column (not 'image_urls')
 // ============================================
-$coverImage = getDestinationImageUrl($destination, $base_url);
+$image_filenames = [];
+if (!empty($destination['images'])) {
+    $decoded_images = json_decode($destination['images'], true);
+    if (is_array($decoded_images) && !empty($decoded_images)) {
+        $image_filenames = $decoded_images;
+    }
+}
+
+// Get cover image (first image or profile_pic)
+$coverImage = $base_url . '/images/no-image.jpg';
+if (!empty($destination['profile_pic'])) {
+    $coverImage = $base_url . '/uploads/destinations/' . basename($destination['profile_pic']);
+} elseif (!empty($image_filenames)) {
+    $coverImage = $base_url . '/uploads/destinations/' . basename($image_filenames[0]);
+}
 $og_image = $coverImage;
 
 // ============================================
@@ -47,104 +56,33 @@ $og_image = $coverImage;
 // ============================================
 $cuisine_images = [];
 if (!empty($destination['cuisine_images'])) {
-    $cuisine_data = safeJsonDecode($destination['cuisine_images']);
-    foreach ($cuisine_data as $cuisine_name => $image_path) {
-        if (!empty($image_path)) {
-            $cuisine_images[$cuisine_name] = getCuisineImageUrl($image_path, $base_url);
+    $cuisine_data = json_decode($destination['cuisine_images'], true);
+    if (is_array($cuisine_data)) {
+        foreach ($cuisine_data as $cuisine_name => $image_path) {
+            if (!empty($image_path)) {
+                $cuisine_images[$cuisine_name] = $base_url . '/uploads/cuisines/' . basename($image_path);
+            }
         }
     }
 }
-
-function normalizeDestinationImageUrl($imageRef, $base_url)
-{
-    $imageRef = trim($imageRef);
-    if (empty($imageRef)) {
-        return $base_url . '/images/destination-placeholder.jpg';
-    }
-    if (preg_match('#^https?://#i', $imageRef)) {
-        return $imageRef;
-    }
-    if (strpos($imageRef, '/') === 0) {
-        return $base_url . $imageRef;
-    }
-    return $base_url . '/uploads/destinations/' . basename($imageRef);
-}
-
-function formatSeasonLabel($season)
-{
-    $season = trim($season);
-    if ($season === '') {
-        return 'All year round';
-    }
-    $parts = preg_split('/\s*[-–—\\/,;]+\s*/u', $season);
-    if (count($parts) <= 1) {
-        return ucwords(strtolower($season));
-    }
-    $parts = array_filter(array_map(function ($part) {
-        return trim($part);
-    }, $parts));
-    return 'Best time: ' . implode(' to ', array_map(function ($part) {
-        return ucwords(strtolower($part));
-    }, $parts));
-}
-
-function formatTravelerLabel($people)
-{
-    $people = trim($people);
-    if ($people === '') {
-        return 'All travelers';
-    }
-    $items = preg_split('/\s*[;,]+\s*/u', $people);
-    $labels = [];
-    foreach ($items as $item) {
-        $item = trim($item);
-        if ($item === '') {
-            continue;
-        }
-        $lower = strtolower($item);
-        if (strpos($lower, 'family') !== false) {
-            $labels[] = 'Families';
-        } elseif (strpos($lower, 'couple') !== false || strpos($lower, 'honeymoon') !== false) {
-            $labels[] = 'Couples';
-        } elseif (strpos($lower, 'solo') !== false) {
-            $labels[] = 'Solo travelers';
-        } elseif (strpos($lower, 'friend') !== false || strpos($lower, 'group') !== false) {
-            $labels[] = 'Friends & groups';
-        } else {
-            $labels[] = ucwords($item);
-        }
-    }
-    return implode(', ', array_unique($labels));
-}
-
-// ============================================
-// FIXED: Extract destination images for gallery
-// ============================================
-$image_filenames = [];
-$primary_images = safeJsonDecode($destination['images'] ?? '[]');
-if (!is_array($primary_images)) {
-    $primary_images = [];
-    if (!empty($destination['images'])) {
-        $primary_images = [trim($destination['images'])];
-    }
-}
-$secondary_urls = safeJsonDecode($destination['image_urls'] ?? '[]');
-if (!is_array($secondary_urls)) {
-    $secondary_urls = [];
-    if (!empty($destination['image_urls'])) {
-        $secondary_urls = [trim($destination['image_urls'])];
-    }
-}
-$image_filenames = array_values(array_unique(array_merge($primary_images, $secondary_urls)));
-
-$season_label = formatSeasonLabel($destination['season'] ?? '');
-$people_label = formatTravelerLabel($destination['people'] ?? '');
 
 // --- Read advanced JSON fields safely ---
-$attractions_array = safeJsonDecode($destination['attractions'] ?? '[]');
-$tips = safeJsonDecode($destination['tips'] ?? '[]');
-$cuisines = normalizeListField($destination['cuisines'] ?? '[]');
-$language = normalizeListField($destination['language'] ?? '[]');
+$tips = isset($destination['tips']) ? $destination['tips'] : '[]';
+$cuisines_raw = isset($destination['cuisines']) ? $destination['cuisines'] : '[]';
+$language = isset($destination['language']) ? $destination['language'] : '[]';
+
+// Normalize cuisines into array
+function normalize_list_field($raw)
+{
+    if (empty($raw)) return [];
+    $trim = trim($raw);
+    if (strpos($trim, '[') === 0) {
+        $arr = json_decode($trim, true);
+        return is_array($arr) ? array_values($arr) : [];
+    }
+    return array_values(array_filter(array_map('trim', explode(',', $raw))));
+}
+$cuisines = normalize_list_field($cuisines_raw);
 
 // --- Favorite state (server-side) ---
 $is_favorite = false;
@@ -304,25 +242,8 @@ foreach ($flights as $flight) {
 
 $departure_cities = array_unique(array_column($flights, 'departure_city'));
 sort($departure_cities);
-
-// ============================================
-// FIXED: Load API keys from secure config
-// ============================================
-require_once __DIR__ . '/../database/api_config.php';
-
-$google_api_key = getApiKey('GOOGLE_CUSTOM_SEARCH_API_KEY', '');
-$google_cse_id = getApiKey('GOOGLE_CUSTOM_SEARCH_ENGINE_ID', '');
-$weather_api_key = getApiKey('OPENWEATHER_API_KEY', '');
-
-// If API keys are missing, log error but continue (features will be disabled)
-if (empty($google_api_key) || empty($google_cse_id)) {
-    error_log("Google Custom Search API keys not configured");
-}
-
-// Weather API - use the constant from weather_config.php if available
-if (defined('WEATHER_API_KEY') && WEATHER_API_KEY !== 'YOUR_API_KEY_HERE') {
-    $weather_api_key = WEATHER_API_KEY;
-}
+$google_api_key = 'AIzaSyAUxNjg6qu6UCn_C0sm4Oo9lwAfnglis7g';  // Your Google API Key
+$google_cse_id = '55d60d886e17d46b2';  // Your Custom Search Engine ID
 
 // Get user name for profile
 $userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : (isset($_SESSION['username']) ? $_SESSION['username'] : '');
@@ -432,13 +353,8 @@ $conn->close();
     <meta name="description" content="<?php echo $og_description; ?>">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="<?php echo $current_url; ?>">
-    <meta name="user-id" content="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
-    <meta name="user-name" content="<?php echo htmlspecialchars($_SESSION['user_name']); ?>">
-
-    <!-- Session Management Scripts -->
-    <script src="session-keepalive.js"></script>
-    <script src="session-sync.js"></script>
-    <script src="auto-logout.js"></script>
+    <meta name="user-id" content="<?php echo isset($_SESSION['user_id']) ? $_SESSION['user_id'] : ''; ?>">
+    <meta name="user-name" content="<?php echo htmlspecialchars($userName); ?>">
 
     <!-- Open Graph tags -->
     <meta property="og:title" content="<?php echo $og_title; ?>">
@@ -605,7 +521,7 @@ $conn->close();
             display: flex;
             align-items: center;
             justify-content: space-between;
-            z-index: 1003;
+            z-index: 1000;
             box-shadow: var(--shadow);
             transition: all 0.3s ease;
         }
@@ -642,12 +558,6 @@ $conn->close();
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .nav-links>* {
-            flex-shrink: 0;
         }
 
         .nav-btn {
@@ -709,9 +619,6 @@ $conn->close();
             font-weight: 600;
             transition: all 0.2s;
             font-size: 0.85rem;
-            white-space: nowrap;
-            min-width: 160px;
-            justify-content: center;
         }
 
         .profile-btn-nav:hover {
@@ -885,25 +792,6 @@ $conn->close();
 
             .mobile-menu-toggle:hover {
                 background: var(--primary-dark);
-            }
-
-            .navbar {
-                left: 0;
-                width: 100%;
-                max-width: 100%;
-                border-radius: 0;
-                padding: 0.75rem 1rem;
-            }
-
-            .nav-links {
-                width: 100%;
-                justify-content: space-between;
-                gap: 0.5rem;
-            }
-
-            .profile-btn-nav {
-                min-width: auto;
-                width: auto;
             }
         }
 
@@ -2353,7 +2241,7 @@ $conn->close();
     </style>
 </head>
 
-<body class="user-logged-in" data-user-id="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
+<body class="<?php echo isset($_SESSION['user_id']) ? 'user-logged-in' : ''; ?>">
 
     <div class="scroll-progress" id="scrollProgress"></div>
     <button class="back-to-top" id="backToTop" aria-label="Back to top">
@@ -2376,6 +2264,7 @@ $conn->close();
             <?php if (isset($_SESSION['user_id'])): ?>
                 <div class="profile-menu">
                     <button class="profile-btn-nav" id="profileBtnNav" aria-label="Profile menu">
+                        <img src="<?php echo htmlspecialchars($profile_pic); ?>" alt="Profile" onerror="this.src='../image/default-avatar.png'">
                         <span class="profile-name"><?php echo htmlspecialchars($userName); ?></span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
@@ -2387,6 +2276,12 @@ $conn->close();
                         <a href="../user/user_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
                         <a href="../user/user_profile.php"><i class="fas fa-user"></i> My Profile</a>
                         <a href="../user/favourites.php"><i class="fas fa-heart"></i> Favorites</a>
+                        <!-- Social Login Icons -->
+                        <div class="social-login-icons">
+                            <a href="../auth/google_login.php" aria-label="Google login"><i class="fab fa-google"></i></a>
+                            <a href="../auth/facebook_login.php" aria-label="Facebook login"><i class="fab fa-facebook-f"></i></a>
+                            <a href="../auth/instagram_login.php" aria-label="Instagram login"><i class="fab fa-instagram"></i></a>
+                        </div>
                         <hr>
                         <button id="logoutBtnNav"><i class="fas fa-sign-out-alt"></i> Logout</button>
                     </div>
@@ -2477,8 +2372,8 @@ $conn->close();
                 <div class="details-grid">
                     <div class="detail-item"><strong>Type</strong><span><?php echo htmlspecialchars($destination['type']); ?></span></div>
                     <div class="detail-item"><strong>Budget</strong><span>₹<?php echo number_format($destination['budget']); ?>/day</span></div>
-                    <div class="detail-item"><strong>Best Season</strong><span><?php echo htmlspecialchars($season_label); ?></span></div>
-                    <div class="detail-item"><strong>Travelers</strong><span><?php echo htmlspecialchars($people_label); ?></span></div>
+                    <div class="detail-item"><strong>Best Season</strong><span><?php echo htmlspecialchars($destination['season']); ?></span></div>
+                    <div class="detail-item"><strong>Travelers</strong><span><?php echo !empty($destination['people']) ? htmlspecialchars($destination['people']) : 'Any'; ?></span></div>
                 </div>
             </div>
 
@@ -2514,7 +2409,7 @@ $conn->close();
                         <div class="swiper-wrapper">
                             <?php if (!empty($image_filenames)): ?>
                                 <?php foreach ($image_filenames as $filename): ?>
-                                    <div class="swiper-slide"><img src="<?php echo normalizeDestinationImageUrl($filename, $base_url); ?>" alt="<?php echo htmlspecialchars($destination['name']); ?> gallery image" loading="lazy"></div>
+                                    <div class="swiper-slide"><img src="<?php echo $base_url . '/uploads/destinations/' . basename($filename); ?>" alt="<?php echo htmlspecialchars($destination['name']); ?> gallery image" loading="lazy"></div>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <div class="swiper-slide"><img src="<?php echo htmlspecialchars($coverImage); ?>" alt="No images available"></div>
@@ -2527,38 +2422,10 @@ $conn->close();
                     <div class="thumb-grid" id="thumbGrid">
                         <?php if (!empty($image_filenames)): ?>
                             <?php foreach ($image_filenames as $filename): ?>
-                                <img src="<?php echo normalizeDestinationImageUrl($filename, $base_url); ?>" data-full="<?php echo normalizeDestinationImageUrl($filename, $base_url); ?>" alt="Thumbnail" loading="lazy">
+                                <img src="<?php echo $base_url . '/uploads/destinations/' . basename($filename); ?>" data-full="<?php echo $base_url . '/uploads/destinations/' . basename($filename); ?>" alt="Thumbnail" loading="lazy">
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-
-                    <!-- All Images Table/Grid Display -->
-                    <?php if (!empty($image_filenames)): ?>
-                        <div style="margin-top: 2rem; border-top: 2px solid var(--border-color); padding-top: 1.5rem;">
-                            <h3 style="margin-bottom: 1rem; font-size: 1rem; font-weight: 700; color: var(--text-main);">
-                                <i class="fas fa-table"></i> All Images (<?php echo count($image_filenames); ?> total)
-                            </h3>
-                            <div class="gallery-images-table" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; width: 100%;">
-                                <?php foreach ($image_filenames as $index => $filename): ?>
-                                    <div style="position: relative; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: all 0.3s ease; background: var(--bg-body);"
-                                        onclick="openPhotoSwipe(<?php echo $index; ?>)">
-                                        <img src="<?php echo normalizeDestinationImageUrl($filename, $base_url); ?>"
-                                            alt="Gallery image <?php echo $index + 1; ?>"
-                                            style="width: 100%; height: 150px; object-fit: cover; display: block; transition: transform 0.3s ease;"
-                                            loading="lazy"
-                                            onmouseover="this.style.transform='scale(1.05)'"
-                                            onmouseout="this.style.transform='scale(1)'">
-                                        <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.4)); color: white; padding: 8px; font-size: 0.75rem; font-weight: 600;">
-                                            <?php echo $index + 1; ?>/<?php echo count($image_filenames); ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); text-align: center;">
-                                <i class="fas fa-info-circle"></i> Click any image to view in full screen
-                            </p>
-                        </div>
-                    <?php endif; ?>
                 </div>
 
                 <div id="googleGallery" class="gallery-section">
@@ -2697,17 +2564,7 @@ $conn->close();
             <!-- Map -->
             <div class="card" id="map">
                 <div class="card-title"><i class="fas fa-map-marked-alt"></i> Location</div>
-                <?php if (!empty($destination['latitude']) && !empty($destination['longitude'])): ?>
-                    <div class="map-container">
-                        <div id="destinationMap" style="width: 100%; height: 100%;"></div>
-                    </div>
-                    <div class="map-caption" style="margin-top: 12px; color: var(--text-muted); font-size: 0.95rem;">
-                        Coordinates: <?php echo number_format((float)$destination['latitude'], 5); ?>, <?php echo number_format((float)$destination['longitude'], 5); ?>
-                    </div>
-                    <?php if (!empty($destination['map_link'])): ?>
-                        <a href="<?php echo htmlspecialchars($destination['map_link']); ?>" target="_blank" class="btn-icon btn-secondary" style="display: inline-block; margin-top: 12px; text-decoration: none;" aria-label="Open in Maps">Open in Maps <i class="fas fa-external-link-alt"></i></a>
-                    <?php endif; ?>
-                <?php elseif (!empty($destination['map_link'])): ?>
+                <?php if (!empty($destination['map_link'])): ?>
                     <div class="map-container">
                         <iframe src="<?php echo htmlspecialchars($destination['map_link']); ?>&output=embed" allowfullscreen loading="lazy"></iframe>
                     </div>
@@ -2866,7 +2723,6 @@ $conn->close();
             <h3 class="card-title" style="margin-bottom: 1.5rem;">Write Your Review</h3>
             <form id="reviewSubmitForm" enctype="multipart/form-data">
                 <input type="hidden" name="destination_id" value="<?php echo $destination_id; ?>">
-                <input type="hidden" name="csrf_token" value="<?php echo generateCSRFToken(); ?>">
                 <div class="form-field" style="margin-bottom: 1rem;">
                     <label>Rating</label>
                     <div class="review-stars" style="display: flex; flex-direction: row; justify-content: flex-start; gap: 5px;">
@@ -2926,25 +2782,6 @@ $conn->close();
         const GOOGLE_API_KEY = "<?php echo $google_api_key; ?>";
         const GOOGLE_CSE_ID = "<?php echo $google_cse_id; ?>";
         const EXCHANGE_RATES = <?php echo json_encode($exchange_rates); ?>;
-
-        function initDestinationMap() {
-            if (DEST_LAT === null || DEST_LNG === null || typeof L === 'undefined') {
-                return;
-            }
-            const mapElement = document.getElementById('destinationMap');
-            if (!mapElement) {
-                return;
-            }
-            const map = L.map(mapElement).setView([DEST_LAT, DEST_LNG], 11);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 18,
-            }).addTo(map);
-            L.marker([DEST_LAT, DEST_LNG]).addTo(map)
-                .bindPopup(`<strong>${DEST_NAME}</strong><br>${DEST_LOCATION}`)
-                .openPopup();
-        }
-        initDestinationMap();
 
         // Theme Toggle
         const toggleBtn = document.getElementById('themeToggle');
@@ -3068,23 +2905,6 @@ $conn->close();
                 gallery.init();
             });
         });
-
-        // PhotoSwipe for All Gallery Images (from table)
-        function openPhotoSwipe(imageIndex) {
-            const allImages = document.querySelectorAll('.gallery-images-table img');
-            const items = Array.from(allImages).map((img, idx) => ({
-                src: img.src,
-                w: 1200,
-                h: 800,
-                title: DEST_NAME + ' - Image ' + (idx + 1)
-            }));
-
-            const gallery = new PhotoSwipe({
-                dataSource: items,
-                index: imageIndex
-            });
-            gallery.init();
-        }
 
         // Cuisine Modal Functions with ESC key support
         function openCuisineModal(imgSrc) {

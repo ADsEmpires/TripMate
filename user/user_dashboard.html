@@ -14,14 +14,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
   <!-- User Dashboard CSS -->
   <link rel="stylesheet" href="user_dashboard.css">
-
-  <!-- Session Management Scripts -->
-  <script src="session-keepalive.js"></script>
-  <script src="session-sync.js"></script>
-  <script src="auto-logout.js"></script>
-
 </head>
-<body class="user-dashboard-page">
+<body>
 
   <div class="scroll-progress-bar" id="scrollBar"></div>
 
@@ -304,8 +298,8 @@
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
-        .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
-        .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
     // Check favorite status
@@ -481,7 +475,7 @@
       
       setTimeout(() => {
         const btn = card.querySelector('.favorite-btn');
-        const icon = btn?.querySelector('i');
+        var icon = btn ? btn.querySelector('i') : null;
         if (btn && icon) {
           checkFavoriteStatus(dest.id, icon);
         }
@@ -576,7 +570,8 @@
     });
 
     // Close button for modal
-    document.querySelector('.close-btn')?.addEventListener('click', closeReviewModal);
+    var closeBtnEl = document.querySelector('.close-btn');
+    if (closeBtnEl) closeBtnEl.addEventListener('click', closeReviewModal);
 
     // Logout function
     function logout() {
