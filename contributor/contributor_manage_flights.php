@@ -12,29 +12,17 @@ $contributor_id   = $_SESSION['contributor_id'];
 $contributor_name = $_SESSION['contributor_name'];
 $contributor_pic  = $_SESSION['contributor_profile_pic'] ?? null;
 
-// Get destination ID from URL
-$destination_id = isset($_GET['destination_id']) && is_numeric($_GET['destination_id']) ? (int)$_GET['destination_id'] : 0;
-
-if ($destination_id === 0) {
-    $_SESSION['message'] = "Invalid destination ID";
+if (!isset($_SESSION['temp_destination'])) {
+    $_SESSION['message'] = "Please fill in the destination details first.";
     header("Location: contributor_add_destination.php");
     exit();
 }
 
-// Verify this destination belongs to the contributor
-$dest_query = $conn->prepare("SELECT name FROM destinations WHERE id = ? AND contributor_id = ?");
-$dest_query->bind_param("ii", $destination_id, $contributor_id);
-$dest_query->execute();
-$dest_result = $dest_query->get_result();
+$destination_name = $_SESSION['temp_destination']['name'];
 
-if ($dest_result->num_rows === 0) {
-    $_SESSION['message'] = "Destination not found or access denied";
-    header("Location: contributor_add_destination.php");
-    exit();
+if (!isset($_SESSION['temp_flights'])) {
+    $_SESSION['temp_flights'] = [];
 }
-
-$destination = $dest_result->fetch_assoc();
-$destination_name = $destination['name'];
 
 // Handle form submission for adding/editing flight
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -54,19 +42,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $refundable = isset($_POST['refundable']) ? 1 : 0;
             $meal_included = isset($_POST['meal_included']) ? 1 : 0;
 
-            $stmt = $conn->prepare("INSERT INTO flights (destination_id, departure_city, airline, flight_type, price_per_person, duration_hours, stops, departure_time, arrival_time, flight_class, baggage_allowance, refundable, meal_included) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isssdississii", $destination_id, $departure_city, $airline, $flight_type, $price_per_person, $duration_hours, $stops, $departure_time, $arrival_time, $flight_class, $baggage_allowance, $refundable, $meal_included);
-            
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Flight added successfully!";
-            } else {
-                $_SESSION['message'] = "Error adding flight: " . $conn->error;
-            }
+            $new_flight = [
+                'id' => 'fl_' . uniqid(),
+                'departure_city' => $departure_city,
+                'airline' => $airline,
+                'flight_type' => $flight_type,
+                'price_per_person' => $price_per_person,
+                'duration_hours' => $duration_hours,
+                'stops' => $stops,
+                'departure_time' => $departure_time,
+                'arrival_time' => $arrival_time,
+                'flight_class' => $flight_class,
+                'baggage_allowance' => $baggage_allowance,
+                'refundable' => $refundable,
+                'meal_included' => $meal_included
+            ];
+
+            $_SESSION['temp_flights'][] = $new_flight;
+            $_SESSION['message'] = "Flight added to draft successfully!";
         }
         
         // Edit flight
         elseif ($_POST['action'] === 'edit' && isset($_POST['flight_id'])) {
-            $flight_id = (int)$_POST['flight_id'];
+            $flight_id = $_POST['flight_id'];
             $departure_city = $conn->real_escape_string($_POST['departure_city']);
             $airline = $conn->real_escape_string($_POST['airline']);
             $flight_type = $conn->real_escape_string($_POST['flight_type']);
@@ -80,43 +78,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $refundable = isset($_POST['refundable']) ? 1 : 0;
             $meal_included = isset($_POST['meal_included']) ? 1 : 0;
 
-            $stmt = $conn->prepare("UPDATE flights SET departure_city = ?, airline = ?, flight_type = ?, price_per_person = ?, duration_hours = ?, stops = ?, departure_time = ?, arrival_time = ?, flight_class = ?, baggage_allowance = ?, refundable = ?, meal_included = ? WHERE id = ? AND destination_id = ?");
-            $stmt->bind_param("sssdississiiii", $departure_city, $airline, $flight_type, $price_per_person, $duration_hours, $stops, $departure_time, $arrival_time, $flight_class, $baggage_allowance, $refundable, $meal_included, $flight_id, $destination_id);
-            
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Flight updated successfully!";
-            } else {
-                $_SESSION['message'] = "Error updating flight: " . $conn->error;
+            foreach ($_SESSION['temp_flights'] as $key => $flight) {
+                if ($flight['id'] === $flight_id) {
+                    $_SESSION['temp_flights'][$key] = [
+                        'id' => $flight_id,
+                        'departure_city' => $departure_city,
+                        'airline' => $airline,
+                        'flight_type' => $flight_type,
+                        'price_per_person' => $price_per_person,
+                        'duration_hours' => $duration_hours,
+                        'stops' => $stops,
+                        'departure_time' => $departure_time,
+                        'arrival_time' => $arrival_time,
+                        'flight_class' => $flight_class,
+                        'baggage_allowance' => $baggage_allowance,
+                        'refundable' => $refundable,
+                        'meal_included' => $meal_included
+                    ];
+                    $_SESSION['message'] = "Flight updated in draft successfully!";
+                    break;
+                }
             }
         }
         
-        header("Location: contributor_manage_flights.php?destination_id=" . $destination_id);
+        header("Location: contributor_manage_flights.php");
         exit();
     }
 }
 
 // Handle delete request
 if (isset($_GET['delete'])) {
-    $flight_id = (int)$_GET['delete'];
+    $flight_id = $_GET['delete'];
     
-    $stmt = $conn->prepare("DELETE FROM flights WHERE id = ? AND destination_id = ?");
-    $stmt->bind_param("ii", $flight_id, $destination_id);
-    
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Flight deleted successfully!";
-    } else {
-        $_SESSION['message'] = "Error deleting flight: " . $conn->error;
+    foreach ($_SESSION['temp_flights'] as $key => $flight) {
+        if ($flight['id'] === $flight_id) {
+            unset($_SESSION['temp_flights'][$key]);
+            $_SESSION['temp_flights'] = array_values($_SESSION['temp_flights']);
+            $_SESSION['message'] = "Flight removed from draft successfully!";
+            break;
+        }
     }
     
-    header("Location: contributor_manage_flights.php?destination_id=" . $destination_id);
+    header("Location: contributor_manage_flights.php");
     exit();
 }
 
-// Fetch all flights for this destination
-$flights_query = $conn->prepare("SELECT * FROM flights WHERE destination_id = ? ORDER BY id DESC");
-$flights_query->bind_param("i", $destination_id);
-$flights_query->execute();
-$flights_result = $flights_query->get_result();
+$flights_list = $_SESSION['temp_flights'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -318,96 +325,96 @@ $flights_result = $flights_query->get_result();
     </div>
 
     <div class="widget-card fade-in">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem;">
-            <h2 style="font-size: 1.8rem; color: var(--text-main);"><i class="fas fa-list"></i> Existing Flights</h2>
-            <span class="status-badge status-active">Total: <?= $flights_result->num_rows ?></span>
-        </div>
-        <div>
-            <?php if ($flights_result->num_rows > 0): ?>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 2rem;">
-                    <?php while ($flight = $flights_result->fetch_assoc()): ?>
-                        <div class="flight-card widget-card" style="padding: 1.5rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                                <h3 style="font-size: 1.3rem; color: var(--text-main); margin: 0;"><?= htmlspecialchars($flight['airline']) ?></h3>
-                                <span style="background: <?= $flight['flight_type'] === 'low' ? '#10b981' : ($flight['flight_type'] === 'medium' ? '#f59e0b' : '#ef4444') ?>; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">
-                                    <?= ucfirst($flight['flight_type']) ?>
-                                </span>
-                            </div>
-                            
-                            <div style="margin-bottom: 1rem;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600; color: var(--text-main);">
-                                    <i class="fas fa-city" style="color: #3b82f6;"></i>
-                                    <?= htmlspecialchars($flight['departure_city']) ?>
-                                </div>
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin: 0.5rem 0;">
-                                    <span style="font-size: 0.9rem; color: var(--text-muted);">
-                                        <i class="fas fa-clock"></i> <?= htmlspecialchars($flight['departure_time'] ?? 'N/A') ?>
-                                    </span>
-                                    <i class="fas fa-long-arrow-alt-right" style="color: var(--text-muted);"></i>
-                                    <span style="font-size: 0.9rem; color: var(--text-muted);">
-                                        <i class="fas fa-clock"></i> <?= htmlspecialchars($flight['arrival_time'] ?? 'N/A') ?>
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem; padding: 1rem 0; border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
-                                <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-tag"></i> Class: <?= htmlspecialchars($flight['flight_class'] ?? 'Economy') ?>
-                                </span>
-                                <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-clock"></i> <?= number_format($flight['duration_hours'] ?? 0, 1) ?> hrs
-                                </span>
-                                <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-map-marker-alt"></i> <?= $flight['stops'] ?> stop(s)
-                                </span>
-                                <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
-                                    <i class="fas fa-suitcase"></i> <?= htmlspecialchars($flight['baggage_allowance'] ?? 'N/A') ?>
-                                </span>
-                            </div>
-                            
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-main);">
-                                    ₹<?= number_format($flight['price_per_person']) ?>
-                                    <small style="font-size: 0.8rem; color: var(--text-muted);">/person</small>
-                                </span>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <?php if ($flight['refundable']): ?>
-                                        <span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 4px 8px; border-radius: 20px; font-size: 0.7rem;">Refundable</span>
-                                    <?php endif; ?>
-                                    <?php if ($flight['meal_included']): ?>
-                                        <span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 8px; border-radius: 20px; font-size: 0.7rem;">Meal</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            
-                            <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--card-border); padding-top: 1rem;">
-                                <button onclick="editFlight(<?= htmlspecialchars(json_encode($flight)) ?>)" class="btn btn-outline" style="flex: 1; border-radius: 50px;">
-                                    <i class="fas fa-edit"></i> Edit
-                                </button>
-                                <a href="?destination_id=<?= $destination_id ?>&delete=<?= $flight['id'] ?>" class="btn btn-danger" style="flex: 1; border-radius: 50px;" onclick="return confirm('Are you sure you want to delete this flight?')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </a>
-                            </div>
-                        </div>
-                    <?php endwhile; ?>
-                </div>
-            <?php else: ?>
-                <div style="text-align: center; padding: 4rem 2rem;">
-                    <i class="fas fa-plane" style="font-size: 4rem; margin-bottom: 1.5rem; color: var(--text-muted); opacity: 0.5;"></i>
-                    <h3 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 0.5rem;">No flights added yet</h3>
-                    <p style="color: var(--text-muted);">Use the form above to add your first flight</p>
-                </div>
-            <?php endif; ?>
-        </div>
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem;">
+             <h2 style="font-size: 1.8rem; color: var(--text-main);"><i class="fas fa-list"></i> Existing Flights</h2>
+             <span class="status-badge status-active">Total: <?= count($flights_list) ?></span>
+         </div>
+         <div>
+             <?php if (count($flights_list) > 0): ?>
+                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 2rem;">
+                     <?php foreach ($flights_list as $flight): ?>
+                         <div class="flight-card widget-card" style="padding: 1.5rem;">
+                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                                 <h3 style="font-size: 1.3rem; color: var(--text-main); margin: 0;"><?= htmlspecialchars($flight['airline']) ?></h3>
+                                 <span style="background: <?= $flight['flight_type'] === 'low' ? '#10b981' : ($flight['flight_type'] === 'medium' ? '#f59e0b' : '#ef4444') ?>; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">
+                                     <?= ucfirst($flight['flight_type']) ?>
+                                 </span>
+                             </div>
+                             
+                             <div style="margin-bottom: 1rem;">
+                                 <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600; color: var(--text-main);">
+                                     <i class="fas fa-city" style="color: #3b82f6;"></i>
+                                     <?= htmlspecialchars($flight['departure_city']) ?>
+                                 </div>
+                                 <div style="display: flex; align-items: center; justify-content: space-between; margin: 0.5rem 0;">
+                                     <span style="font-size: 0.9rem; color: var(--text-muted);">
+                                         <i class="fas fa-clock"></i> <?= htmlspecialchars($flight['departure_time'] ?? 'N/A') ?>
+                                     </span>
+                                     <i class="fas fa-long-arrow-alt-right" style="color: var(--text-muted);"></i>
+                                     <span style="font-size: 0.9rem; color: var(--text-muted);">
+                                         <i class="fas fa-clock"></i> <?= htmlspecialchars($flight['arrival_time'] ?? 'N/A') ?>
+                                     </span>
+                                 </div>
+                             </div>
+                             
+                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem; padding: 1rem 0; border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border);">
+                                 <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
+                                     <i class="fas fa-tag"></i> Class: <?= htmlspecialchars($flight['flight_class'] ?? 'Economy') ?>
+                                 </span>
+                                 <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
+                                     <i class="fas fa-clock"></i> <?= number_format($flight['duration_hours'] ?? 0, 1) ?> hrs
+                                 </span>
+                                 <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
+                                     <i class="fas fa-map-marker-alt"></i> <?= $flight['stops'] ?> stop(s)
+                                 </span>
+                                 <span style="display: flex; align-items: center; gap: 5px; font-size: 0.9rem; color: var(--text-muted);">
+                                     <i class="fas fa-suitcase"></i> <?= htmlspecialchars($flight['baggage_allowance'] ?? 'N/A') ?>
+                                 </span>
+                             </div>
+                             
+                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                 <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-main);">
+                                     ₹<?= number_format($flight['price_per_person']) ?>
+                                     <small style="font-size: 0.8rem; color: var(--text-muted);">/person</small>
+                                 </span>
+                                 <div style="display: flex; gap: 0.5rem;">
+                                     <?php if ($flight['refundable']): ?>
+                                         <span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 4px 8px; border-radius: 20px; font-size: 0.7rem;">Refundable</span>
+                                     <?php endif; ?>
+                                     <?php if ($flight['meal_included']): ?>
+                                         <span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 8px; border-radius: 20px; font-size: 0.7rem;">Meal</span>
+                                     <?php endif; ?>
+                                 </div>
+                             </div>
+                             
+                             <div style="display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--card-border); padding-top: 1rem;">
+                                 <button onclick="editFlight(<?= htmlspecialchars(json_encode($flight)) ?>)" class="btn btn-outline" style="flex: 1; border-radius: 50px;">
+                                     <i class="fas fa-edit"></i> Edit
+                                 </button>
+                                 <a href="?delete=<?= $flight['id'] ?>" class="btn btn-danger" style="flex: 1; border-radius: 50px;" onclick="return confirm('Are you sure you want to delete this flight?')">
+                                     <i class="fas fa-trash"></i> Delete
+                                 </a>
+                             </div>
+                         </div>
+                     <?php endforeach; ?>
+                 </div>
+             <?php else: ?>
+                 <div style="text-align: center; padding: 4rem 2rem;">
+                     <i class="fas fa-plane" style="font-size: 4rem; margin-bottom: 1.5rem; color: var(--text-muted); opacity: 0.5;"></i>
+                     <h3 style="color: var(--text-main); font-size: 1.5rem; margin-bottom: 0.5rem;">No flights added yet</h3>
+                     <p style="color: var(--text-muted);">Use the form above to add your first flight</p>
+                 </div>
+             <?php endif; ?>
+         </div>
 
-        <div style="margin-top: 3rem; text-align: right; border-top: 1px solid var(--card-border); padding-top: 2rem;">
-            <a href="contributor_manage_hotels.php?destination_id=<?= $destination_id ?>" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border-radius: 50px; font-size: 1.1rem; padding: 1rem 2rem; text-decoration: none;">
-                Continue to Step 3 (Hotels) <i class="fas fa-arrow-right"></i>
-            </a>
-        </div>
+         <div style="margin-top: 3rem; text-align: right; border-top: 1px solid var(--card-border); padding-top: 2rem;">
+             <a href="contributor_manage_hotels.php" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border-radius: 50px; font-size: 1.1rem; padding: 1rem 2rem; text-decoration: none;">
+                 Continue to Step 3 (Hotels) <i class="fas fa-arrow-right"></i>
+             </a>
+         </div>
 
-    </div>
-</div>
+     </div>
+ </div>
 
 <div id="editFlightModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 1100; align-items: center; justify-content: center;">
     <div style="background: var(--bg-surface); max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; border-radius: 24px; padding: 2rem; position: relative;">

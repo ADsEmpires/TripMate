@@ -12,29 +12,120 @@ $contributor_id   = $_SESSION['contributor_id'];
 $contributor_name = $_SESSION['contributor_name'];
 $contributor_pic  = $_SESSION['contributor_profile_pic'] ?? null;
 
-// Get destination ID from URL
-$destination_id = isset($_GET['destination_id']) && is_numeric($_GET['destination_id']) ? (int)$_GET['destination_id'] : 0;
-
-if ($destination_id === 0) {
-    $_SESSION['message'] = "Invalid destination ID";
+if (!isset($_SESSION['temp_destination'])) {
+    $_SESSION['message'] = "Please fill in the destination details first.";
     header("Location: contributor_add_destination.php");
     exit();
 }
 
-// Verify this destination belongs to the contributor
-$dest_query = $conn->prepare("SELECT name FROM destinations WHERE id = ? AND contributor_id = ?");
-$dest_query->bind_param("ii", $destination_id, $contributor_id);
-$dest_query->execute();
-$dest_result = $dest_query->get_result();
+$destination_name = $_SESSION['temp_destination']['name'];
 
-if ($dest_result->num_rows === 0) {
-    $_SESSION['message'] = "Destination not found or access denied";
-    header("Location: contributor_add_destination.php");
-    exit();
+if (!isset($_SESSION['temp_hotels'])) {
+    $_SESSION['temp_hotels'] = [];
 }
 
-$destination = $dest_result->fetch_assoc();
-$destination_name = $destination['name'];
+// Handle final submit action
+if (isset($_GET['action']) && $_GET['action'] === 'finalize') {
+    // Start transaction
+    $conn->begin_transaction();
+    try {
+        $dest = $_SESSION['temp_destination'];
+        
+        // Get next destination ID
+        $id_query = $conn->query("SELECT MAX(id) AS max_id FROM destinations");
+        $next_id = 1;
+        if ($id_query && $row = $id_query->fetch_assoc()) {
+            $next_id = ($row['max_id'] ?? 0) + 1;
+        }
+        
+        // Insert destination
+        $insert_query = "INSERT INTO destinations (id, name, type, description, location, budget, image_urls, map_link, season, people, submitted_by_type, submitted_by_id, submission_status, contributor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'contributor', ?, 'pending', ?)";
+        $stmt = $conn->prepare($insert_query);
+        if (!$stmt) {
+            throw new Exception("Destination prepare failed: " . $conn->error);
+        }
+        $stmt->bind_param("issssdssssii", $next_id, $dest['name'], $dest['type'], $dest['description'], $dest['location'], $dest['budget'], $dest['image_urls'], $dest['map_link'], $dest['season'], $dest['people'], $contributor_id, $contributor_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Destination execute failed: " . $stmt->error);
+        }
+        $stmt->close();
+        
+        // Link destination to contributor
+        $link_stmt = $conn->prepare("INSERT INTO contributor_destinations (contributor_id, destination_id, status) VALUES (?, ?, 'pending')");
+        if (!$link_stmt) {
+            throw new Exception("Link prepare failed: " . $conn->error);
+        }
+        $link_stmt->bind_param("ii", $contributor_id, $next_id);
+        if (!$link_stmt->execute()) {
+            throw new Exception("Link execute failed: " . $link_stmt->error);
+        }
+        $link_stmt->close();
+
+        // Also insert a default city in destination_cities to satisfy foreign key constraints
+        $city_stmt = $conn->prepare("INSERT INTO destination_cities (id, destination_id, city_name) VALUES (?, ?, ?)");
+        if (!$city_stmt) {
+            throw new Exception("City prepare failed: " . $conn->error);
+        }
+        $city_stmt->bind_param("iis", $next_id, $next_id, $dest['name']);
+        if (!$city_stmt->execute()) {
+            throw new Exception("City execute failed: " . $city_stmt->error);
+        }
+        $city_stmt->close();
+        
+        // Insert flights
+        if (isset($_SESSION['temp_flights']) && !empty($_SESSION['temp_flights'])) {
+            $flight_stmt = $conn->prepare("INSERT INTO flights (destination_id, city_id, from_city, to_city, airline, flight_type, price, duration, stops, departure_time, arrival_time, flight_class, baggage_allowance, refundable, meal_included) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            if (!$flight_stmt) {
+                throw new Exception("Flight prepare failed: " . $conn->error);
+            }
+            foreach ($_SESSION['temp_flights'] as $flight) {
+                $price = (float)$flight['price_per_person'];
+                $duration = (float)$flight['duration_hours'];
+                $stops = (int)$flight['stops'];
+                $refundable = (int)$flight['refundable'];
+                $meal_included = (int)$flight['meal_included'];
+
+                $types = "iissssddissssii"; 
+                $flight_stmt->bind_param($types, $next_id, $next_id, $flight['departure_city'], $dest['name'], $flight['airline'], $flight['flight_type'], $price, $duration, $stops, $flight['departure_time'], $flight['arrival_time'], $flight['flight_class'], $flight['baggage_allowance'], $refundable, $meal_included);
+                if (!$flight_stmt->execute()) {
+                    throw new Exception("Flight execute failed: " . $flight_stmt->error);
+                }
+            }
+            $flight_stmt->close();
+        }
+        
+        // Insert hotels
+        if (isset($_SESSION['temp_hotels']) && !empty($_SESSION['temp_hotels'])) {
+            $hotel_stmt = $conn->prepare("INSERT INTO hotels (destination_id, city_id, hotel_name, name, hotel_type, price_per_night, hotel_rating, stars, description, amenities, image_url, address, contact_number, check_in_time, check_out_time, free_cancellation, breakfast_included) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            if (!$hotel_stmt) {
+                throw new Exception("Hotel prepare failed: " . $conn->error);
+            }
+            foreach ($_SESSION['temp_hotels'] as $hotel) {
+                $stars = (int)$hotel['hotel_rating'];
+                $hotel_stmt->bind_param("iisssddisssssssii", $next_id, $next_id, $hotel['hotel_name'], $hotel['hotel_name'], $hotel['hotel_type'], $hotel['price_per_night'], $hotel['hotel_rating'], $stars, $hotel['description'], $hotel['amenities'], $hotel['image_url'], $hotel['address'], $hotel['contact_number'], $hotel['check_in_time'], $hotel['check_out_time'], $hotel['free_cancellation'], $hotel['breakfast_included']);
+                if (!$hotel_stmt->execute()) {
+                    throw new Exception("Hotel execute failed: " . $hotel_stmt->error);
+                }
+            }
+            $hotel_stmt->close();
+        }
+        
+        $conn->commit();
+        
+        unset($_SESSION['temp_destination']);
+        unset($_SESSION['temp_flights']);
+        unset($_SESSION['temp_hotels']);
+        
+        header("Location: contributor_add_destination.php?msg=completed");
+        exit();
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['message'] = "Error finalizing package: " . $e->getMessage();
+        header("Location: contributor_manage_hotels.php");
+        exit();
+    }
+}
 
 // Handle form submission for adding/editing hotel
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -54,34 +145,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $free_cancellation = isset($_POST['free_cancellation']) ? 1 : 0;
             $breakfast_included = isset($_POST['breakfast_included']) ? 1 : 0;
             
-            // Handle image upload — save to admin/uploads/hotels
+            // Handle image upload
             $image_url = '';
             if (!empty($_FILES['image']['name'])) {
-                $upload_dir = '../admin/uploads/hotels/';
+                $upload_dir = __DIR__ . '/../uploads/hotels/';
                 if (!file_exists($upload_dir)) {
                     mkdir($upload_dir, 0777, true);
                 }
-                $file_name = basename($_FILES['image']['name']);
+                $file_name = preg_replace("/[^a-zA-Z0-9.-]/", "_", basename($_FILES['image']['name']));
                 $file_path = 'uploads/hotels/' . uniqid() . '_' . $file_name;
-                $full_path = '../admin/' . $file_path;
+                $full_path = __DIR__ . '/../' . $file_path;
+                
                 if (move_uploaded_file($_FILES['image']['tmp_name'], $full_path)) {
                     $image_url = $file_path;
                 }
             }
 
-            $stmt = $conn->prepare("INSERT INTO hotels (destination_id, hotel_name, hotel_type, price_per_night, hotel_rating, description, amenities, image_url, address, contact_number, check_in_time, check_out_time, free_cancellation, breakfast_included) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("issdssssssssii", $destination_id, $hotel_name, $hotel_type, $price_per_night, $hotel_rating, $description, $amenities, $image_url, $address, $contact_number, $check_in_time, $check_out_time, $free_cancellation, $breakfast_included);
-            
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Hotel added successfully!";
-            } else {
-                $_SESSION['message'] = "Error adding hotel: " . $conn->error;
-            }
+            $new_hotel = [
+                'id' => 'ht_' . uniqid(),
+                'hotel_name' => $hotel_name,
+                'hotel_type' => $hotel_type,
+                'price_per_night' => $price_per_night,
+                'hotel_rating' => $hotel_rating,
+                'description' => $description,
+                'amenities' => $amenities,
+                'image_url' => $image_url,
+                'address' => $address,
+                'contact_number' => $contact_number,
+                'check_in_time' => $check_in_time,
+                'check_out_time' => $check_out_time,
+                'free_cancellation' => $free_cancellation,
+                'breakfast_included' => $breakfast_included
+            ];
+
+            $_SESSION['temp_hotels'][] = $new_hotel;
+            $_SESSION['message'] = "Hotel added to draft successfully!";
         }
         
         // Edit hotel
         elseif ($_POST['action'] === 'edit' && isset($_POST['hotel_id'])) {
-            $hotel_id = (int)$_POST['hotel_id'];
+            $hotel_id = $_POST['hotel_id'];
             $hotel_name = $conn->real_escape_string($_POST['hotel_name']);
             $hotel_type = $conn->real_escape_string($_POST['hotel_type']);
             $price_per_night = (float)$_POST['price_per_night'];
@@ -95,81 +198,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $free_cancellation = isset($_POST['free_cancellation']) ? 1 : 0;
             $breakfast_included = isset($_POST['breakfast_included']) ? 1 : 0;
             
-            // Get current image
-            $img_query = $conn->prepare("SELECT image_url FROM hotels WHERE id = ?");
-            $img_query->bind_param("i", $hotel_id);
-            $img_query->execute();
-            $img_result = $img_query->get_result();
-            $current = $img_result->fetch_assoc();
-            $image_url = $current['image_url'];
+            // Find existing image
+            $image_url = '';
+            foreach ($_SESSION['temp_hotels'] as $hotel) {
+                if ($hotel['id'] === $hotel_id) {
+                    $image_url = $hotel['image_url'];
+                    break;
+                }
+            }
             
             // Handle new image upload
             if (!empty($_FILES['image']['name'])) {
-                $upload_dir = '../admin/uploads/hotels/';
+                $upload_dir = __DIR__ . '/../uploads/hotels/';
                 if (!file_exists($upload_dir)) {
                     mkdir($upload_dir, 0777, true);
                 }
-                $file_name = basename($_FILES['image']['name']);
+                $file_name = preg_replace("/[^a-zA-Z0-9.-]/", "_", basename($_FILES['image']['name']));
                 $file_path = 'uploads/hotels/' . uniqid() . '_' . $file_name;
-                $full_path = '../admin/' . $file_path;
+                $full_path = __DIR__ . '/../' . $file_path;
+                
                 if (move_uploaded_file($_FILES['image']['tmp_name'], $full_path)) {
                     // Delete old image if exists
-                    if (!empty($image_url) && file_exists('../admin/' . $image_url)) {
-                        unlink('../admin/' . $image_url);
+                    if (!empty($image_url) && file_exists(__DIR__ . '/../' . $image_url)) {
+                        unlink(__DIR__ . '/../' . $image_url);
                     }
                     $image_url = $file_path;
                 }
             }
 
-            $stmt = $conn->prepare("UPDATE hotels SET hotel_name = ?, hotel_type = ?, price_per_night = ?, hotel_rating = ?, description = ?, amenities = ?, image_url = ?, address = ?, contact_number = ?, check_in_time = ?, check_out_time = ?, free_cancellation = ?, breakfast_included = ? WHERE id = ? AND destination_id = ?");
-            $stmt->bind_param("ssdssssssssiiii", $hotel_name, $hotel_type, $price_per_night, $hotel_rating, $description, $amenities, $image_url, $address, $contact_number, $check_in_time, $check_out_time, $free_cancellation, $breakfast_included, $hotel_id, $destination_id);
-            
-            if ($stmt->execute()) {
-                $_SESSION['message'] = "Hotel updated successfully!";
-            } else {
-                $_SESSION['message'] = "Error updating hotel: " . $conn->error;
+            foreach ($_SESSION['temp_hotels'] as $key => $hotel) {
+                if ($hotel['id'] === $hotel_id) {
+                    $_SESSION['temp_hotels'][$key] = [
+                        'id' => $hotel_id,
+                        'hotel_name' => $hotel_name,
+                        'hotel_type' => $hotel_type,
+                        'price_per_night' => $price_per_night,
+                        'hotel_rating' => $hotel_rating,
+                        'description' => $description,
+                        'amenities' => $amenities,
+                        'image_url' => $image_url,
+                        'address' => $address,
+                        'contact_number' => $contact_number,
+                        'check_in_time' => $check_in_time,
+                        'check_out_time' => $check_out_time,
+                        'free_cancellation' => $free_cancellation,
+                        'breakfast_included' => $breakfast_included
+                    ];
+                    $_SESSION['message'] = "Hotel updated in draft successfully!";
+                    break;
+                }
             }
         }
         
-        header("Location: contributor_manage_hotels.php?destination_id=" . $destination_id);
+        header("Location: contributor_manage_hotels.php");
         exit();
     }
 }
 
 // Handle delete request
 if (isset($_GET['delete'])) {
-    $hotel_id = (int)$_GET['delete'];
+    $hotel_id = $_GET['delete'];
     
-    // Get image to delete
-    $img_query = $conn->prepare("SELECT image_url FROM hotels WHERE id = ? AND destination_id = ?");
-    $img_query->bind_param("ii", $hotel_id, $destination_id);
-    $img_query->execute();
-    $img_result = $img_query->get_result();
-    if ($img_result->num_rows > 0) {
-        $hotel = $img_result->fetch_assoc();
-        if (!empty($hotel['image_url']) && file_exists('../admin/' . $hotel['image_url'])) {
-            unlink('../admin/' . $hotel['image_url']);
+    foreach ($_SESSION['temp_hotels'] as $key => $hotel) {
+        if ($hotel['id'] === $hotel_id) {
+            // Delete image file
+            if (!empty($hotel['image_url']) && file_exists(__DIR__ . '/../' . $hotel['image_url'])) {
+                unlink(__DIR__ . '/../' . $hotel['image_url']);
+            }
+            unset($_SESSION['temp_hotels'][$key]);
+            $_SESSION['temp_hotels'] = array_values($_SESSION['temp_hotels']);
+            $_SESSION['message'] = "Hotel removed from draft successfully!";
+            break;
         }
     }
     
-    $stmt = $conn->prepare("DELETE FROM hotels WHERE id = ? AND destination_id = ?");
-    $stmt->bind_param("ii", $hotel_id, $destination_id);
-    
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Hotel deleted successfully!";
-    } else {
-        $_SESSION['message'] = "Error deleting hotel: " . $conn->error;
-    }
-    
-    header("Location: contributor_manage_hotels.php?destination_id=" . $destination_id);
+    header("Location: contributor_manage_hotels.php");
     exit();
 }
 
-// Fetch all hotels for this destination
-$hotels_query = $conn->prepare("SELECT * FROM hotels WHERE destination_id = ? ORDER BY id DESC");
-$hotels_query->bind_param("i", $destination_id);
-$hotels_query->execute();
-$hotels_result = $hotels_query->get_result();
+$hotels_list = $_SESSION['temp_hotels'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -213,7 +320,6 @@ $hotels_result = $hotels_query->get_result();
         .form-group { margin-bottom: 1.8rem; }
         .form-group label { display: block; margin-bottom: 0.6rem; font-weight: 700; color: var(--text-main); font-size: 0.95rem; }
         
-        /* Dark Mode Text Fix for Inputs */
         .form-control { width: 100%; padding: 0.9rem 1.2rem; border: 1px solid var(--card-border); border-radius: 12px; font-size: 1rem; background: var(--bg-base); color: var(--text-main); transition: all 0.3s; font-family: inherit; }
         .form-control:focus { border-color: var(--secondary); outline: none; box-shadow: 0 0 0 4px var(--glow-color); background: var(--bg-surface); }
         body.dark-mode .form-control { background-color: var(--bg-surface); color: var(--text-main); }
@@ -398,18 +504,18 @@ $hotels_result = $hotels_query->get_result();
     <div class="widget-card fade-in">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem;">
             <h2 style="font-size: 1.8rem; color: var(--text-main);"><i class="fas fa-list"></i> Existing Hotels</h2>
-            <span class="status-badge status-active">Total: <?= $hotels_result->num_rows ?></span>
+            <span class="status-badge status-active">Total: <?= count($hotels_list) ?></span>
         </div>
         <div>
-            <?php if ($hotels_result->num_rows > 0): ?>
+            <?php if (count($hotels_list) > 0): ?>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 2rem;">
-                    <?php while ($hotel = $hotels_result->fetch_assoc()): 
+                    <?php foreach ($hotels_list as $hotel): 
                         $amenities_array = json_decode($hotel['amenities'] ?? '[]', true);
                     ?>
                         <div class="hotel-card widget-card" style="padding: 0; overflow: hidden;">
                             <div style="height: 200px; overflow: hidden; position: relative;">
                                 <?php if (!empty($hotel['image_url'])): ?>
-                                    <img src="../admin/<?= htmlspecialchars($hotel['image_url']) ?>" alt="<?= htmlspecialchars($hotel['hotel_name']) ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;">
+                                    <img src="../<?= htmlspecialchars($hotel['image_url']) ?>" alt="<?= htmlspecialchars($hotel['hotel_name']) ?>" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;">
                                 <?php else: ?>
                                     <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f59e0b20, #d9770620); display: flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-hotel" style="font-size: 3rem; color: #f59e0b40;"></i>
@@ -475,13 +581,13 @@ $hotels_result = $hotels_query->get_result();
                                     <button onclick="editHotel(<?= htmlspecialchars(json_encode($hotel)) ?>)" class="btn btn-outline" style="flex: 1; border-radius: 50px;">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
-                                    <a href="?destination_id=<?= $destination_id ?>&delete=<?= $hotel['id'] ?>" class="btn btn-danger" style="flex: 1; border-radius: 50px;" onclick="return confirm('Are you sure you want to delete this hotel?')">
+                                    <a href="?delete=<?= $hotel['id'] ?>" class="btn btn-danger" style="flex: 1; border-radius: 50px;" onclick="return confirm('Are you sure you want to delete this hotel?')">
                                         <i class="fas fa-trash"></i> Delete
                                     </a>
                                 </div>
                             </div>
                         </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </div>
             <?php else: ?>
                 <div style="text-align: center; padding: 4rem 2rem;">
@@ -493,7 +599,7 @@ $hotels_result = $hotels_query->get_result();
         </div>
 
         <div style="margin-top: 3rem; text-align: right; border-top: 1px solid var(--card-border); padding-top: 2rem;">
-            <a href="contributor_add_destination.php?msg=completed" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border-radius: 50px; font-size: 1.1rem; padding: 1rem 2rem; text-decoration: none;">
+            <a href="?action=finalize" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); color: white; border-radius: 50px; font-size: 1.1rem; padding: 1rem 2rem; text-decoration: none;" onclick="return confirm('Are you sure you want to submit this complete package (Destination, Flights, and Hotels) for review?')">
                 <i class="fas fa-check-circle"></i> Finalize & Submit Package
             </a>
         </div>

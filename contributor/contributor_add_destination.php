@@ -21,6 +21,39 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'completed') {
     exit();
 }
 
+// Handle clear draft request
+if (isset($_GET['clear_draft']) && $_GET['clear_draft'] == 1) {
+    if (isset($_SESSION['temp_destination'])) {
+        $temp_images = json_decode($_SESSION['temp_destination']['image_urls'] ?? '[]', true) ?: [];
+        foreach ($temp_images as $img) {
+            $abs_path = __DIR__ . '/../' . $img;
+            if (file_exists($abs_path)) {
+                @unlink($abs_path);
+            }
+        }
+    }
+    if (isset($_SESSION['temp_hotels'])) {
+        foreach ($_SESSION['temp_hotels'] as $hotel) {
+            if (!empty($hotel['image_url'])) {
+                $abs_path = __DIR__ . '/../' . $hotel['image_url'];
+                if (file_exists($abs_path)) {
+                    @unlink($abs_path);
+                }
+            }
+        }
+    }
+    unset($_SESSION['temp_destination']);
+    unset($_SESSION['temp_flights']);
+    unset($_SESSION['temp_hotels']);
+    $_SESSION['message'] = "Draft cleared successfully.";
+    header("Location: contributor_add_destination.php");
+    exit();
+}
+
+$temp_dest = $_SESSION['temp_destination'] ?? null;
+$temp_seasons = isset($temp_dest['season']) ? explode(',', $temp_dest['season']) : [];
+$temp_people = isset($temp_dest['people']) ? (str_starts_with($temp_dest['people'], '[') ? json_decode($temp_dest['people'], true) : explode(',', $temp_dest['people'])) ?: [] : [];
+
 // Handle form submission for adding a new destination
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'] ?? '';
@@ -39,61 +72,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Handle image upload
     $image_urls = [];
-    $upload_dir = '../admin/uploads/';
+    if (isset($_SESSION['temp_destination']['image_urls'])) {
+        $image_urls = json_decode($_SESSION['temp_destination']['image_urls'], true) ?: [];
+    }
+    
+    $upload_dir = __DIR__ . '/../uploads/destinations/';
     if (!file_exists($upload_dir)) {
         mkdir($upload_dir, 0777, true);
     }
+    
     if (!empty($_FILES['images']['name'][0])) {
+        $new_images = [];
         foreach ($_FILES['images']['tmp_name'] as $key => $tmp_name) {
             if ($_FILES['images']['error'][$key] === 0) {
-                $file_name = basename($_FILES['images']['name'][$key]);
-                $file_path = 'uploads/' . uniqid() . '_' . $file_name;
-                $full_path = '../admin/' . $file_path;
+                $file_name = preg_replace("/[^a-zA-Z0-9.-]/", "_", basename($_FILES['images']['name'][$key]));
+                $file_path = 'uploads/destinations/' . uniqid() . '_' . $file_name;
+                $full_path = __DIR__ . '/../' . $file_path;
+                
                 if (move_uploaded_file($tmp_name, $full_path)) {
-                    $image_urls[] = $file_path;
+                    $new_images[] = $file_path;
                 }
             }
+        }
+        if (!empty($new_images)) {
+            // Delete old draft files
+            foreach ($image_urls as $img) {
+                $abs_path = __DIR__ . '/../' . $img;
+                if (file_exists($abs_path)) {
+                    @unlink($abs_path);
+                }
+            }
+            $image_urls = $new_images;
         }
     }
     $image_urls_json = json_encode($image_urls);
 
-    $id_query = $conn->query("SELECT MAX(id) AS max_id FROM destinations");
-    $next_id = 1;
-    if ($id_query && $row = $id_query->fetch_assoc()) {
-        $next_id = ($row['max_id'] ?? 0) + 1;
+    $_SESSION['temp_destination'] = [
+        'name' => $name,
+        'type' => $type,
+        'description' => $description,
+        'location' => $location,
+        'budget' => $budget,
+        'map_link' => $map_link,
+        'season' => $season,
+        'people' => $people,
+        'image_urls' => $image_urls_json
+    ];
+
+    if (!isset($_SESSION['temp_flights'])) {
+        $_SESSION['temp_flights'] = [];
+    }
+    if (!isset($_SESSION['temp_hotels'])) {
+        $_SESSION['temp_hotels'] = [];
     }
 
-    $insert_query = "INSERT INTO destinations (id, name, type, description, location, budget, image_urls, map_link, season, people, submitted_by_type, submitted_by_id, submission_status, contributor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'contributor', ?, 'pending', ?)";
-    $stmt = $conn->prepare($insert_query);
-    
-    if ($stmt) {
-        $stmt->bind_param("issssdssssii", $next_id, $name, $type, $description, $location, $budget, $image_urls_json, $map_link, $season, $people, $contributor_id, $contributor_id);
-        
-        if ($stmt->execute()) {
-            
-            // Link destination to contributor
-            $link_stmt = $conn->prepare("INSERT INTO contributor_destinations (contributor_id, destination_id, status) VALUES (?, ?, 'pending')");
-            if ($link_stmt) {
-                $link_stmt->bind_param("ii", $contributor_id, $next_id);
-                $link_stmt->execute();
-                $link_stmt->close();
-            }
-
-            // INSTANTLY REDIRECT TO STEP 2 (FLIGHTS)
-            header("Location: contributor_manage_flights.php?destination_id=" . $next_id);
-            exit();
-            
-        } else {
-            $_SESSION['message'] = "Error adding destination: " . $stmt->error;
-            header("Location: " . $_SERVER['PHP_SELF']);
-            exit();
-        }
-        $stmt->close();
-    } else {
-        $_SESSION['message'] = "Database preparation error: " . $conn->error;
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit();
-    }
+    header("Location: contributor_manage_flights.php");
+    exit();
 }
 
 // Fetch ONLY this contributor's destinations
@@ -200,11 +234,25 @@ $dest_count = $dest_result->num_rows;
         <?php unset($_SESSION['message']); ?>
     <?php endif; ?>
 
-    <div style="margin: 2rem 0; text-align: center;">
-        <button id="showAddFormBtn" class="btn btn-primary" style="font-size: 1.3rem; padding: 1rem 2.5rem; border-radius: 50px;">
-            <i class="fas fa-plus-circle"></i> Create New Destination Package
-        </button>
-    </div>
+    <?php if (isset($_SESSION['temp_destination'])): ?>
+        <div style="margin: 2rem 0; text-align: center; display: flex; justify-content: center; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <button id="showAddFormBtn" class="btn btn-primary" style="font-size: 1.3rem; padding: 1rem 2.5rem; border-radius: 50px;">
+                <i class="fas fa-edit"></i> Edit Destination Details
+            </button>
+            <a href="contributor_manage_flights.php" class="btn btn-flight" style="font-size: 1.3rem; padding: 1rem 2.5rem; border-radius: 50px; text-decoration: none;">
+                Resume Flights & Hotels <i class="fas fa-arrow-right"></i>
+            </a>
+            <a href="?clear_draft=1" class="btn btn-danger" style="font-size: 1.3rem; padding: 1rem 2.5rem; border-radius: 50px; text-decoration: none;" onclick="return confirm('Are you sure you want to clear your current draft?')">
+                <i class="fas fa-trash"></i> Clear Draft
+            </a>
+        </div>
+    <?php else: ?>
+        <div style="margin: 2rem 0; text-align: center;">
+            <button id="showAddFormBtn" class="btn btn-primary" style="font-size: 1.3rem; padding: 1rem 2.5rem; border-radius: 50px;">
+                <i class="fas fa-plus-circle"></i> Create New Destination Package
+            </button>
+        </div>
+    <?php endif; ?>
 
     <div id="addFormContainer" class="widget-card" style="display: none; margin-bottom: 3rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--card-border); padding-bottom: 1rem;">
@@ -214,27 +262,49 @@ $dest_count = $dest_result->num_rows;
         
         <form method="POST" enctype="multipart/form-data">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                <div class="form-group"><label>Destination Name *</label><input type="text" name="name" class="form-control" required></div>
+                <div class="form-group"><label>Destination Name *</label><input type="text" name="name" class="form-control" value="<?= htmlspecialchars($temp_dest['name'] ?? '') ?>" required></div>
                 <div class="form-group"><label>Destination Type *</label>
                     <select name="type" class="form-control" required>
-                        <option value="beach">Beach</option><option value="mountain">Mountain</option><option value="city">City</option><option value="historical">Historical</option>
+                        <option value="beach" <?= ($temp_dest['type'] ?? '') === 'beach' ? 'selected' : '' ?>>Beach</option>
+                        <option value="mountain" <?= ($temp_dest['type'] ?? '') === 'mountain' ? 'selected' : '' ?>>Mountain</option>
+                        <option value="city" <?= ($temp_dest['type'] ?? '') === 'city' ? 'selected' : '' ?>>City</option>
+                        <option value="historical" <?= ($temp_dest['type'] ?? '') === 'historical' ? 'selected' : '' ?>>Historical</option>
                     </select>
                 </div>
                 <div class="form-group"><label>Best Season to Visit *</label>
                     <select name="season[]" class="form-control" multiple required style="height: 120px;">
-                        <option value="winter">Winter</option><option value="summer">Summer</option><option value="spring">Spring</option><option value="autumn">Autumn</option>
+                        <option value="winter" <?= in_array('winter', $temp_seasons) ? 'selected' : '' ?>>Winter</option>
+                        <option value="summer" <?= in_array('summer', $temp_seasons) ? 'selected' : '' ?>>Summer</option>
+                        <option value="spring" <?= in_array('spring', $temp_seasons) ? 'selected' : '' ?>>Spring</option>
+                        <option value="autumn" <?= in_array('autumn', $temp_seasons) ? 'selected' : '' ?>>Autumn</option>
                     </select>
                 </div>
                 <div class="form-group"><label>Recommended For *</label>
                     <select name="people[]" class="form-control" multiple required style="height: 120px;">
-                        <option value="1">Solo (1)</option><option value="2">Couples (2)</option><option value="3-5">Small Groups (3-5)</option><option value="9+">Large Groups (9+)</option>
+                        <option value="1" <?= in_array('1', $temp_people) ? 'selected' : '' ?>>Solo (1)</option>
+                        <option value="2" <?= in_array('2', $temp_people) ? 'selected' : '' ?>>Couples (2)</option>
+                        <option value="3-5" <?= in_array('3-5', $temp_people) ? 'selected' : '' ?>>Small Groups (3-5)</option>
+                        <option value="9+" <?= in_array('9+', $temp_people) ? 'selected' : '' ?>>Large Groups (9+)</option>
                     </select>
                 </div>
-                <div class="form-group" style="grid-column: span 2;"><label>Description *</label><textarea name="description" class="form-control" required></textarea></div>
-                <div class="form-group"><label>Location *</label><input type="text" name="location" class="form-control" required></div>
-                <div class="form-group"><label>Budget (₹ per day) *</label><input type="number" name="budget" step="0.01" class="form-control" required></div>
-                <div class="form-group"><label>Upload Destination Images *</label><input type="file" name="images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;" required></div>
-                <div class="form-group"><label>Google Map Link *</label><input type="url" name="map_link" class="form-control" required></div>
+                <div class="form-group" style="grid-column: span 2;"><label>Description *</label><textarea name="description" class="form-control" required><?= htmlspecialchars($temp_dest['description'] ?? '') ?></textarea></div>
+                <div class="form-group"><label>Location *</label><input type="text" name="location" class="form-control" value="<?= htmlspecialchars($temp_dest['location'] ?? '') ?>" required></div>
+                <div class="form-group"><label>Budget (₹ per day) *</label><input type="number" name="budget" step="0.01" class="form-control" value="<?= htmlspecialchars($temp_dest['budget'] ?? '') ?>" required></div>
+                <div class="form-group">
+                    <label>Upload Destination Images *</label>
+                    <?php if (!empty($temp_dest['image_urls'])): 
+                        $imgs = json_decode($temp_dest['image_urls'], true) ?: [];
+                        if (!empty($imgs)):
+                    ?>
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                            <?php foreach ($imgs as $img): ?>
+                                <img src="../<?= htmlspecialchars($img) ?>" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; endif; ?>
+                    <input type="file" name="images[]" class="form-control" multiple accept="image/*" style="padding: 0.6rem;" <?= isset($_SESSION['temp_destination']) ? '' : 'required' ?>>
+                </div>
+                <div class="form-group"><label>Google Map Link *</label><input type="url" name="map_link" class="form-control" value="<?= htmlspecialchars($temp_dest['map_link'] ?? '') ?>" required></div>
             </div>
 
             <div style="margin-top: 2rem; border-top: 1px solid var(--card-border); padding-top: 2rem; text-align: right;">
@@ -256,7 +326,7 @@ $dest_count = $dest_result->num_rows;
                     <div class="destination-card widget-card" style="padding: 0; overflow: hidden;">
                         <div class="destination-images">
                             <?php $images = !empty($row['image_urls']) ? json_decode($row['image_urls'], true) : []; ?>
-                            <img src="../admin/<?= htmlspecialchars($images[0] ?? 'Uploads/default.jpg') ?>">
+                            <img src="../<?= htmlspecialchars($images[0] ?? 'image/no-image.jpg') ?>">
                             <div class="destination-type-badge"><i class="fas fa-tag"></i> <?= ucfirst($row['type']) ?></div>
                             <div class="destination-status-badge badge-<?= $status ?>"><i class="fas fa-clock"></i> <?= ucfirst($status) ?></div>
                         </div>
