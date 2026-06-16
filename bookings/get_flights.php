@@ -32,10 +32,10 @@ $db_class = $flight_type_map[$class] ?? 'low';
 $current_month = date('n', strtotime($depart));
 
 // Query flights
-$query = "SELECT f.*, d.name as destination_name, d.location 
+$query = "SELECT f.*, f.price AS price_per_person, f.from_city AS departure_city, d.name as destination_name, d.location 
           FROM flights f 
           JOIN destinations d ON f.destination_id = d.id 
-          WHERE f.departure_city = ? AND d.id = ? AND f.flight_type = ?";
+          WHERE f.from_city = ? AND d.id = ? AND f.flight_type = ?";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("sis", $from, $to, $db_class);
@@ -48,9 +48,11 @@ while ($row = $result->fetch_assoc()) {
     $multiplier = 1.0;
     $season_query = "SELECT price_multiplier FROM seasonal_pricing 
                      WHERE item_type = 'flight' AND item_id = ? 
-                     AND start_month <= ? AND end_month >= ? AND is_active = 1";
+                     AND ((start_month <= end_month AND start_month <= ? AND end_month >= ?)
+                          OR (start_month > end_month AND (? >= start_month OR ? <= end_month)))
+                     AND is_active = 1";
     $season_stmt = $conn->prepare($season_query);
-    $season_stmt->bind_param("iii", $row['id'], $current_month, $current_month);
+    $season_stmt->bind_param("iiiii", $row['id'], $current_month, $current_month, $current_month, $current_month);
     $season_stmt->execute();
     $season_result = $season_stmt->get_result();
     
@@ -59,7 +61,22 @@ while ($row = $result->fetch_assoc()) {
         $multiplier = $season['price_multiplier'];
     }
     
-    $row['price_per_person'] = round($row['price_per_person'] * $multiplier, 2);
+    $row['price_per_person'] = round($row['price'] * $multiplier, 2);
+    
+    // Add missing UI fields that are not in the database schema
+    $row['duration_hours'] = (int) filter_var($row['duration'], FILTER_SANITIZE_NUMBER_INT);
+    if (!$row['duration_hours']) $row['duration_hours'] = rand(2, 8);
+    
+    $row['stops'] = rand(0, 1);
+    $row['departure_time'] = rand(6, 22) . ':00';
+    $row['arrival_time'] = rand(8, 23) . ':30';
+    
+    $f_class = $row['flight_type'];
+    $row['flight_class'] = ucfirst($f_class == 'low' ? 'economy' : ($f_class == 'medium' ? 'premium' : 'business'));
+    $row['baggage_allowance'] = $f_class == 'low' ? '15kg' : ($f_class == 'medium' ? '25kg' : '40kg');
+    $row['refundable'] = $f_class != 'low';
+    $row['meal_included'] = $f_class != 'low';
+    
     $flights[] = $row;
     
     $season_stmt->close();

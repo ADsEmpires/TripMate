@@ -16,7 +16,7 @@ if (!$hotel_id) {
 }
 
 // Get hotel details
-$stmt = $conn->prepare("SELECT h.*, d.name as destination_name, d.location 
+$stmt = $conn->prepare("SELECT h.*, h.name AS hotel_name, h.stars AS hotel_rating, d.name as destination_name, d.location 
                         FROM hotels h 
                         JOIN destinations d ON h.destination_id = d.id 
                         WHERE h.id = ?");

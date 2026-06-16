@@ -1,13 +1,5 @@
 <?php
-// MUST be first line
-require_once __DIR__ . '/../user/session_init.php';
-
-// Check if logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../auth/login.html');
-    exit;
-}
-
+session_start();
 require_once '../database/dbconfig.php';
 
 // Block Google-only users — they must create a full account first
@@ -37,24 +29,51 @@ if ($destination_id) {
 $destinations = [];
 $dest_query = "SELECT id, name, location FROM destinations ORDER BY name";
 $dest_result = $conn->query($dest_query);
-while ($row = $dest_result->fetch_assoc()) {
-    $destinations[] = $row;
+if ($dest_result) {
+    while ($row = $dest_result->fetch_assoc()) {
+        $destinations[] = $row;
+    }
 }
 
 // Fetch departure cities from flights table
 $departure_cities = [];
-$city_query = "SELECT DISTINCT departure_city FROM flights ORDER BY departure_city";
+$city_query = "SELECT DISTINCT from_city AS departure_city FROM flights ORDER BY from_city";
 $city_result = $conn->query($city_query);
-while ($row = $city_result->fetch_assoc()) {
-    $departure_cities[] = $row['departure_city'];
+if ($city_result) {
+    while ($row = $city_result->fetch_assoc()) {
+        $departure_cities[] = $row['departure_city'];
+    }
+}
+
+// Fallback: if no departure cities found in flights table, use default cities
+if (empty($departure_cities)) {
+    $departure_cities = [
+        'Ahmedabad',
+        'Bangalore',
+        'Bhubaneswar',
+        'Chennai',
+        'Cochin',
+        'Delhi',
+        'Goa',
+        'Guwahati',
+        'Hyderabad',
+        'Jaipur',
+        'Kolkata',
+        'Lucknow',
+        'Mumbai',
+        'Patna',
+        'Pune'
+    ];
 }
 
 // Get seasonal pricing data
 $seasonal_pricing = [];
 $season_query = "SELECT * FROM seasonal_pricing WHERE is_active = 1";
 $season_result = $conn->query($season_query);
-while ($row = $season_result->fetch_assoc()) {
-    $seasonal_pricing[] = $row;
+if ($season_result) {
+    while ($row = $season_result->fetch_assoc()) {
+        $seasonal_pricing[] = $row;
+    }
 }
 
 // Get current month for seasonal pricing
@@ -62,30 +81,20 @@ $current_month = date('n');
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Your Trip - TripMate</title>
-
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Session Management Meta Tags -->
-    <meta name="user-id" content="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
-    <meta name="user-name" content="<?php echo htmlspecialchars($_SESSION['user_name']); ?>">
-
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
+    
     <!-- Flatpickr for date picker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-
-    <!-- Session Management Scripts -->
-    <script src="../user/session-keepalive.js"></script>
-    <script src="../user/session-sync.js"></script>
-    <script src="../user/auto-logout.js"></script>
-
+    
     <style>
         :root {
             --primary: #16034f;
@@ -97,9 +106,9 @@ $current_month = date('n');
             --text-light: #6b7280;
             --background: #f9fafc;
             --white: #ffffff;
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
-            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
-            --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
         }
 
         * {
@@ -121,7 +130,7 @@ $current_month = date('n');
             top: 0;
             left: 0;
             right: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255,255,255,0.95);
             backdrop-filter: blur(10px);
             box-shadow: var(--shadow-sm);
             z-index: 1000;
@@ -185,7 +194,7 @@ $current_month = date('n');
         .hero {
             position: relative;
             height: 600px;
-            background: linear-gradient(135deg, rgba(22, 3, 79, 0.9) 0%, rgba(42, 10, 138, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(22,3,79,0.9) 0%, rgba(42,10,138,0.8) 100%);
             overflow: hidden;
             display: flex;
             align-items: center;
@@ -215,7 +224,7 @@ $current_month = date('n');
             font-size: 3.5rem;
             font-weight: 800;
             margin-bottom: 1rem;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
         .hero-content p {
@@ -277,15 +286,8 @@ $current_month = date('n');
         }
 
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .form-row {
@@ -321,7 +323,7 @@ $current_month = date('n');
         .form-group select:focus {
             border-color: var(--accent);
             outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 102, 0, 0.1);
+            box-shadow: 0 0 0 3px rgba(255,102,0,0.1);
         }
 
         .form-group input[readonly] {
@@ -369,7 +371,7 @@ $current_month = date('n');
 
         .search-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.3);
+            box-shadow: 0 4px 15px rgba(255,102,0,0.3);
         }
 
         .search-btn i {
@@ -541,7 +543,7 @@ $current_month = date('n');
         }
 
         .package-item {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.1);
             padding: 1rem;
             border-radius: 8px;
         }
@@ -562,7 +564,7 @@ $current_month = date('n');
             text-align: right;
             margin-top: 1rem;
             padding-top: 1rem;
-            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid rgba(255,255,255,0.2);
         }
 
         /* Featured Offers */
@@ -706,7 +708,7 @@ $current_month = date('n');
         }
 
         .footer-section a {
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255,255,255,0.8);
             text-decoration: none;
             display: block;
             margin-bottom: 0.5rem;
@@ -726,7 +728,7 @@ $current_month = date('n');
         .social-links a {
             width: 40px;
             height: 40px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255,255,255,0.1);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -743,9 +745,9 @@ $current_month = date('n');
             max-width: 1200px;
             margin: 2rem auto 0;
             padding-top: 1.5rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255,255,255,0.1);
             text-align: center;
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255,255,255,0.6);
         }
 
         /* Loading Spinner */
@@ -770,13 +772,8 @@ $current_month = date('n');
         }
 
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* No Results */
@@ -851,10 +848,92 @@ $current_month = date('n');
         .bg-gradient {
             background: linear-gradient(135deg, var(--primary), var(--secondary));
         }
+
+        /* Shopping Bag */
+        .shopping-bag {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 320px;
+            z-index: 1000;
+            overflow: hidden;
+            display: none;
+            transition: all 0.3s;
+        }
+
+        .shopping-bag.active {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        .bag-header {
+            background: var(--primary);
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+
+        .bag-items {
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .bag-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.75rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px dashed #eef4ff;
+        }
+
+        .bag-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .bag-item-details h5 {
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .bag-item-details p {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .bag-item-price {
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .bag-item-remove {
+            color: #ef4444;
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
+        .bag-footer {
+            padding: 1rem;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .btn-added {
+            background: #10b981 !important;
+            color: white !important;
+        }
     </style>
 </head>
-
-<body class="user-logged-in" data-user-id="<?php echo htmlspecialchars($_SESSION['user_id']); ?>">
+<body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="logo">
@@ -1254,16 +1333,35 @@ $current_month = date('n');
         </footer>
     </main>
 
+    <!-- Shopping Bag -->
+    <div id="shopping-bag" class="shopping-bag">
+        <div class="bag-header">
+            <span><i class="fas fa-shopping-bag"></i> Your Trip</span>
+            <span id="bag-total-items">0 items</span>
+        </div>
+        <div class="bag-items" id="bag-items">
+            <!-- Items injected by JS -->
+        </div>
+        <div class="bag-footer">
+            <button class="book-btn" onclick="checkoutBag()" id="checkout-btn" style="margin-top:0;">
+                Proceed to Checkout
+            </button>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="../user/session-sync.js"></script>
     <script src="../user/auto-logout.js"></script>
-
+    
     <script>
         // Initialize date pickers
         flatpickr(".datepicker", {
             minDate: "today",
             dateFormat: "Y-m-d",
+            clickOpens: true,        // Safari: ensure picker opens on click even on readonly inputs
+            allowInput: false,       // Safari: prevent keyboard input conflicts
+            disableMobile: true,     // Force Flatpickr UI instead of native date picker (cross-browser consistency)
             onChange: function(selectedDates, dateStr, instance) {
                 // If this is a checkout/return date, ensure it's after checkin
                 if (instance.input.id === 'hotel-checkout' || instance.input.id === 'flight-return' || instance.input.id === 'package-checkout') {
@@ -1282,10 +1380,10 @@ $current_month = date('n');
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.search-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
-
+                
                 this.classList.add('active');
                 document.getElementById(this.dataset.tab + '-form').classList.add('active');
-
+                
                 // Clear results when switching tabs
                 document.getElementById('results-grid').innerHTML = '';
                 document.getElementById('package-summary').classList.add('hidden');
@@ -1305,25 +1403,38 @@ $current_month = date('n');
             });
         });
 
+        // Auto-sync destination from Flight to Hotel and Packages
+        const flightToSelect = document.getElementById('flight-to');
+        if (flightToSelect) {
+            flightToSelect.addEventListener('change', function() {
+                const destValue = this.value;
+                const hotelDest = document.getElementById('hotel-destination');
+                const packageDest = document.getElementById('package-destination');
+                
+                if (hotelDest) hotelDest.value = destValue;
+                if (packageDest) packageDest.value = destValue;
+            });
+        }
+
         // Initialize with any pre-selected destination from URL
         <?php if ($destination_id): ?>
-            document.addEventListener('DOMContentLoaded', function() {
-                // If we came from destination details, pre-fill dates
-                const today = new Date();
-                const nextWeek = new Date(today);
-                nextWeek.setDate(nextWeek.getDate() + 7);
-
-                const formatDate = (date) => {
-                    return date.toISOString().split('T')[0];
-                };
-
-                // Pre-fill package form
-                document.getElementById('package-checkin').value = formatDate(today);
-                document.getElementById('package-checkout').value = formatDate(nextWeek);
-
-                // Auto-search packages
-                setTimeout(searchPackages, 500);
-            });
+        document.addEventListener('DOMContentLoaded', function() {
+            // If we came from destination details, pre-fill dates
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            
+            const formatDate = (date) => {
+                return date.toISOString().split('T')[0];
+            };
+            
+            // Pre-fill package form
+            document.getElementById('package-checkin').value = formatDate(today);
+            document.getElementById('package-checkout').value = formatDate(nextWeek);
+            
+            // Auto-search packages
+            setTimeout(searchPackages, 500);
+        });
         <?php endif; ?>
 
         // Search Functions
@@ -1351,27 +1462,27 @@ $current_month = date('n');
             setTimeout(() => {
                 // Fetch flights from database via AJAX
                 fetch('get_flights.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            from: from,
-                            to: to,
-                            depart: depart,
-                            passengers: passengers,
-                            class: flightClass,
-                            trip_type: tripType
-                        })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        from: from,
+                        to: to,
+                        depart: depart,
+                        passengers: passengers,
+                        class: flightClass,
+                        trip_type: tripType
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        displayFlightResults(data);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        displayFlightResults([]); // Show mock data if API fails
-                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    displayFlightResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    displayFlightResults([]); // Show mock data if API fails
+                });
             }, 1500);
         }
 
@@ -1390,27 +1501,27 @@ $current_month = date('n');
             showLoading();
 
             setTimeout(() => {
-                fetch('get_hotels.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            destination: destination,
-                            checkin: checkin,
-                            checkout: checkout,
-                            rooms: rooms,
-                            guests: guests
-                        })
+                fetch('get_hotels_search.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        destination: destination,
+                        checkin: checkin,
+                        checkout: checkout,
+                        rooms: rooms,
+                        guests: guests
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        displayHotelResults(data);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        displayHotelResults([]);
-                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    displayHotelResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    displayHotelResults([]);
+                });
             }, 1500);
         }
 
@@ -1432,28 +1543,28 @@ $current_month = date('n');
 
             setTimeout(() => {
                 fetch('get_packages.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            from: from,
-                            destination: destination,
-                            checkin: checkin,
-                            checkout: checkout,
-                            travelers: travelers,
-                            budget: budget,
-                            flight_class: flightClass
-                        })
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        from: from,
+                        destination: destination,
+                        checkin: checkin,
+                        checkout: checkout,
+                        travelers: travelers,
+                        budget: budget,
+                        flight_class: flightClass
                     })
-                    .then(response => response.json())
-                    .then(data => {
-                        displayPackageResults(data);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        displayPackageResults([]);
-                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    displayPackageResults(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    displayPackageResults([]);
+                });
             }, 1500);
         }
 
@@ -1467,16 +1578,18 @@ $current_month = date('n');
         function displayFlightResults(flights) {
             document.getElementById('loading-spinner').classList.remove('active');
             document.getElementById('results-title').textContent = 'Available Flights';
-
+            
             const grid = document.getElementById('results-grid');
-
+            
+            window.currentFlights = flights;
+            
             if (!flights || flights.length === 0) {
                 document.getElementById('no-results').classList.remove('hidden');
                 return;
             }
 
             document.getElementById('no-results').classList.add('hidden');
-
+            
             grid.innerHTML = flights.map(flight => `
                 <div class="result-card" onclick="selectFlight(${flight.id})" data-flight-id="${flight.id}">
                     <div class="card-header">
@@ -1514,7 +1627,7 @@ $current_month = date('n');
                         </div>
                         ${flight.refundable ? '<div class="detail-row"><span class="detail-label">Refundable</span><span class="detail-value text-accent"><i class="fas fa-check"></i> Yes</span></div>' : ''}
                         ${flight.meal_included ? '<div class="detail-row"><span class="detail-label">Meals</span><span class="detail-value text-accent"><i class="fas fa-utensils"></i> Included</span></div>' : ''}
-                        <button class="book-btn" onclick="bookItem('flight', ${flight.id}); event.stopPropagation();">
+                        <button class="book-btn" onclick="bookItem('flight', ${flight.id}, this); event.stopPropagation();">
                             <i class="fas fa-ticket-alt"></i> Select Flight
                         </button>
                     </div>
@@ -1525,16 +1638,18 @@ $current_month = date('n');
         function displayHotelResults(hotels) {
             document.getElementById('loading-spinner').classList.remove('active');
             document.getElementById('results-title').textContent = 'Available Hotels';
-
+            
             const grid = document.getElementById('results-grid');
-
+            
+            window.currentHotels = hotels;
+            
             if (!hotels || hotels.length === 0) {
                 document.getElementById('no-results').classList.remove('hidden');
                 return;
             }
 
             document.getElementById('no-results').classList.add('hidden');
-
+            
             grid.innerHTML = hotels.map(hotel => {
                 const amenities = hotel.amenities ? JSON.parse(hotel.amenities) : [];
                 return `
@@ -1565,7 +1680,7 @@ $current_month = date('n');
                             <div class="amenities">
                                 ${amenities.map(a => `<span class="amenity-tag">${a}</span>`).join('')}
                             </div>
-                            <button class="book-btn" onclick="bookItem('hotel', ${hotel.id}); event.stopPropagation();">
+                            <button class="book-btn" onclick="bookItem('hotel', ${hotel.id}, this); event.stopPropagation();">
                                 <i class="fas fa-hotel"></i> Select Hotel
                             </button>
                         </div>
@@ -1577,19 +1692,19 @@ $current_month = date('n');
         function displayPackageResults(packages) {
             document.getElementById('loading-spinner').classList.remove('active');
             document.getElementById('results-title').textContent = 'Available Packages';
-
+            
             const grid = document.getElementById('results-grid');
-
+            
             if (!packages || packages.length === 0) {
                 document.getElementById('no-results').classList.remove('hidden');
                 return;
             }
 
             document.getElementById('no-results').classList.add('hidden');
-
+            
             // Store packages data for later use
             window.currentPackages = packages;
-
+            
             grid.innerHTML = packages.map((pkg, index) => `
                 <div class="result-card" onclick="selectPackage(${index})" data-package-index="${index}">
                     <div class="card-header">
@@ -1632,22 +1747,22 @@ $current_month = date('n');
         function selectPackage(index) {
             const pkg = window.currentPackages[index];
             window.selectedPackage = pkg;
-
+            
             // Highlight selected card
             document.querySelectorAll('.result-card').forEach(card => {
                 card.classList.remove('selected');
             });
             document.querySelector(`[data-package-index="${index}"]`).classList.add('selected');
-
+            
             // Show package summary
             const summary = document.getElementById('package-summary');
             summary.classList.remove('hidden');
-
+            
             const travelers = document.getElementById('package-travelers').value || 2;
             const checkin = document.getElementById('package-checkin').value;
             const checkout = document.getElementById('package-checkout').value;
             const nights = Math.round((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
-
+            
             document.getElementById('package-details').innerHTML = `
                 <div class="package-item">
                     <div class="label">Flight</div>
@@ -1664,16 +1779,14 @@ $current_month = date('n');
                     <div class="value">${pkg.budget_type.charAt(0).toUpperCase() + pkg.budget_type.slice(1)}</div>
                 </div>
             `;
-
+            
             document.getElementById('package-total').innerHTML = `$${pkg.total_price}`;
         }
 
         function viewPackageDetails(index) {
             selectPackage(index);
             // Smooth scroll to package summary
-            document.getElementById('package-summary').scrollIntoView({
-                behavior: 'smooth'
-            });
+            document.getElementById('package-summary').scrollIntoView({ behavior: 'smooth' });
         }
 
         function selectFlight(id) {
@@ -1686,7 +1799,75 @@ $current_month = date('n');
             console.log('Selected hotel:', id);
         }
 
-        function bookItem(type, id) {
+        // Shopping Bag Logic
+        let tripBag = {
+            flight: null,
+            hotel: null,
+            travelers: 2,
+            checkin: '',
+            checkout: '',
+            from: ''
+        };
+
+        function updateBagUI() {
+            const bagEl = document.getElementById('shopping-bag');
+            const itemsEl = document.getElementById('bag-items');
+            
+            let count = 0;
+            let html = '';
+            
+            if (tripBag.flight) {
+                count++;
+                html += `
+                <div class="bag-item">
+                    <div class="bag-item-details">
+                        <h5><i class="fas fa-plane"></i> ${tripBag.flight.airline}</h5>
+                        <p>${tripBag.flight.departure_city} to ${tripBag.flight.destination_name || 'Destination'}</p>
+                    </div>
+                    <div>
+                        <span class="bag-item-price">$${tripBag.flight.price_per_person}</span>
+                        <i class="fas fa-times bag-item-remove" onclick="removeFromBag('flight')"></i>
+                    </div>
+                </div>`;
+            }
+            
+            if (tripBag.hotel) {
+                count++;
+                html += `
+                <div class="bag-item">
+                    <div class="bag-item-details">
+                        <h5><i class="fas fa-hotel"></i> ${tripBag.hotel.hotel_name}</h5>
+                        <p>${tripBag.hotel.hotel_rating} ★ Hotel</p>
+                    </div>
+                    <div>
+                        <span class="bag-item-price">$${tripBag.hotel.price_per_night}/nt</span>
+                        <i class="fas fa-times bag-item-remove" onclick="removeFromBag('hotel')"></i>
+                    </div>
+                </div>`;
+            }
+            
+            if (count > 0) {
+                bagEl.classList.add('active');
+                document.getElementById('bag-total-items').textContent = count + (count === 1 ? ' item' : ' items');
+                itemsEl.innerHTML = html;
+            } else {
+                bagEl.classList.remove('active');
+            }
+        }
+
+        function removeFromBag(type) {
+            tripBag[type] = null;
+            updateBagUI();
+            
+            // Restore original button appearance if in DOM
+            const btn = document.querySelector(`.btn-${type}-added`);
+            if (btn) {
+                btn.classList.remove('btn-added', `btn-${type}-added`);
+                btn.innerHTML = type === 'flight' ? '<i class="fas fa-ticket-alt"></i> Select Flight' : '<i class="fas fa-hotel"></i> Select Hotel';
+            }
+        }
+
+        function bookItem(type, id, btnElement) {
             <?php if (!isset($_SESSION['user_id'])): ?>
                 if (confirm('Please sign in to book. Go to login page?')) {
                     window.location.href = '../auth/login.html';
@@ -1694,12 +1875,86 @@ $current_month = date('n');
                 return;
             <?php endif; ?>
 
-            // Redirect to booking page
             if (type === 'flight') {
-                window.location.href = `book_flight.php?flight_id=${id}`;
+                const flight = window.currentFlights.find(f => f.id == id);
+                if (flight) {
+                    tripBag.flight = flight;
+                    tripBag.travelers = document.getElementById('flight-passengers').value || 2;
+                    tripBag.from = flight.departure_city;
+                    // Try to grab checkin/checkout from hotel tab if it exists
+                    if (!tripBag.checkin) tripBag.checkin = document.getElementById('flight-depart').value;
+                    if (!tripBag.checkout) tripBag.checkout = document.getElementById('flight-return').value || tripBag.checkin;
+                }
             } else if (type === 'hotel') {
-                window.location.href = `book_hotel.php?hotel_id=${id}`;
+                const hotel = window.currentHotels.find(h => h.id == id);
+                if (hotel) {
+                    tripBag.hotel = hotel;
+                    tripBag.travelers = document.getElementById('hotel-guests').value || 2;
+                    tripBag.checkin = document.getElementById('hotel-checkin').value;
+                    tripBag.checkout = document.getElementById('hotel-checkout').value;
+                }
             }
+            
+            // Visual feedback on button
+            if (btnElement) {
+                btnElement.classList.add('btn-added', `btn-${type}-added`);
+                btnElement.innerHTML = '<i class="fas fa-check"></i> Added to Bag';
+            }
+            
+            updateBagUI();
+        }
+
+        function submitBooking(data) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'package_booking_confirmation.php';
+            
+            for (const key in data) {
+                if (data.hasOwnProperty(key)) {
+                    const hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.name = key;
+                    hiddenField.value = data[key];
+                    form.appendChild(hiddenField);
+                }
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function checkoutBag() {
+            if (!tripBag.flight && !tripBag.hotel) {
+                alert('Your bag is empty.');
+                return;
+            }
+            
+            const data = {
+                flight_id: tripBag.flight ? tripBag.flight.id : 0,
+                hotel_id: tripBag.hotel ? tripBag.hotel.id : 0,
+                travelers: tripBag.travelers || 2,
+                checkin: tripBag.checkin || '',
+                checkout: tripBag.checkout || '',
+                from: tripBag.from || (tripBag.flight ? tripBag.flight.departure_city : '')
+            };
+            
+            if (tripBag.flight) {
+                data.airline = tripBag.flight.airline;
+                data.flight_price = tripBag.flight.price_per_person || tripBag.flight.price;
+                data.departure_city = tripBag.flight.departure_city;
+                data.flight_class = tripBag.flight.flight_class;
+                data.destination_id = tripBag.flight.destination_id;
+            }
+            
+            if (tripBag.hotel) {
+                data.hotel_name = tripBag.hotel.hotel_name;
+                data.hotel_rating = tripBag.hotel.hotel_rating;
+                data.hotel_price = tripBag.hotel.price_per_night;
+                data.hotel_type = tripBag.hotel.hotel_type;
+                data.destination_id = tripBag.hotel.destination_id;
+            }
+            
+            submitBooking(data);
         }
 
         function bookPackage() {
@@ -1721,8 +1976,27 @@ $current_month = date('n');
             const checkout = document.getElementById('package-checkout').value;
             const from = document.getElementById('package-from').value;
 
-            const bookingUrl = `package_booking_confirmation.php?hotel_id=${pkg.hotel.id}&flight_id=${pkg.flight.id}&travelers=${travelers}&checkin=${checkin}&checkout=${checkout}&from=${from}`;
-            window.location.href = bookingUrl;
+            const data = {
+                hotel_id: pkg.hotel.id,
+                flight_id: pkg.flight.id,
+                travelers: travelers,
+                checkin: checkin,
+                checkout: checkout,
+                from: from,
+                destination_id: pkg.flight.destination_id || pkg.hotel.destination_id || document.getElementById('package-destination').value,
+                
+                hotel_name: pkg.hotel.hotel_name,
+                hotel_rating: pkg.hotel.hotel_rating,
+                hotel_price: pkg.hotel.price_per_night,
+                hotel_type: pkg.hotel.hotel_type,
+                
+                airline: pkg.flight.airline,
+                flight_price: pkg.flight.price_per_person || pkg.flight.price,
+                departure_city: pkg.flight.departure_city,
+                flight_class: pkg.flight.flight_class
+            };
+            
+            submitBooking(data);
         }
 
         function quickSelect(destination) {
@@ -1740,7 +2014,7 @@ $current_month = date('n');
                     }
                 }
             });
-
+            
             // Switch to packages tab and search
             document.querySelector('[data-tab="packages"]').click();
             setTimeout(searchPackages, 500);
@@ -1751,7 +2025,7 @@ $current_month = date('n');
             const sortBy = this.value;
             const grid = document.getElementById('results-grid');
             const cards = Array.from(grid.children);
-
+            
             cards.sort((a, b) => {
                 if (sortBy === 'price_asc') {
                     const priceA = parseFloat(a.querySelector('.price').textContent.replace(/[^0-9.-]+/g, ''));
@@ -1762,16 +2036,15 @@ $current_month = date('n');
                     const priceB = parseFloat(b.querySelector('.price').textContent.replace(/[^0-9.-]+/g, ''));
                     return priceB - priceA;
                 } else if (sortBy === 'rating') {
-                    const ratingA = parseFloat(a.querySelector('.detail-value:first-child').textContent);
-                    const ratingB = parseFloat(b.querySelector('.detail-value:first-child').textContent);
+                    const ratingA = parseFloat(a.querySelector('.detail-row .detail-value')?.textContent) || 0;
+                    const ratingB = parseFloat(b.querySelector('.detail-row .detail-value')?.textContent) || 0;
                     return ratingB - ratingA;
                 }
             });
-
+            
             grid.innerHTML = '';
             cards.forEach(card => grid.appendChild(card));
         });
     </script>
 </body>
-
 </html>

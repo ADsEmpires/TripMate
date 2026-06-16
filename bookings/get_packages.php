@@ -37,7 +37,7 @@ $destination_info = $dest_stmt->get_result()->fetch_assoc();
 $dest_stmt->close();
 
 // Build hotel query
-$hotel_query = "SELECT * FROM hotels WHERE destination_id = ?";
+$hotel_query = "SELECT *, name AS hotel_name, stars AS hotel_rating FROM hotels WHERE destination_id = ?";
 $hotel_params = [$destination];
 $hotel_types = "i";
 
@@ -54,12 +54,12 @@ $hotels = $hotel_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $hotel_stmt->close();
 
 // Build flight query
-$flight_query = "SELECT * FROM flights WHERE destination_id = ?";
+$flight_query = "SELECT *, price AS price_per_person, from_city AS departure_city FROM flights WHERE destination_id = ?";
 $flight_params = [$destination];
 $flight_types = "i";
 
 if (!empty($from)) {
-    $flight_query .= " AND departure_city = ?";
+    $flight_query .= " AND from_city = ?";
     $flight_params[] = $from;
     $flight_types .= "s";
 }
@@ -94,7 +94,7 @@ foreach ($hotels as $hotel) {
         $flight_multiplier = getSeasonalMultiplier($conn, 'flight', $flight['id'], $current_month);
         
         $hotel_price = $hotel['price_per_night'] * $hotel_multiplier * $nights * $travelers;
-        $flight_price = $flight['price_per_person'] * $flight_multiplier * $travelers;
+        $flight_price = $flight['price'] * $flight_multiplier * $travelers;
         $total_price = $hotel_price + $flight_price;
         
         // Calculate savings (compared to booking separately with 20% markup)
@@ -130,9 +130,11 @@ echo json_encode($packages);
 function getSeasonalMultiplier($conn, $type, $item_id, $month) {
     $query = "SELECT price_multiplier FROM seasonal_pricing 
               WHERE item_type = ? AND item_id = ? 
-              AND start_month <= ? AND end_month >= ? AND is_active = 1";
+              AND ((start_month <= end_month AND start_month <= ? AND end_month >= ?)
+                   OR (start_month > end_month AND (? >= start_month OR ? <= end_month)))
+              AND is_active = 1";
     $stmt = $conn->prepare($query);
-    $stmt->bind_param("siii", $type, $item_id, $month, $month);
+    $stmt->bind_param("siiiii", $type, $item_id, $month, $month, $month, $month);
     $stmt->execute();
     $result = $stmt->get_result();
     
