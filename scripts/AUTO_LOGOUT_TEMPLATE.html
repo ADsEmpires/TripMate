@@ -1,0 +1,46 @@
+<!-- 
+    AUTO-LOGOUT SYSTEM INTEGRATION TEMPLATE
+    ========================================
+    
+    Add this to the <head> section of all user-facing pages (HTML & PHP)
+    
+    This template includes:
+    1. Auto-logout manager for activity tracking
+    2. Session validator for periodic server validation
+    3. Required styling for warning dialog
+    4. Font Awesome for icons (ensure it's included)
+-->
+
+<!-- Auto-Logout System Scripts -->
+<script src="../user/auto-logout.js"></script>
+<script src="../scripts/session-validator.js"></script>
+
+<!-- 
+    If you're already loading Font Awesome elsewhere, you don't need this.
+    Otherwise, include this in the <head>:
+-->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVJkEZSMUkrQ6usKGEW/F23ohXQe+5B0M0yUjTkIA5xnO2Up1JqNkEZHjoeFS3yGFEzZHt7Xksg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<!-- 
+    OPTIONAL: For extra security, validate session server-side on page load
+    Add this to the top of any .php page that requires authentication:
+    
+    <?php
+    session_start();
+    include '../auth/session_config.php';
+    include '../auth/check_session.php';  // This redirects if session expired
+    ?>
+-->
+
+<!-- 
+    Testing Notes:
+    1. Open browser console (F12)
+    2. Look for "Auto-logout:" messages
+    3. Look for "SessionValidator:" messages
+    4. Check Network tab for requests to session_config.php
+    
+    To quickly test (edit auto-logout.js temporarily):
+    - Change inactivityTimeout to 2 * 60 * 1000 (2 minutes)
+    - Change warningTime to 1 * 60 * 1000 (1 minute)
+    - Then test the logout flow
+-->
